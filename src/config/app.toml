@@ -7,3 +7,4 @@ lock_key = "wing-crontab-lock"
 ##tcp service listen address
 ##do not use "0.0.0.0:9991", must be ip:port
 bind_address = "127.0.0.1:9991"
+log_level=5
