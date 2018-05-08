@@ -8,49 +8,58 @@ import (
 	"encoding/json"
 	"sync"
 	"context"
+	"library/crontab"
 )
-
-// 如果当前agent为leader
-// agent client则断开
-// 如果为leader，agent client则连接
-// 连接后，server端的pos change事件就会通知到 client 端
 
 type AgentClient struct {
 	ctx context.Context
-	onPos []OnPosFunc
-	buffer           []byte
+	buffer  []byte
 	onEvent []OnEventFunc
-	onRaw []OnRawFunc
-	conn             *net.TCPConn
-	statusLock       *sync.Mutex
+	conn     *net.TCPConn
+	statusLock *sync.Mutex
 	status int
-	leader bool
+	getLeader GetLeaferFunc
 }
 
-type getLeaferFunc     func()(string, int, error)
-type OnEventFunc       func(table string, data []byte) bool
-type OnRawFunc         func(msg []byte) bool
+type GetLeaferFunc     func()(string, int, error)
+type OnEventFunc       func(data *crontab.CrontabEntity) bool
 type AgentClientOption func(tcp *AgentClient)
 
-func newAgentClient(ctx context.Context, opts ...AgentClientOption) *AgentClient {
+func SetGetLeafer(f GetLeaferFunc) AgentClientOption {
+	return func(tcp *AgentClient) {
+		tcp.getLeader = f
+	}
+}
+
+func SetOnEvent(f OnEventFunc) AgentClientOption {
+	return func(tcp *AgentClient) {
+		tcp.onEvent = append(tcp.onEvent, f)
+	}
+}
+
+// client 用来接收 agent server 分发的定时任务事件
+// 接收到事件后执行指定的定时任务
+// onleader 触发后，如果是leader，client停止
+// 如果不是leader，client查询到leader的服务地址，连接到server
+func NewAgentClient(ctx context.Context, opts ...AgentClientOption) *AgentClient {
 	c := &AgentClient{
-		ctx:ctx,
+		ctx:        ctx,
 		buffer:     make([]byte, 0),
 		onEvent:    make([]OnEventFunc, 0),
 		conn:       nil,
 		statusLock: new(sync.Mutex),
 		status:     0,
-		leader:     false,
 	}
 	for _, f := range opts {
 		f(c)
 	}
+	go c.keepalive()
 	return c
 }
 
 func (tcp *AgentClient) keepalive() {
 	data := Pack(CMD_TICK, []byte(""))
-	dl := len(data)
+	dl   := len(data)
 	for {
 		select {
 			case <-tcp.ctx.Done():
@@ -93,11 +102,11 @@ func (tcp *AgentClient) OnLeader(leader bool) {
 		}
 		if leader {
 			// 断开client到 agent server的连接
-			tcp.AgentStop()
+			tcp.stop()
 		} else {
 			// 查询leader的 服务
 			// 连接到agent server (leader)
-			tcp.AgentStart(ip, port)
+			tcp.start(ip, port)
 		}
 	}()
 }
@@ -121,7 +130,7 @@ func (tcp *AgentClient) connect(ip string, port int) {
 	tcp.conn = conn
 }
 
-func (tcp *AgentClient) AgentStart(serviceIp string, port int) {
+func (tcp *AgentClient) start(serviceIp string, port int) {
 	agentH := PackPro(FlagAgent, []byte(""))
 	hl := len(agentH)
 	var readBuffer [tcpDefaultReadBufferSize]byte
@@ -231,39 +240,22 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		dataB := tcp.buffer[6:4 + contentLen]
 		switch cmd {
 		case CMD_EVENT:
-			var data map[string] interface{}
+			var data crontab.CrontabEntity
 			err := json.Unmarshal(dataB, &data)
 			if err == nil {
 				log.Debugf("agent receive event: %+v", data)
 				//tcp.SendAll(data["table"].(string), dataB)
 				for _, f := range tcp.onEvent {
-					f(data["database"].(string) + "." + data["table"].(string), dataB)
+					f(&data)
 				}
 			} else {
 				log.Errorf("json Unmarshal error: %+v, %s, %+v", dataB, string(dataB), err)
 			}
 		case CMD_TICK:
 			//log.Debugf("keepalive: %s", string(dataB))
-		case CMD_POS:
-			log.Debugf("receive pos: %v", dataB)
-			//for {
-			//	if len(tcp.ctx.PosChan) < cap(tcp.ctx.PosChan) {
-			//		break
-			//	}
-			//	log.Warnf("cache full, try wait")
-			//}
-			//tcp.ctx.PosChan <- string(dataB)
-			if len(tcp.onPos) > 0 {
-				for _, f := range tcp.onPos {
-					f(dataB)
-				}
-			}
 		default:
 			//tcp.sendRaw(pack(cmd, msg))
 			//log.Debugf("does not support")
-			for _, f := range tcp.onRaw {
-				f(Pack(cmd, msg))
-			}
 		}
 		if len(tcp.buffer) <= 0 {
 			log.Errorf("tcp.buffer is empty")
@@ -291,7 +283,7 @@ func (tcp *AgentClient) disconnect() {
 	tcp.statusLock.Unlock()
 }
 
-func (tcp *AgentClient) AgentStop() {
+func (tcp *AgentClient) stop() {
 	tcp.statusLock.Lock()
 	if tcp.status & agentStatusOnline <= 0 {
 		tcp.statusLock.Unlock()

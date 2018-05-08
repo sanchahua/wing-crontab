@@ -238,12 +238,12 @@ func (sev *Service) SelectLeader() error {
 	// 如果不是leader，然后检测当前的leader是否存在，如果不存在
 	// 可以认为某些情况下发生了死锁，可以尝试强制解锁
 	if !success {
-		_, _, err := sev.getLeader()
+		_, _, err := sev.GetLeader()
 		if err == leaderNotFound{
 			log.Debugf("check deadlock......please wait\n\n")
 			time.Sleep(time.Second * 3)
 		}
-		_, _, err = sev.getLeader()
+		_, _, err = sev.GetLeader()
 		//如果没有leader
 		if err == leaderNotFound {
 			log.Warnf("deadlock found, try to unlock")
@@ -262,7 +262,7 @@ func (sev *Service) SelectLeader() error {
 		// 但是这个时候leader仍然不存在，可以认为网络问题造成注册服务失败
 		// 这里尝试等待并重新注册
 		for {
-			_, _, err := sev.getLeader()
+			_, _, err := sev.GetLeader()
 			if err == leaderNotFound {
 				log.Warnf("leader not fund, try register")
 				sev.Register()
@@ -283,7 +283,7 @@ func (sev *Service) SelectLeader() error {
 }
 
 
-func (sev *Service) getLeader() (string, int, error) {
+func (sev *Service) GetLeader() (string, int, error) {
 	members, _ := sev.GetServices()
 	if members == nil {
 		return "", 0, membersEmpty
