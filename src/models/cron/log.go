@@ -34,18 +34,18 @@ func (db Logger) Get(pid int64) (*CronEntity, error) {
 	return d, e
 }
 
-func (db Logger) Add(cronSet, command string, isMutex bool, remark string, lockLimit int64, stop bool) (*CronEntity, error) {
-	log.Infof("Add(\"%v\", \"%v\", %v, \"%v\", %v, %v) was called", cronSet, command, isMutex, remark, lockLimit, stop)
+func (db Logger) Add(cronSet, command string, remark string, stop bool) (*CronEntity, error) {
+	log.Infof("Add(\"%v\", \"%v\", \"%v\", %v) was called", cronSet, command, remark, stop)
 	start := time.Now()
-	d, e := db.next.Add(cronSet, command, isMutex, remark, lockLimit, stop)
+	d, e := db.next.Add(cronSet, command, remark, stop)
 	log.Infof("Add use time: %+v", time.Since(start))
 	return d, e
 }
 
-func (db Logger) Update(id int64, cronSet, command string, isMutex bool, remark string, lockLimit int64, stop bool) (*CronEntity,error) {
-	log.Infof("Update(%v, \"%v\", \"%v\", %v, \"%v\", %v, %v) was called", id, cronSet, command, isMutex, remark, lockLimit, stop)
+func (db Logger) Update(id int64, cronSet, command string, remark string, stop bool) (*CronEntity,error) {
+	log.Infof("Update(%v, \"%v\", \"%v\", \"%v\", %v) was called", id, cronSet, command, remark, stop)
 	start := time.Now()
-	d, e := db.next.Update(id, cronSet, command, isMutex, remark, lockLimit, stop)
+	d, e := db.next.Update(id, cronSet, command, remark, stop)
 	log.Infof("Update use time: %+v", time.Since(start))
 	return d, e
 }

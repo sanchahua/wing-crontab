@@ -18,7 +18,7 @@ func newDbCron(handler *sql.DB) ICron {
 
 // 获取所有的定时任务列表
 func (db *DbCron) GetList() ([]*CronEntity, error) {
-	sqlStr := "select * from cron"
+	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark` from cron"
 	rows, err := db.handler.Query(sqlStr)
 	if nil != err || rows == nil {
 		log.Errorf("查询数据库错误：%+v", err)
@@ -30,13 +30,11 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 		id int64
 		cronSet string
 		command string
-		isMutex int
 		remark string
 		stop int
-		lockLimit int64
 	)
 	for rows.Next() {
-		err = rows.Scan(&id, &cronSet, &command, &isMutex, &stop, &remark, &lockLimit)
+		err = rows.Scan(&id, &cronSet, &command, &stop, &remark)
 		if err != nil {
 			log.Errorf("查询错误，sql=%s，error=%+v", sqlStr, err)
 			continue
@@ -45,10 +43,8 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 			Id:id,
 			CronSet:cronSet,
 			Command:command,
-			IsMutex:isMutex == 1,
 			Remark:remark,
 			Stop:stop == 1,
-			LockLimit:lockLimit,
 		}
 		records = append(records, row)
 	}
@@ -62,30 +58,24 @@ func (db *DbCron) Get(rid int64) (*CronEntity, error) {
 	var (
 		row CronEntity
 		stop int
-		isMutex int
 	)
-	err := data.Scan(&row.Id, &row.CronSet, &row.Command, &isMutex, &stop, &row.Remark, &row.LockLimit)
+	err := data.Scan(&row.Id, &row.CronSet, &row.Command, &stop, &row.Remark)
 	if err != nil {
 		log.Errorf("查询sql发生错误：%s, %+v", sqlStr, err)
 		return &row, err
 	}
-	row.IsMutex   = isMutex == 1
 	row.Stop      = stop == 1
 	return &row, nil
 }
 
-func (db *DbCron) Add(cronSet, command string, isMutex bool, remark string, lockLimit int64, stop bool) (*CronEntity, error) {
-	iIsMutex := 0
-	if isMutex {
-		iIsMutex = 1
-	}
+func (db *DbCron) Add(cronSet, command string, remark string, stop bool) (*CronEntity, error) {
 	iStop := 0
 	if stop {
 		iStop = 1
 	}
-	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `is_mutex`, `stop`, `remark`, `lock_limit`) " +
+	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`) " +
 		"VALUES (?,?,?,?,?,?)"
-	res, err := db.handler.Exec(sqlStr,cronSet, command, iIsMutex, iStop, remark, lockLimit)
+	res, err := db.handler.Exec(sqlStr,cronSet, command, iStop, remark)
 	if err != nil {
 		log.Errorf("新增定时任务错误：%+v", err)
 		return nil, err
@@ -99,24 +89,18 @@ func (db *DbCron) Add(cronSet, command string, isMutex bool, remark string, lock
 		Id:id,
 		CronSet:cronSet,
 		Command:command,
-		IsMutex:isMutex,
 		Remark:remark,
 		Stop: stop,
-		LockLimit:lockLimit,
 	}, nil
 }
 
-func (db *DbCron) Update(id int64, cronSet, command string, isMutex bool, remark string, lockLimit int64, stop bool) (*CronEntity, error) {
-	iIsMutex := 0
-	if isMutex {
-		iIsMutex = 1
-	}
+func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop bool) (*CronEntity, error) {
 	iStop := 0
 	if stop {
 		iStop = 1
 	}
-	sqlStr := "UPDATE `cron` SET `cron_set`=?,`command`=?,`is_mutex`=?,`remark`=?, `stop`=?, `lock_limit`=? WHERE `id`=?"
-	res, err := db.handler.Exec(sqlStr, cronSet, command, iIsMutex, remark, iStop, lockLimit, id)
+	sqlStr := "UPDATE `cron` SET `cron_set`=?,`command`=?,`remark`=?, `stop`=? WHERE `id`=?"
+	res, err := db.handler.Exec(sqlStr, cronSet, command, remark, iStop, id)
 	if err != nil {
 		log.Errorf("更新定时任务错误：%+v", err)
 		return nil, err
@@ -133,10 +117,8 @@ func (db *DbCron) Update(id int64, cronSet, command string, isMutex bool, remark
 		Id:id,
 		CronSet:cronSet,
 		Command:command,
-		IsMutex:isMutex,
 		Remark:remark,
 		Stop: stop,
-		LockLimit:lockLimit,
 	}, nil
 }
 
@@ -146,7 +128,7 @@ func (db *DbCron) Stop(id int64) (*CronEntity, error) {
 		log.Errorf("停止定时任务错误：%v", err)
 		return row, err
 	}
-	return db.Update(id, row.CronSet, row.Command,row.IsMutex, row.Remark, row.LockLimit, true)
+	return db.Update(id, row.CronSet, row.Command, row.Remark, true)
 }
 
 func (db *DbCron) Start(id int64) (*CronEntity, error) {
@@ -155,7 +137,7 @@ func (db *DbCron) Start(id int64) (*CronEntity, error) {
 		log.Errorf("开始定时任务错误：%v", err)
 		return row, err
 	}
-	return db.Update(id, row.CronSet, row.Command,row.IsMutex, row.Remark, row.LockLimit, false)
+	return db.Update(id, row.CronSet, row.Command, row.Remark, false)
 }
 
 func (db *DbCron) Delete(id int64) (*CronEntity, error) {
