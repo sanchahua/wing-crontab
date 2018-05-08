@@ -19,10 +19,23 @@ import (
 // todo 这里还需要一个异常检测机制
 // 定期检测是否有leader在运行，如果没有，尝试强制解锁，然后选出新的leader
 
-const ServiceName = "wing-binlog-go-agent"
+type TcpService struct {
+	Address string               // 监听ip
+	lock *sync.Mutex
+	statusLock *sync.Mutex
+	//ctx *app.Context
+	listener *net.Listener
+	wg *sync.WaitGroup
+	agents tcpClients
+	status int
+	conn *net.TCPConn
+	buffer []byte
+	ctx context.Context
+}
 
 func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOption) *TcpService {
 	tcp := &TcpService{
+		ctx:              ctx,
 		Address:          address,
 		lock:             new(sync.Mutex),
 		statusLock:       new(sync.Mutex),
@@ -33,36 +46,28 @@ func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOpti
 		buffer:           make([]byte, 0),
 	}
 	go tcp.keepalive()
-	tcp.client = newAgentClient(ctx)
 	for _, f := range opts {
 		f(tcp)
 	}
 	return tcp
 }
 
-// 设置收到pos的回调函数
-func OnPos(f OnPosFunc) AgentServerOption  {
-	return func(s *TcpService) {
-		s.client.onPos = append(s.client.onPos, f)
-	}
-}
-
 // agent client 收到事件回调
 // 这个回调应该来源于service_plugin/tcp
 // 最终被转发到SendAll
-func OnEvent(f OnEventFunc) AgentServerOption {
-	return func(s *TcpService) {
-		s.client.onEvent = append(s.client.onEvent, f)
-	}
-}
+//func OnEvent(f OnEventFunc) AgentServerOption {
+//	return func(s *TcpService) {
+//		s.onEvent = append(s.onEvent, f)
+//	}
+//}
 
 // agent client 收到一些其他的事件
 // 原封不动转发到service_plugin/tcp SendRaw
-func OnRaw(f OnRawFunc) AgentServerOption {
-	return func(s *TcpService) {
-		s.client.onRaw = append(s.client.onRaw, f)
-	}
-}
+//func OnRaw(f OnRawFunc) AgentServerOption {
+//	return func(s *TcpService) {
+//		s.client.onRaw = append(s.client.onRaw, f)
+//	}
+//}
 
 func (tcp *TcpService) Start() {
 	go func() {

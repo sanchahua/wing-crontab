@@ -11,6 +11,7 @@ import (
 
 type ConsulController struct {
 	service *consul.Service
+	onleader []consul.OnLeaderFunc
 }
 
 func NewConsulController(ctx *app.Context) *ConsulController {
@@ -37,15 +38,31 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 		consul.SetOnLeader(c.OnLeader),
 	)
 	//select a leader
-	c.service.SelectLeader()
 	return c
+}
+
+type ConsulControllerOption func(c* ConsulController)
+func SetOnleader(f consul.OnLeaderFunc) ConsulControllerOption {
+	return func(c *ConsulController) {
+		c.onleader = append(c.onleader, f)
+	}
 }
 
 // leader on select callback
 func (c *ConsulController) OnLeader(isLeader bool) {
+	for _, f := range c.onleader {
+		f(isLeader)
+	}
+}
 
+func (c *ConsulController) Start() {
+	c.service.SelectLeader()
 }
 
 func (c *ConsulController) Close() {
 	c.service.Close()
+}
+
+func (c *ConsulController) GetLeader() (string, int, error) {
+	return c.service.GetLeader()
 }

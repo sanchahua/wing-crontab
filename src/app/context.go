@@ -41,6 +41,10 @@ func (ctx *Context) Done() <-chan struct{} {
 	return ctx.cancelChan
 }
 
+func (ctx *Context) Context() context.Context {
+	return ctx.Ctx
+}
+
 // wait for control + c signal
 func (ctx *Context) signalHandler() {
 	sc := make(chan os.Signal, 1)
