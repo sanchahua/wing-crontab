@@ -3,9 +3,10 @@ package consul
 import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"time"
 	"github.com/hashicorp/consul/api"
 	"sync"
+	"time"
+	"errors"
 )
 
 // 服务注册
@@ -40,14 +41,31 @@ type Service struct {
 	Kv *api.KV
 	health *api.Health
 	leader bool
+	onleader []OnLeaderFunc
+	lockKey string
+	consulLock *Lock
 }
 
 type ServiceOption func(s *Service)
+type OnLeaderFunc func(isLeader bool)
 
 // set ttl
 func SetTtl(ttl int) ServiceOption {
 	return func(s *Service){
 		s.Ttl = ttl
+	}
+}
+
+func SetOnLeader(f OnLeaderFunc) ServiceOption {
+	return func(s *Service) {
+		s.onleader = append(s.onleader, f)
+	}
+}
+
+func SetLockKey(lockKey string) ServiceOption  {
+	return func(s *Service) {
+		s.consulLock = NewLock(s.session, s.Kv, lockKey)
+		s.lockKey = lockKey
 	}
 }
 
@@ -77,7 +95,6 @@ func NewService(
 	name string,
 	host string,
 	port int,
-	isLeader bool,
 	opts ...ServiceOption,
 ) *Service {
 	sev := &Service{
@@ -87,8 +104,9 @@ func NewService(
 		Interval    : time.Second * 10,
 		Ttl         : 15,
 		status      : 0,
-		leader      : isLeader,
+		leader      : false,
 		lock        : new(sync.Mutex),
+		lockKey     : "",
 	}
 	for _, opt := range opts {
 		opt(sev)
@@ -99,6 +117,11 @@ func NewService(
 	sev.ServiceID = fmt.Sprintf("%s-%s-%d", name, host, port)
 	sev.agent     = sev.client.Agent()
 	sev.health    = sev.client.Health()
+
+	go func() {
+		sev.UpdateTtl()
+		time.Sleep(sev.Interval)
+	}()
 	return sev
 }
 
@@ -188,6 +211,81 @@ func (sev *Service) GetServices() ([]*ServiceMember, error) {
 		data        = append(data, m)
 	}
 	return data, nil
+}
+
+
+func (sev *Service) SelectLeader() {
+	log.Debugf("====start select leader====")
+	success := sev.consulLock.Lock()
+	//if err != nil {
+	//	log.Errorf("select leader with error: %v", err)
+	//	return
+	//}
+	sev.leader = success
+	//register for set tags isleader:true
+	sev.Register()
+
+	// 如果不是leader，然后检测当前的leader是否存在，如果不存在
+	// 可以认为某些情况下发生了死锁，可以尝试强制解锁
+	if !success {
+		_, _, err := sev.getLeader()
+		if err == leaderNotFound{
+			log.Debugf("check deadlock......please wait\n\n")
+			time.Sleep(time.Second * 3)
+		}
+		_, _, err = sev.getLeader()
+		//如果没有leader
+		if err == leaderNotFound {
+			log.Warnf("deadlock found, try to unlock")
+			sev.consulLock.Unlock()
+			sev.consulLock.Delete()
+			log.Infof("select leader again")
+			success = sev.consulLock.Lock()
+			sev.leader = success
+			//register for set tags isleader:true
+			sev.Register()
+		}
+	}
+
+	if success {
+		// 如果选leader成功
+		// 但是这个时候leader仍然不存在，可以认为网络问题造成注册服务失败
+		// 这里尝试等待并重新注册
+		for {
+			_, _, err := sev.getLeader()
+			if err == leaderNotFound {
+				log.Warnf("leader not fund, try register")
+				sev.Register()
+				time.Sleep(time.Millisecond * 10)
+				continue
+			}
+			break
+		}
+	}
+
+	log.Debugf("select leader: %+v", success)
+	// 触发选leader成功相关事件回调
+	log.Debugf("leader on select fired")
+	for _, f := range sev.onleader {
+		f(success)
+	}
+}
+
+
+var membersEmpty = errors.New("members is empty")
+var leaderNotFound = errors.New("leader not found")
+func (sev *Service) getLeader() (string, int, error) {
+	members, _ := sev.GetServices()
+	if members == nil {
+		return "", 0, membersEmpty
+	}
+	for _, v := range members {
+		log.Debugf("getLeader: %+v", *v)
+		if v.IsLeader {
+			return v.ServiceIp, v.Port, nil
+		}
+	}
+	return "", 0, leaderNotFound
 }
 
 //func (sev *Service) getLeader() (string, int, error) {
