@@ -109,10 +109,10 @@ func (tcp *TcpService) Close() {
 // binlog的pos发生改变会通知到这里
 // r为压缩过的二进制数据
 // 可以直接写到pos cache缓存文件
-func (tcp *TcpService) SendPos(data []byte) {
-	packData := Pack(CMD_POS, data)
-	tcp.agents.asyncSend(packData)
-}
+//func (tcp *TcpService) SendPos(data []byte) {
+//	packData := Pack(CMD_POS, data)
+//	tcp.agents.asyncSend(packData)
+//}
 
 func (tcp *TcpService) SendEvent(table string, data []byte) {
 	// 广播给agent client
