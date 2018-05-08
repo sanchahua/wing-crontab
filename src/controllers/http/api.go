@@ -9,6 +9,8 @@ import (
 	"models/cron"
 	"library/http"
 	"app"
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 //查看数据库配置列表
@@ -34,7 +36,30 @@ type HttpServer struct {
 }
 
 func NewHttpController(ctx *app.Context) *HttpServer {
-	h := &HttpServer{}
+
+	//config, _ := app.GetMysqlConfig()
+	dataSource := fmt.Sprintf(
+		"%s:%s@tcp(%s:%d)/%s?charset=%s",
+		ctx.Config.MysqlUser,
+		ctx.Config.MysqlPassword,
+		ctx.Config.MysqlHost,
+		ctx.Config.MysqlPort,
+		ctx.Config.MysqlDatabase,
+		ctx.Config.MysqlCharset,
+	)
+	handler, err := sql.Open("mysql", dataSource)
+	if err != nil {
+		log.Panicf("链接数据库错误：%+v", err)
+	}
+	//设置最大空闲连接数
+	handler.SetMaxIdleConns(8)
+	//设置最大允许打开的连接
+	handler.SetMaxOpenConns(8)
+
+	//db := model.NewCron(handler)
+
+	cr := cron.NewCron(handler)
+	h := &HttpServer{cron:cr}
 	h.server = http.NewHttpServer(
 		ctx.Config.HttpBindAddress,
 		http.SetRoute("GET",  "/cron/list",        h.list),
@@ -124,18 +149,11 @@ func (server *HttpServer) update(request *restful.Request, w *restful.Response) 
 	id, _     := strconv.ParseInt(string(sid), 10, 64)
 	cronSet   := request.QueryParameter("cronSet")
 	command   := request.QueryParameter("command")
-	isMutex   := request.QueryParameter("isMutex")
 	remark    := request.QueryParameter("remark")
-	lockLimit := request.QueryParameter("lockLimit")
 	stop      := request.QueryParameter("stop")
 
-	if len(cronSet) <= 0 || len(command) <= 0 || len(isMutex) <= 0 || len(remark) <= 0 {
+	if len(cronSet) <= 0 || len(command) <= 0 || len(remark) <= 0 {
 		out, _ := output(201, "参数错误", nil)
-		w.Write(out)
-		return
-	}
-	if isMutex != "1" && isMutex != "0" {
-		out, _ := output(201, "isMutex参数错误，必须为0或者1", nil)
 		w.Write(out)
 		return
 	}
@@ -145,18 +163,7 @@ func (server *HttpServer) update(request *restful.Request, w *restful.Response) 
 		w.Write(out)
 		return
 	}
-	ilockLimit, err := strconv.ParseInt(lockLimit, 10, 64)
-	if err != nil {
-		out, _ := output(201, "锁定时长限制错误，必须是标准的正整数", nil)
-		w.Write(out)
-		return
-	}
-	if ilockLimit < 0 {
-		out, _ := output(201, "锁定时长限制错误，必须是标准的正整数", nil)
-		w.Write(out)
-		return
-	}
-	row, _ := server.cron.Update(id, cronSet, command, isMutex == "1", remark, ilockLimit, stop == "1")
+	row, _ := server.cron.Update(id, cronSet, command, remark, stop == "1")
 	log.Debugf("成功更新%d", id)
 	out, _ := output(200, "ok", row)
 	w.Write(out)
@@ -167,18 +174,11 @@ func (server *HttpServer) update(request *restful.Request, w *restful.Response) 
 func (server *HttpServer) add(request *restful.Request, w *restful.Response) {
 	cronSet := request.QueryParameter("cronSet")
 	command := request.QueryParameter("command")
-	isMutex := request.QueryParameter("isMutex")
 	remark := request.QueryParameter("remark")
-	lockLimit := request.QueryParameter("lockLimit")
 	stop := request.QueryParameter("stop")
 
-	if len(cronSet) <= 0 || len(command) <= 0 || len(isMutex) <= 0 {
+	if len(cronSet) <= 0 || len(command) <= 0 {
 		out, _ := output(201, "参数错误", nil)
-		w.Write(out)
-		return
-	}
-	if isMutex != "1" && isMutex != "0" {
-		out, _ := output(201, "isMutex参数错误，必须为0或者1", nil)
 		w.Write(out)
 		return
 	}
@@ -189,20 +189,7 @@ func (server *HttpServer) add(request *restful.Request, w *restful.Response) {
 		return
 	}
 
-	ilockLimit, err := strconv.ParseInt(lockLimit, 10, 64)
-	if err != nil {
-		out, _ := output(201, "锁定时长限制错误，必须是标准的正整数", nil)
-		w.Write(out)
-		return
-	}
-
-	if ilockLimit < 0 {
-		out, _ := output(201, "锁定时长限制错误，必须是标准的正整数", nil)
-		w.Write(out)
-		return
-	}
-
-	row, _ := server.cron.Add(cronSet, command, isMutex == "1", remark, ilockLimit, stop == "1")
+	row, _ := server.cron.Add(cronSet, command, remark, stop == "1")
 	out, _ := output(200, httpErrors[200], row)
 	w.Write(out)
 }

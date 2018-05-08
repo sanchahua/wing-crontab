@@ -31,4 +31,5 @@ func main() {
 	select {
 		case <- ctx.Done():
 	}
+	ctx.Cancel()
 }

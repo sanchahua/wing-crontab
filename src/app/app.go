@@ -36,6 +36,13 @@ type Config struct {
 	LockKey string         `toml:"lock_key"`
 	HttpBindAddress string `toml:"http_bind_address"`
 
+	MysqlUser string       `toml:"mysql_user"`
+	MysqlPassword string   `toml:"mysql_password"`
+	MysqlHost string       `toml:"mysql_host"`
+	MysqlPort int          `toml:"mysql_port"`
+	MysqlDatabase string   `toml:"mysql_database"`
+	MysqlCharset string    `toml:"mysql_charset"`
+
 	LogLevel int          `toml:"log_level"`
 	PprofListen string    `toml:"pprof_listen"`
 	ControlListen string  `toml:"control_listen"`
