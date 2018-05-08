@@ -17,6 +17,10 @@ const (
 	statusOnline    = "online"
 	statusOffline   = "offline"
 )
+var membersEmpty   = errors.New("members is empty")
+var leaderNotFound = errors.New("leader not found")
+var EmptyLockKey   = errors.New("lock key can not empty")
+
 type ServiceMember struct {
 	IsLeader bool
 	ServiceID string
@@ -42,7 +46,7 @@ type Service struct {
 	health *api.Health
 	leader bool
 	onleader []OnLeaderFunc
-	lockKey string
+	//lockKey string
 	consulLock *Lock
 }
 
@@ -65,7 +69,7 @@ func SetOnLeader(f OnLeaderFunc) ServiceOption {
 func SetLockKey(lockKey string) ServiceOption  {
 	return func(s *Service) {
 		s.consulLock = NewLock(s.session, s.Kv, lockKey)
-		s.lockKey = lockKey
+		//s.lockKey = lockKey
 	}
 }
 
@@ -106,18 +110,18 @@ func NewService(
 		status      : 0,
 		leader      : false,
 		lock        : new(sync.Mutex),
-		lockKey     : "",
+		consulLock  : nil,
 	}
+	sev.client    = c
+	sev.Kv        = c.KV()
+	sev.session   = NewSession(c.Session(), 0)
 	for _, opt := range opts {
 		opt(sev)
 	}
-	sev.client    = c
-	sev.session   = NewSession(c.Session(), 0)
-	sev.Kv        = c.KV()
+
 	sev.ServiceID = fmt.Sprintf("%s-%s-%d", name, host, port)
 	sev.agent     = sev.client.Agent()
 	sev.health    = sev.client.Health()
-
 	go func() {
 		sev.UpdateTtl()
 		time.Sleep(sev.Interval)
@@ -182,8 +186,11 @@ func (sev *Service) Register() error {
 }
 
 func (sev *Service) Close() {
+	log.Infof("%v[%v] deregister", sev.ServiceName, sev.ServiceID)
 	sev.Deregister()
 	if sev.leader {
+		sev.consulLock.Unlock()
+		sev.consulLock.Delete()
 		sev.leader = false
 	}
 }
@@ -213,8 +220,11 @@ func (sev *Service) GetServices() ([]*ServiceMember, error) {
 	return data, nil
 }
 
-
-func (sev *Service) SelectLeader() {
+func (sev *Service) SelectLeader() error {
+	if sev.consulLock == nil {
+		log.Errorf("lock key can not empty")
+		return EmptyLockKey
+	}
 	log.Debugf("====start select leader====")
 	success := sev.consulLock.Lock()
 	//if err != nil {
@@ -269,11 +279,10 @@ func (sev *Service) SelectLeader() {
 	for _, f := range sev.onleader {
 		f(success)
 	}
+	return nil
 }
 
 
-var membersEmpty = errors.New("members is empty")
-var leaderNotFound = errors.New("leader not found")
 func (sev *Service) getLeader() (string, int, error) {
 	members, _ := sev.GetServices()
 	if members == nil {

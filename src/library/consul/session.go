@@ -40,12 +40,12 @@ func (session *Session) create() {
 
 // destory a session
 func (session *Session) Destroy() error {
-	_, err := session.session.Destroy(session.id, nil)
+	_, err := session.session.Destroy(session.ID, nil)
 	return err
 }
 
 // refresh a session
 func (session *Session) Renew() error {
-	_, _, err := session.session.Renew(session.id, nil)
+	_, _, err := session.session.Renew(session.ID, nil)
 	return err
 }

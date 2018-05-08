@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	Pid        = path.CurrentPath + "/wing-binlog-go.pid"
+	Pid        = path.CurrentPath + "/wing-crontab.pid"
 	DEBUG      = false
 	ConfigPath = path.CurrentPath + "/config"
 	CachePath  = path.CurrentPath + "/cache"
@@ -65,7 +65,7 @@ type Config struct {
 // write pid file
 // start pprof
 // set logger
-func Init(hasCmd bool, configPath string) {
+func Init(configPath string) {
 
 	log.SetFormatter(&log.TextFormatter{
 		TimestampFormat: "2006-01-02 15:04:05",
@@ -85,10 +85,10 @@ func Init(hasCmd bool, configPath string) {
 	LogPath   = appConfig.LogPath
 	// set log context hook
 	log.AddHook(mlog.ContextHook{LogPath:LogPath})
-	if file.Exists(Pid) && !hasCmd {
-		fmt.Println("other process still running")
-		os.Exit(1)
-	}
+	//if file.Exists(Pid) && !hasCmd {
+	//	fmt.Println("other process still running")
+	//	os.Exit(1)
+	//}
 
 	// write pid file
 	data := []byte(fmt.Sprintf("%d", os.Getpid()))

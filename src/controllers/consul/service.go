@@ -14,13 +14,13 @@ type ConsulController struct {
 }
 
 func NewConsulController(ctx *app.Context) *ConsulController {
+	log.Debugf("new NewConsulController")
 	consulConfig := api.DefaultConfig()
 	consulConfig.Address = ctx.Config.ConsulAddress
 	client, err := api.NewClient(consulConfig)
 	if err != nil {
 		log.Panicf("%v", err)
 	}
-
 	st := strings.Split(ctx.Config.BindAddress, ":")
 	host := st[0]
 	port, err := strconv.ParseInt(st[1], 10, 64)
@@ -44,4 +44,8 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 // leader on select callback
 func (c *ConsulController) OnLeader(isLeader bool) {
 
+}
+
+func (c *ConsulController) Close() {
+	c.service.Close()
 }
