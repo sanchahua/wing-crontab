@@ -30,10 +30,11 @@ const (
 )
 
 type Config struct {
-	ConsulAddress string  `toml:"consul_address"`
-	ServiceName string    `toml:"service_name"`
-	BindAddress string    `toml:"bind_address"`
-	LockKey string        `toml:"lock_key"`
+	ConsulAddress string   `toml:"consul_address"`
+	ServiceName string     `toml:"service_name"`
+	BindAddress string     `toml:"bind_address"`
+	LockKey string         `toml:"lock_key"`
+	HttpBindAddress string `toml:"http_bind_address"`
 
 	LogLevel int          `toml:"log_level"`
 	PprofListen string    `toml:"pprof_listen"`

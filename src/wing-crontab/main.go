@@ -5,6 +5,7 @@ import (
 	"library/path"
 	"controllers/consul"
 	"controllers/agent"
+	"controllers/http"
 )
 
 func main() {
@@ -22,6 +23,10 @@ func main() {
 
 	consul.SetOnleader(agentController.OnLeader)(consulControl)
 	consulControl.Start()
+
+	httpController := http.NewHttpController(ctx)
+	httpController.Start()
+	defer httpController.Close()
 
 	select {
 		case <- ctx.Done():
