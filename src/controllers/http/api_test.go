@@ -63,6 +63,9 @@ func TestNewHttpController(t *testing.T) {
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
+	if entity == nil {
+		t.Errorf("%+v", "nil")
+	}
 	if entity.Remark != newRemark || entity.CronSet != newCronSet || entity.Command != newCommand {
 		t.Errorf("%+v", "update error")
 	}

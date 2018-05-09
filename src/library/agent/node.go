@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"io"
 	"context"
+	"encoding/json"
+	"encoding/binary"
+	"models/cron"
 )
 
 func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *tcpClientNode {
@@ -28,7 +31,14 @@ func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *tcpClient
 	for _, f := range opts {
 		f(node)
 	}
-	node.setReadDeadline(time.Now().Add(time.Second * 3))
+	//node.setReadDeadline(time.Now().Add(time.Second * 3))
+	//node.setReadDeadline(time.Time{})
+	//node.send(packDataSetPro)
+	//tcp.agents.append(node)
+	//for _, f := range node.onpro {
+	//	f(node)
+	//}
+	go node.asyncSendService()
 	return node
 }
 
@@ -101,6 +111,7 @@ func (node *tcpClientNode) asyncSendService() {
 			}
 			(*node.conn).SetWriteDeadline(time.Now().Add(time.Second * 30))
 			size, err := (*node.conn).Write(msg)
+			log.Debugf("send: %+v, to %+v", (*node.conn).RemoteAddr().String())
 			if err != nil {
 				log.Errorf("tcp send to %s error: %v", (*node.conn).RemoteAddr().String(), err)
 				node.close()
@@ -118,23 +129,23 @@ func (node *tcpClientNode) asyncSendService() {
 		}
 	}
 }
-
-func (node *tcpClientNode) setPro(data []byte) {
-	flag    := data[0]
-	//content := string(data[1:])
-	switch flag {
-	case FlagAgent:
-		node.setReadDeadline(time.Time{})
-		node.send(packDataSetPro)
-		//tcp.agents.append(node)
-		for _, f := range node.onpro {
-			f(node)
-		}
-		go node.asyncSendService()
-	default:
-		node.close()
-	}
-}
+//
+//func (node *tcpClientNode) setPro(data []byte) {
+//	flag    := data[0]
+//	//content := string(data[1:])
+//	switch flag {
+//	case FlagAgent:
+//		node.setReadDeadline(time.Time{})
+//		node.send(packDataSetPro)
+//		//tcp.agents.append(node)
+//		for _, f := range node.onpro {
+//			f(node)
+//		}
+//		go node.asyncSendService()
+//	default:
+//		node.close()
+//	}
+//}
 
 func (node *tcpClientNode) onMessage(msg []byte) {
 	node.recvBuf = append(node.recvBuf, msg...)
@@ -157,9 +168,9 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 		content := node.recvBuf[6 : clen + 4]
 		log.Debugf("%+v", content)
 		switch cmd {
-		case CMD_SET_PRO:
-			//tcp.onSetProEvent(node, content)
-			node.setPro(content)
+		//case CMD_SET_PRO:
+		//	//tcp.onSetProEvent(node, content)
+		//	node.setPro(content)
 		case CMD_TICK:
 			node.asyncSend(packDataTickOk)
 			//case CMD_POS:
@@ -167,6 +178,22 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 			//	for _, f:= range tcp.onPos {
 			//		f(content)
 			//	}
+		case CMD_CRONTAB_CHANGE:
+			var data SendData
+			err := json.Unmarshal(content, &data)
+			if err != nil {
+				log.Errorf("%+v", err)
+			} else {
+				event := binary.LittleEndian.Uint32(data.Data[:4])
+				var e cron.CronEntity
+				err = json.Unmarshal(data.Data[4:], &e)
+				if err != nil {
+					log.Errorf("%+v", err)
+				} else {
+					log.Infof("receive event[%v] %+v", event, e)
+					node.asyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
+				}
+			}
 		default:
 			node.asyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
 			node.recvBuf = make([]byte, 0)

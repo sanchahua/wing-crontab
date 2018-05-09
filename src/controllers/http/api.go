@@ -34,9 +34,23 @@ type HttpServer struct {
 	cron cron.ICron
 	server *http.HttpServer
 	db *sql.DB
+	hooks []ChangeHook
 }
-
-func NewHttpController(ctx *app.Context) *HttpServer {
+const (
+	EVENT_STOP   = 1
+	EVENT_START  = 2
+	EVENT_UPDATE = 3
+	EVENT_ADD    = 4
+	EVENT_DELETE = 5
+)
+type ChangeHook func(event int, row *cron.CronEntity)
+type HttpControllerOption func(http *HttpServer)
+func SetHook(f ChangeHook) HttpControllerOption {
+	return func(http *HttpServer) {
+		http.hooks = append(http.hooks, f)
+	}
+}
+func NewHttpController(ctx *app.Context, opts ...HttpControllerOption) *HttpServer {
 
 	//config, _ := app.GetMysqlConfig()
 	dataSource := fmt.Sprintf(
@@ -57,7 +71,7 @@ func NewHttpController(ctx *app.Context) *HttpServer {
 	//设置最大允许打开的连接
 	handler.SetMaxOpenConns(8)
 	cr := cron.NewCron(handler)
-	h  := &HttpServer{cron:cr, db:handler}
+	h  := &HttpServer{cron:cr, db:handler, hooks:make([]ChangeHook, 0)}
 	h.server = http.NewHttpServer(
 		ctx.Config.HttpBindAddress,
 		http.SetRoute("GET",  "/cron/list",        h.list),
@@ -66,9 +80,13 @@ func NewHttpController(ctx *app.Context) *HttpServer {
 		http.SetRoute("GET",  "/cron/delete/{id}", h.delete),
 		http.SetRoute("POST", "/cron/update",      h.update),
 		http.SetRoute("POST", "/cron/add",         h.add),
-		http.SetRoute("GET",  "/cron/unlock/{id}", h.unlock),
-		http.SetRoute("GET",  "/cron/lock/{id}",   h.lock),
+		//http.SetRoute("GET",  "/cron/unlock/{id}", h.unlock),
+		//http.SetRoute("GET",  "/cron/lock/{id}",   h.lock),
 	)
+
+	for _, f := range opts {
+		f(h)
+	}
 	return h
 }
 
@@ -79,6 +97,14 @@ func (server *HttpServer) Start() {
 func (server *HttpServer) Close() {
 	server.server.Close()
 	server.db.Close()
+}
+
+func (server *HttpServer) firedHooks(event int, row *cron.CronEntity) {
+	go func() {
+		for _, f := range server.hooks {
+			f(event, row)
+		}
+	}()
 }
 
 //http://localhost:9990/cron/list
@@ -105,7 +131,10 @@ func (server *HttpServer) stop(request *restful.Request, w *restful.Response) {
 	id, _ := strconv.ParseInt(string(sid), 10, 64)
 	// todo 更新定时任务
 	// 更新db记录
-	row, _ := server.cron.Stop(id)
+	row, err := server.cron.Stop(id)
+	if err == nil {
+		server.firedHooks(EVENT_STOP, row)
+	}
 	log.Debugf("成功停止%d", id)
 	out, _ := output(200, "ok", row)
 	w.Write(out)
@@ -116,7 +145,10 @@ func (server *HttpServer) start(request *restful.Request, w *restful.Response)  
 	id, _ := strconv.ParseInt(string(sid), 10, 64)
 	// todo 更新定时任务
 	// 更新db记录
-	row, _ := server.cron.Start(id)
+	row, err := server.cron.Start(id)
+	if err == nil {
+		server.firedHooks(EVENT_START, row)
+	}
 	log.Debugf("成功开始%d", id)
 	out, _ := output(200, "ok", row)
 	w.Write(out)
@@ -130,7 +162,7 @@ func (server *HttpServer) delete(request *restful.Request, w *restful.Response) 
 	sid := request.PathParameter("id")
 	id, _ := strconv.ParseInt(string(sid), 10, 64)
 	log.Debugf("====删除===================%d", id)
-	row, _:= server.cron.Delete(id)
+	row, err := server.cron.Delete(id)
 	if row == nil {
 		out, _ := output(200, fmt.Sprintf("%v does not exists", id), nil)
 		w.Write(out)
@@ -138,7 +170,9 @@ func (server *HttpServer) delete(request *restful.Request, w *restful.Response) 
 		out, _ := output(200, "ok", row)
 		w.Write(out)
 	}
-
+	if err == nil {
+		server.firedHooks(EVENT_DELETE, row)
+	}
 }
 
 // 更新定时任务
@@ -162,10 +196,13 @@ func (server *HttpServer) update(request *restful.Request, w *restful.Response) 
 		w.Write(out)
 		return
 	}
-	row, _ := server.cron.Update(id, cronSet, command, remark, stop == "1")
+	row, err := server.cron.Update(id, cronSet, command, remark, stop == "1")
 	log.Debugf("成功更新%d", id)
 	out, _ := output(200, "ok", row)
 	w.Write(out)
+	if err == nil {
+		server.firedHooks(EVENT_UPDATE, row)
+	}
 }
 
 // 添加定时任务
@@ -188,34 +225,37 @@ func (server *HttpServer) add(request *restful.Request, w *restful.Response) {
 		return
 	}
 
-	row, _ := server.cron.Add(cronSet, command, remark, stop == "1")
+	row, err := server.cron.Add(cronSet, command, remark, stop == "1")
 	out, _ := output(200, httpErrors[200], row)
 	w.Write(out)
+	if err == nil {
+		server.firedHooks(EVENT_ADD, row)
+	}
 }
 
 //强制解锁某定时任务
 //http://localhost:9990/cron/unlock/1
-func (server *HttpServer) unlock(request *restful.Request, w *restful.Response) {
-	sid       := request.QueryParameter("id")
-	id, _     := strconv.ParseInt(string(sid), 10, 64)
-	out, _ := output(201, httpErrors[201], nil)
-	if id <= 0 {
-		w.Write(out)
-		return
-	}
-
-	 log.Debugf("强制解锁%d", id)
-	 out, _ = output(200, "ok", nil)
-	 w.Write(out)
-}
-
-//http://localhost:9990/cron/lock
-func (server *HttpServer) lock(request *restful.Request, w *restful.Response) {
-	sid       := request.QueryParameter("id")
-	id, _     := strconv.ParseInt(string(sid), 10, 64)
-	log.Debug("lock %v", id)
-	w.Write([]byte("ok"))
-}
+//func (server *HttpServer) unlock(request *restful.Request, w *restful.Response) {
+//	sid       := request.QueryParameter("id")
+//	id, _     := strconv.ParseInt(string(sid), 10, 64)
+//	out, _ := output(201, httpErrors[201], nil)
+//	if id <= 0 {
+//		w.Write(out)
+//		return
+//	}
+//
+//	 log.Debugf("强制解锁%d", id)
+//	 out, _ = output(200, "ok", nil)
+//	 w.Write(out)
+//}
+//
+////http://localhost:9990/cron/lock
+//func (server *HttpServer) lock(request *restful.Request, w *restful.Response) {
+//	sid       := request.QueryParameter("id")
+//	id, _     := strconv.ParseInt(string(sid), 10, 64)
+//	log.Debug("lock %v", id)
+//	w.Write([]byte("ok"))
+//}
 
 
 
