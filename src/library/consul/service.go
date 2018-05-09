@@ -66,9 +66,9 @@ func SetOnLeader(f OnLeaderFunc) ServiceOption {
 	}
 }
 
-func SetLockKey(lockKey string) ServiceOption  {
+func SetLockKey(lock *Lock) ServiceOption  {
 	return func(s *Service) {
-		s.consulLock = NewLock(s.session, s.Kv, lockKey)
+		s.consulLock = lock//NewLock(s.session, s.Kv, lockKey)
 		//s.lockKey = lockKey
 	}
 }
@@ -96,6 +96,8 @@ func SetInterval(interval time.Duration) ServiceOption {
 // return new service pointer
 func NewService(
 	c *api.Client,
+	session *Session,
+	kv *api.KV,
 	name string,
 	host string,
 	port int,
@@ -113,8 +115,8 @@ func NewService(
 		consulLock  : nil,
 	}
 	sev.client    = c
-	sev.Kv        = c.KV()
-	sev.session   = NewSession(c.Session(), 0)
+	sev.Kv        = kv//c.KV()
+	sev.session   = session//NewSession(c.Session(), 0)
 	for _, opt := range opts {
 		opt(sev)
 	}
@@ -123,8 +125,10 @@ func NewService(
 	sev.agent     = sev.client.Agent()
 	sev.health    = sev.client.Health()
 	go func() {
-		sev.UpdateTtl()
-		time.Sleep(sev.Interval)
+		for {
+			sev.UpdateTtl()
+			time.Sleep(sev.Interval)
+		}
 	}()
 	return sev
 }
