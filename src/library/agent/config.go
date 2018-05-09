@@ -1,13 +1,10 @@
 package agent
 
 import (
-	"sync"
-	"net"
 	"library/file"
 	"github.com/BurntSushi/toml"
 	log "github.com/sirupsen/logrus"
 	"app"
-	"context"
 )
 
 const (
@@ -45,29 +42,13 @@ const (
 	tcpNodeOnline = 1 << iota
 )
 
-type tcpClientNode struct {
-	conn *net.Conn   // 客户端连接进来的资源句柄
-	sendQueue chan []byte // 发送channel
-	sendFailureTimes int64       // 发送失败次数
-	recvBuf []byte      // 读缓冲区
-	connectTime int64       // 连接成功的时间戳
-	status int
-	wg *sync.WaitGroup
-	lock *sync.Mutex          // 互斥锁，修改资源时锁定
-	onclose []NodeFunc
-	agents tcpClients
-	onpro []NodeFunc
-	ctx context.Context
-}
 
 type NodeFunc func(n *tcpClientNode)
 type NodeOption func(n *tcpClientNode)
-
 type tcpClients []*tcpClientNode
 
 
 type OnPosFunc func(r []byte)
-type AgentServerOption func(s *TcpService)
 var (
 	packDataTickOk     = Pack(CMD_TICK, []byte("ok"))
 	packDataSetPro     = Pack(CMD_SET_PRO, []byte("ok"))

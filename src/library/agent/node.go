@@ -10,9 +10,31 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/binary"
-	"models/cron"
+	//"models/cron"
 )
 
+type tcpClientNode struct {
+	conn *net.Conn   // 客户端连接进来的资源句柄
+	sendQueue chan []byte // 发送channel
+	sendFailureTimes int64       // 发送失败次数
+	recvBuf []byte      // 读缓冲区
+	connectTime int64       // 连接成功的时间戳
+	status int
+	wg *sync.WaitGroup
+	lock *sync.Mutex          // 互斥锁，修改资源时锁定
+	onclose []NodeFunc
+	agents tcpClients
+	ctx context.Context
+	onevents []OnNodeEventFunc
+}
+
+type OnNodeEventFunc func(event int, data interface{})
+
+func SetOnNodeEvent(f ...OnNodeEventFunc) NodeOption {
+	return func(n *tcpClientNode) {
+		n.onevents = append(n.onevents, f...)
+	}
+}
 func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *tcpClientNode {
 	node := &tcpClientNode{
 		conn:             conn,
@@ -25,19 +47,12 @@ func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *tcpClient
 		ctx:              ctx,
 		lock:             new(sync.Mutex),
 		onclose:          make([]NodeFunc, 0),
-		onpro:            make([]NodeFunc, 0),
 		wg:               new(sync.WaitGroup),
+		onevents:         make([]OnNodeEventFunc, 0),
 	}
 	for _, f := range opts {
 		f(node)
 	}
-	//node.setReadDeadline(time.Now().Add(time.Second * 3))
-	//node.setReadDeadline(time.Time{})
-	//node.send(packDataSetPro)
-	//tcp.agents.append(node)
-	//for _, f := range node.onpro {
-	//	f(node)
-	//}
 	go node.asyncSendService()
 	return node
 }
@@ -45,12 +60,6 @@ func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *tcpClient
 func NodeClose(f NodeFunc) NodeOption {
 	return func(n *tcpClientNode) {
 		n.onclose = append(n.onclose, f)
-	}
-}
-
-func NodePro(f NodeFunc) NodeOption {
-	return func(n *tcpClientNode) {
-		n.onpro = append(n.onpro, f)
 	}
 }
 
@@ -129,23 +138,6 @@ func (node *tcpClientNode) asyncSendService() {
 		}
 	}
 }
-//
-//func (node *tcpClientNode) setPro(data []byte) {
-//	flag    := data[0]
-//	//content := string(data[1:])
-//	switch flag {
-//	case FlagAgent:
-//		node.setReadDeadline(time.Time{})
-//		node.send(packDataSetPro)
-//		//tcp.agents.append(node)
-//		for _, f := range node.onpro {
-//			f(node)
-//		}
-//		go node.asyncSendService()
-//	default:
-//		node.close()
-//	}
-//}
 
 func (node *tcpClientNode) onMessage(msg []byte) {
 	node.recvBuf = append(node.recvBuf, msg...)
@@ -185,11 +177,12 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 				log.Errorf("%+v", err)
 			} else {
 				event := binary.LittleEndian.Uint32(data.Data[:4])
-				var e cron.CronEntity
+				var e interface{}//cron.CronEntity
 				err = json.Unmarshal(data.Data[4:], &e)
 				if err != nil {
 					log.Errorf("%+v", err)
 				} else {
+					go node.eventFired(int(event), e)
 					log.Infof("receive event[%v] %+v", event, e)
 					node.asyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
 				}
@@ -200,6 +193,12 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 			return
 		}
 		node.recvBuf = append(node.recvBuf[:0], node.recvBuf[clen + 4:]...)
+	}
+}
+
+func (node *tcpClientNode) eventFired(event int, data interface{}) {
+	for _, f := range node.onevents {
+		f(event, data)
 	}
 }
 
