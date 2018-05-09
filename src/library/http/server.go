@@ -64,7 +64,7 @@ func (server *HttpServer) Start() {
 	//		log.Fatalf("http服务启动失败: %v", err)
 	//	}
 	//}()
-	func() {
+	go func() {
 		wsContainer := restful.NewContainer()
 		wsContainer.Router(restful.CurlyRouter{})
 		//u := UserResource{map[string]User{}}
