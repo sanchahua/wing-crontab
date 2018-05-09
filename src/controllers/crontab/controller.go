@@ -13,6 +13,7 @@ type CrontabController struct {
 	lock *sync.Mutex
 	running bool
 }
+
 type CronEntity struct {
 	// 数据库的基本属性
 	Id int64        `json:"id"`
@@ -62,14 +63,28 @@ func (c *CrontabController) OnCrontabChange(event int, entity *cron.CronEntity) 
 	switch event {
 	case cron.EVENT_ADD:
 		log.Infof("add crontab: %+v", entity)
-		e := &CronEntity{
-			Id :entity.Id,//int64        `json:"id"`
-			CronSet:entity.CronSet,// string  `json:"cron_set"`
-			Command:entity.Command,// string  `json:"command"`
-			Remark :entity.Remark,//string   `json:"remark"`
-			Stop :entity.Stop,//bool       `json:"stop"`
-			CronId :0,//int64    `json:"cron_id"`
+
+		// check if exists
+		c.lock.Lock()
+		e, ok := c.crontabList[entity.Id]
+		if ok {
+			c.lock.Unlock()
+			return
+		} else {
+			c.lock.Unlock()
+			e = &CronEntity{
+				Id :entity.Id,//int64        `json:"id"`
+				CronSet:entity.CronSet,// string  `json:"cron_set"`
+				Command:entity.Command,// string  `json:"command"`
+				Remark :entity.Remark,//string   `json:"remark"`
+				Stop :entity.Stop,//bool       `json:"stop"`
+				CronId :0,//int64    `json:"cron_id"`
+			}
 		}
+
+
+
+
 		c.lock.Lock()
 		if c.running {
 			c.lock.Unlock()
@@ -77,6 +92,7 @@ func (c *CrontabController) OnCrontabChange(event int, entity *cron.CronEntity) 
 		} else {
 			c.lock.Unlock()
 		}
+
 		e.CronId, err = c.handler.AddJob(entity.CronSet, e)
 
 		c.lock.Lock()
