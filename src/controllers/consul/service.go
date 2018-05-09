@@ -15,29 +15,46 @@ type ConsulController struct {
 }
 
 func NewConsulController(ctx *app.Context) *ConsulController {
-	log.Debugf("new NewConsulController")
-	consulConfig := api.DefaultConfig()
+	consulConfig        := api.DefaultConfig()
 	consulConfig.Address = ctx.Config.ConsulAddress
-	client, err := api.NewClient(consulConfig)
+	client, err         := api.NewClient(consulConfig)
+
 	if err != nil {
 		log.Panicf("%v", err)
 	}
-	st := strings.Split(ctx.Config.BindAddress, ":")
-	host := st[0]
+
+	st        := strings.Split(ctx.Config.BindAddress, ":")
+	host      := st[0]
 	port, err := strconv.ParseInt(st[1], 10, 64)
+
 	if err != nil {
 		log.Panicf("%v", err)
 	}
-	c := &ConsulController{}
+
+	c       := &ConsulController{}
+	session := consul.NewSession(client.Session(), 0)
+	kv      := client.KV()
+	lock    := consul.NewLock(session, kv, ctx.Config.LockKey)
+
 	c.service = consul.NewService(
 		client,
+		session,
+		kv,
 		ctx.Config.ServiceName,
 		host,
 		int(port),
-		consul.SetLockKey(ctx.Config.LockKey),
+		consul.SetLockKey(lock),
 		consul.SetOnLeader(c.OnLeader),
 	)
+
 	//select a leader
+	watch := consul.NewWatch(client, ctx.Config.ServiceName,host, int(port), consul.SetServiceChange(func() {
+		log.Infof("#################### reselect a new leader #######################")
+		lock.Unlock()
+		lock.Delete()
+		c.service.SelectLeader()
+	}))
+	go watch.Start()
 	return c
 }
 
