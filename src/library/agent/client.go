@@ -63,14 +63,14 @@ func (tcp *AgentClient) keepalive() {
 	for {
 		select {
 			case <-tcp.ctx.Done():
+				log.Debugf("keepalive exit 1")
 				return
 			default:
 		}
 		tcp.statusLock.Lock()
-		if tcp.conn == nil ||
-			tcp.status & agentStatusConnect <= 0 ||
-			tcp.status & agentStatusOnline <= 0 {
+		if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
 			tcp.statusLock.Unlock()
+			log.Infof("keepalive continue")
 			time.Sleep(3 * time.Second)
 			continue
 		}
@@ -78,12 +78,17 @@ func (tcp *AgentClient) keepalive() {
 		n, err := tcp.conn.Write(data)
 		if err != nil {
 			log.Errorf("[agent - client] agent keepalive error: %d, %v", n, err)
+			tcp.statusLock.Lock()
 			tcp.disconnect()
+			tcp.statusLock.Unlock()
 		} else if n != dl {
 			log.Errorf("[agent - client] %s send not complete", tcp.conn.RemoteAddr().String())
 		}
+		log.Infof("client keepalive")
 		time.Sleep(3 * time.Second)
 	}
+	log.Debugf("keepalive exit 2")
+
 }
 
 func (tcp *AgentClient) OnLeader(leader bool) {
@@ -100,20 +105,23 @@ func (tcp *AgentClient) OnLeader(leader bool) {
 			}
 			break
 		}
-		if leader {
-			// 断开client到 agent server的连接
-			tcp.stop()
-		} else {
+		log.Infof("leader %v:%v", ip, port)
+		//if leader {
+		//	// 断开client到 agent server的连接
+		//	tcp.stop()
+		//} else {
 			// 查询leader的 服务
 			// 连接到agent server (leader)
 			tcp.start(ip, port)
-		}
+		//}
 	}()
 }
 
 func (tcp *AgentClient) connect(ip string, port int) {
 	if tcp.conn != nil {
+		tcp.statusLock.Lock()
 		tcp.disconnect()
+		tcp.statusLock.Unlock()
 	}
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
@@ -131,8 +139,8 @@ func (tcp *AgentClient) connect(ip string, port int) {
 }
 
 func (tcp *AgentClient) start(serviceIp string, port int) {
-	agentH := PackPro(FlagAgent, []byte(""))
-	hl := len(agentH)
+	//agentH := PackPro(FlagAgent, []byte(""))
+	//hl := len(agentH)
 	var readBuffer [tcpDefaultReadBufferSize]byte
 	go func() {
 		if serviceIp == "" || port == 0 {
@@ -145,9 +153,6 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 			tcp.statusLock.Unlock()
 			return
 		}
-		if tcp.status & agentStatusOnline <= 0 {
-			tcp.status |= agentStatusOnline
-		}
 		tcp.statusLock.Unlock()
 
 		for {
@@ -157,20 +162,21 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 				default:
 			}
 
-			tcp.statusLock.Lock()
-			if tcp.status & agentStatusOnline <= 0 {
-				tcp.statusLock.Unlock()
-				log.Warnf("agentStatusOffline return")
-				return
-			}
-			tcp.statusLock.Unlock()
-
 			tcp.connect(serviceIp, port)
 			if tcp.conn == nil {
 				time.Sleep(time.Second * 3)
+				// if connect error, try to get leader agein
+				for {
+					serviceIp, port, _ = tcp.getLeader()
+					if serviceIp == "" || port <= 0 {
+						log.Warnf("ip or port empty: %v, %v, wait for init", serviceIp, port)
+						time.Sleep(time.Second * 1)
+						continue
+					}
+					break
+				}
 				continue
 			}
-
 			tcp.statusLock.Lock()
 			if tcp.status & agentStatusConnect <= 0 {
 				tcp.status |= agentStatusConnect
@@ -178,32 +184,17 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 			tcp.statusLock.Unlock()
 
 			log.Debugf("====================agent start %s:%d====================", serviceIp, port)
-			// 简单的握手
-			n, err := tcp.conn.Write(agentH)
-			if err != nil {
-				log.Warnf("write agent header data with error: %d, err", n, err)
-				tcp.disconnect()
-				continue
-			}
-			if n != hl {
-				log.Errorf("%s tcp send not complete", tcp.conn.RemoteAddr().String())
-			}
-			for {
-				log.Debugf("====agent is running====")
 
-				tcp.statusLock.Lock()
-				if tcp.status & agentStatusOnline <= 0 {
-					tcp.statusLock.Unlock()
-					log.Warnf("agentStatusOffline return - 2===%d:%d", tcp.status, tcp.status & agentStatusOnline)
-					return
-				}
-				tcp.statusLock.Unlock()
+			for {
+				//log.Debugf("====agent is running====")
 
 				size, err := tcp.conn.Read(readBuffer[0:])
 				//log.Debugf("read buffer len: %d, cap:%d", len(readBuffer), cap(readBuffer))
 				if err != nil || size <= 0 {
 					log.Warnf("agent read with error: %+v", err)
+					tcp.statusLock.Lock()
 					tcp.disconnect()
+					tcp.statusLock.Unlock()
 					break
 				}
 				//log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
@@ -235,6 +226,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			return
 		}
 		if bufferLen < 4 + contentLen {
+			log.Errorf("content len error")
 			return
 		}
 		dataB := tcp.buffer[6:4 + contentLen]
@@ -266,39 +258,15 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 }
 
 func (tcp *AgentClient) disconnect() {
-	tcp.statusLock.Lock()
 	if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
-		tcp.statusLock.Unlock()
 		log.Debugf("agent is in disconnect status")
 		return
 	}
-	tcp.statusLock.Unlock()
 	log.Warnf("====================agent disconnect====================")
 	tcp.conn.Close()
-
-	tcp.statusLock.Lock()
+	tcp.conn = nil
 	if tcp.status & agentStatusConnect > 0 {
 		tcp.status ^= agentStatusConnect
 	}
-	tcp.statusLock.Unlock()
 }
-
-func (tcp *AgentClient) stop() {
-	tcp.statusLock.Lock()
-	if tcp.status & agentStatusOnline <= 0 {
-		tcp.statusLock.Unlock()
-		return
-	}
-	tcp.statusLock.Unlock()
-	log.Warnf("====================agent close====================")
-	tcp.disconnect()
-
-	tcp.statusLock.Lock()
-	if tcp.status & agentStatusOnline > 0 {
-		tcp.status ^= agentStatusOnline
-	}
-	tcp.statusLock.Unlock()
-}
-
-
 

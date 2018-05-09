@@ -23,26 +23,26 @@ type ConsulWatcher struct {
 	target string
 	health *consul.Health
 	// leader change callback
-	onChange []onchangeFunc
+	onChange []OnchangeFunc
 	serviceIp string
 	port int
 	// unlock api, come form service.go(Unlock)
-	unlock unlockFunc
+	//unlock unlockFunc
 }
 
-type unlockFunc func() (bool, error)
-type watchOption func(w *ConsulWatcher)
-type onchangeFunc func()//ip string, port int, isLeader bool)
+//type unlockFunc func() (bool, error)
+type WatchOption func(w *ConsulWatcher)
+type OnchangeFunc func()//ip string, port int, isLeader bool)
 
 // watch service change
-func newWatch(
+func NewWatch(
 	cc *consul.Client,
 	serviceName string,
-	health *consul.Health,
 	serviceIp string,
 	port int,
-	opts ...watchOption,
+	opts ...WatchOption,
 ) *ConsulWatcher {
+	health := cc.Health()//*consul.Health,
 	w := &ConsulWatcher{
 		cc: cc,
 		target: serviceName,
@@ -57,21 +57,21 @@ func newWatch(
 }
 
 // on service change callback
-func onWatch(f onchangeFunc) watchOption {
+func SetServiceChange(f OnchangeFunc) WatchOption {
 	return func(w *ConsulWatcher) {
 		w.onChange = append(w.onChange, f)
 	}
 }
 
 // unlock callback
-func unlock(f unlockFunc) watchOption {
-	return func(w *ConsulWatcher) {
-		w.unlock = f
-	}
-}
+//func unlock(f unlockFunc) WatchOption {
+//	return func(w *ConsulWatcher) {
+//		w.unlock = f
+//	}
+//}
 
 // watch service delete and change
-func (cw *ConsulWatcher) process() {
+func (cw *ConsulWatcher) Start() {
 	// Nil cw.addrs means it is initial called
 	// If get addrs, return to balancer
 	// If no addrs, need to watch consul
@@ -84,21 +84,10 @@ func (cw *ConsulWatcher) process() {
 			// got addrs, return
 			if len(addrs) > 0 {
 				cw.addrs = addrs
-				cw.li = li
+				cw.li    = li
 				//当前自己的服务已经注册成功
 				for _, a := range addrs {
 					log.Debugf("addr: %+v", *a)
-					// 这里是触发自身竞争leader
-					// 当程序启动后，会先注册服务
-					// 然后监听服务变化
-					// 首次加载触发自身竞争leader
-					if a.Service.Address == cw.serviceIp && a.Service.Port == cw.port {
-						log.Debugf("loaded, fired cw.onChange")
-						for _, f := range cw.onChange {
-							f()
-						}
-						break
-					}
 				}
 			}
 			continue
@@ -121,7 +110,6 @@ func (cw *ConsulWatcher) process() {
 			}
 			cw.dialDelete(addrs)
 			cw.dialChange(addrs)
-			//cw.dialAdd(addrs)
 
 			cw.addrs = addrs
 			cw.li = li
@@ -133,7 +121,7 @@ func (cw *ConsulWatcher) dialChange(addrs []*consul.ServiceEntry) {
 	changed := getChange(cw.addrs, addrs)
 	for _, u := range changed {
 		for {
-			log.Debugf("====>status change service: %+v", *u.Service)
+			log.Debugf("====>status change service: %+v,, %+v", *u.Service, u.Checks)
 			//u.Checks.AggregatedStatus()
 			// error data
 			if len(u.Service.Tags) <= 0 {
@@ -160,15 +148,15 @@ func (cw *ConsulWatcher) dialChange(addrs []*consul.ServiceEntry) {
 			}
 			log.Debugf("============>leader status changed, fired cw.onChange<====")
 			// try to unlock
-			for i := 0; i < 3; i++ {
-				s, err := cw.unlock()
-				if s {
-					break
-				}
-				if err != nil {
-					log.Errorf("unlock error: %+v", err)
-				}
-			}
+			//for i := 0; i < 3; i++ {
+			//	s, err := cw.unlock()
+			//	if s {
+			//		break
+			//	}
+			//	if err != nil {
+			//		log.Errorf("unlock error: %+v", err)
+			//	}
+			//}
 			for _, f := range cw.onChange {
 				f()
 			}
@@ -202,15 +190,15 @@ func (cw *ConsulWatcher) dialDelete(addrs []*consul.ServiceEntry) {
 				break
 			}
 			// try to unlock
-			for i := 0; i < 3; i++ {
-				s, err := cw.unlock()
-				if s {
-					break
-				}
-				if err != nil {
-					log.Errorf("unlock error: %+v", err)
-				}
-			}
+			//for i := 0; i < 3; i++ {
+			//	s, err := cw.unlock()
+			//	if s {
+			//		break
+			//	}
+			//	if err != nil {
+			//		log.Errorf("unlock error: %+v", err)
+			//	}
+			//}
 			log.Debugf("============>leader is deleted,fired cw.onChange<====")
 			for _, f := range cw.onChange {
 				f()
@@ -255,7 +243,7 @@ func getChange(a, b []*consul.ServiceEntry) ([]*consul.ServiceEntry) {
 			if va.Service.ID == vb.Service.ID && va.Checks.AggregatedStatus() != vb.Checks.AggregatedStatus() {
 				// 如果已存在，对比一下状态是否已发生改变
 				// 如果已经改变追加到d里面返回
-				log.Debugf("status change: %+v", )
+				log.Debugf("status change: %v!=%v", va.Checks.AggregatedStatus() , vb.Checks.AggregatedStatus())
 				// 如果已存在，对比一下状态是否已发生改变
 				// 如果已经改变追加到d里面返回
 				//statusChange = true

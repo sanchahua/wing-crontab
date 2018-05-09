@@ -28,7 +28,7 @@ func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *tcpClient
 	for _, f := range opts {
 		f(node)
 	}
-	node.setReadDeadline(time.Now().Add(time.Second * 3))
+	//node.setReadDeadline(time.Now().Add(time.Second * 3))
 	return node
 }
 
