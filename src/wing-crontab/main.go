@@ -25,8 +25,9 @@ func main() {
 	crontabController.Start()
 	defer crontabController.Stop()
 
-	agentController := agent.NewAgentController(ctx, consulControl.GetLeader, func(event int, data interface{}) {
-		crontabController.OnCrontabChange(event, data.(*cron.CronEntity))
+	agentController := agent.NewAgentController(ctx, consulControl.GetLeader, func(event int, data *cron.CronEntity) {
+		log.Infof("===========%+v", data)
+		crontabController.OnCrontabChange(event, data)
 	})
 	agentController.Start()
 	defer agentController.Close()
