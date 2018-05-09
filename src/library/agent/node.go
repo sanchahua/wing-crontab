@@ -10,8 +10,6 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/binary"
-	//"models/cron"
-	"models/cron"
 )
 
 type tcpClientNode struct {
@@ -29,7 +27,7 @@ type tcpClientNode struct {
 	onevents []OnNodeEventFunc
 }
 
-type OnNodeEventFunc func(event int, data *cron.CronEntity)
+type OnNodeEventFunc func(event int, data []byte)
 
 func SetOnNodeEvent(f ...OnNodeEventFunc) NodeOption {
 	return func(n *tcpClientNode) {
@@ -178,15 +176,9 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 				log.Errorf("%+v", err)
 			} else {
 				event := binary.LittleEndian.Uint32(data.Data[:4])
-				var e cron.CronEntity
-				err = json.Unmarshal(data.Data[4:], &e)
-				if err != nil {
-					log.Errorf("%+v", err)
-				} else {
-					go node.eventFired(int(event), &e)
-					log.Infof("receive event[%v] %+v", event, e)
-					node.asyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
-				}
+				go node.eventFired(int(event), data.Data[4:])
+				log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
+				node.asyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
 			}
 		default:
 			node.asyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
@@ -197,7 +189,7 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 	}
 }
 
-func (node *tcpClientNode) eventFired(event int, data *cron.CronEntity) {
+func (node *tcpClientNode) eventFired(event int, data []byte) {
 	for _, f := range node.onevents {
 		f(event, data)
 	}
