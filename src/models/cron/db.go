@@ -73,9 +73,8 @@ func (db *DbCron) Add(cronSet, command string, remark string, stop bool) (*CronE
 	if stop {
 		iStop = 1
 	}
-	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`) " +
-		"VALUES (?,?,?,?,?,?)"
-	res, err := db.handler.Exec(sqlStr,cronSet, command, iStop, remark)
+	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`) VALUES (?,?,?,?)"
+	res, err := db.handler.Exec(sqlStr, cronSet, command, iStop, remark)
 	if err != nil {
 		log.Errorf("新增定时任务错误：%+v", err)
 		return nil, err

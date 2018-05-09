@@ -24,8 +24,8 @@ type Context struct {
 func NewContext() *Context {
 	config, _ := getAppConfig()
 	ctx := &Context{
-		cancelChan:make(chan struct{}),
-		Config:config,
+		cancelChan: make(chan struct{}),
+		Config:     config,
 	}
 	ctx.Ctx, ctx.Cancel = context.WithCancel(context.Background())
 	go ctx.signalHandler()

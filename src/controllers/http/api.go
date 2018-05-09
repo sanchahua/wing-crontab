@@ -33,6 +33,7 @@ import (
 type HttpServer struct {
 	cron cron.ICron
 	server *http.HttpServer
+	db *sql.DB
 }
 
 func NewHttpController(ctx *app.Context) *HttpServer {
@@ -55,11 +56,8 @@ func NewHttpController(ctx *app.Context) *HttpServer {
 	handler.SetMaxIdleConns(8)
 	//设置最大允许打开的连接
 	handler.SetMaxOpenConns(8)
-
-	//db := model.NewCron(handler)
-
 	cr := cron.NewCron(handler)
-	h := &HttpServer{cron:cr}
+	h  := &HttpServer{cron:cr, db:handler}
 	h.server = http.NewHttpServer(
 		ctx.Config.HttpBindAddress,
 		http.SetRoute("GET",  "/cron/list",        h.list),
@@ -80,6 +78,7 @@ func (server *HttpServer) Start() {
 
 func (server *HttpServer) Close() {
 	server.server.Close()
+	server.db.Close()
 }
 
 //http://localhost:9990/cron/list
