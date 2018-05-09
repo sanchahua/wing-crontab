@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/binary"
 	//"models/cron"
+	"models/cron"
 )
 
 type tcpClientNode struct {
@@ -28,7 +29,7 @@ type tcpClientNode struct {
 	onevents []OnNodeEventFunc
 }
 
-type OnNodeEventFunc func(event int, data interface{})
+type OnNodeEventFunc func(event int, data *cron.CronEntity)
 
 func SetOnNodeEvent(f ...OnNodeEventFunc) NodeOption {
 	return func(n *tcpClientNode) {
@@ -177,12 +178,12 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 				log.Errorf("%+v", err)
 			} else {
 				event := binary.LittleEndian.Uint32(data.Data[:4])
-				var e interface{}//cron.CronEntity
+				var e cron.CronEntity
 				err = json.Unmarshal(data.Data[4:], &e)
 				if err != nil {
 					log.Errorf("%+v", err)
 				} else {
-					go node.eventFired(int(event), e)
+					go node.eventFired(int(event), &e)
 					log.Infof("receive event[%v] %+v", event, e)
 					node.asyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
 				}
@@ -196,7 +197,7 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 	}
 }
 
-func (node *tcpClientNode) eventFired(event int, data interface{}) {
+func (node *tcpClientNode) eventFired(event int, data *cron.CronEntity) {
 	for _, f := range node.onevents {
 		f(event, data)
 	}
