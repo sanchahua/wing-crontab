@@ -21,6 +21,7 @@ const (
 	CMD_RELOAD
 	CMD_SHOW_MEMBERS
 	CMD_POS
+	CMD_CRONTAB_CHANGE
 )
 
 const (

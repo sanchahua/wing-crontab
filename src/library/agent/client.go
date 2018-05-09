@@ -9,6 +9,7 @@ import (
 	"sync"
 	"context"
 	"library/crontab"
+	wstring "library/string"
 )
 
 type AgentClient struct {
@@ -19,6 +20,8 @@ type AgentClient struct {
 	statusLock *sync.Mutex
 	status int
 	getLeader GetLeaferFunc
+	sendQueue map[string]*SendData
+	sendQueueLock *sync.Mutex
 }
 
 type GetLeaferFunc     func()(string, int, error)
@@ -37,6 +40,33 @@ func SetOnEvent(f OnEventFunc) AgentClientOption {
 	}
 }
 
+type SendData struct {
+	Unique string `json:"unique"`
+	Data []byte `json:"data"`
+	Status int `json:"status"`
+	Time int64 `json:"time"`
+	SendTimes int `json:"send_times"`
+}
+
+func newSendData(data []byte) *SendData {
+	return &SendData{
+		Unique:wstring.RandString(128),
+		Data: data,
+		Status: 0,
+		Time: 0,
+		SendTimes:0,
+	}
+
+}
+
+func (d *SendData) encode() []byte {
+	b, e := json.Marshal(d)
+	if e != nil {
+		return nil
+	}
+	return b
+}
+
 // client 用来接收 agent server 分发的定时任务事件
 // 接收到事件后执行指定的定时任务
 // onleader 触发后，如果是leader，client停止
@@ -49,12 +79,77 @@ func NewAgentClient(ctx context.Context, opts ...AgentClientOption) *AgentClient
 		conn:       nil,
 		statusLock: new(sync.Mutex),
 		status:     0,
+		sendQueue:  make(map[string]*SendData),
+		sendQueueLock:new(sync.Mutex),
 	}
 	for _, f := range opts {
 		f(c)
 	}
 	go c.keepalive()
+	go c.sendService()
 	return c
+}
+
+// must send success
+func (tcp *AgentClient) Send(data []byte) {
+	d := newSendData(data)
+	tcp.sendQueueLock.Lock()
+	tcp.sendQueue[d.Unique] = d
+	tcp.sendQueueLock.Unlock()
+}
+
+func (tcp *AgentClient) sendService() {
+	for {
+		select {
+			case <-tcp.ctx.Done():
+				log.Debugf("keepalive exit 1")
+				return
+			default:
+		}
+		tcp.statusLock.Lock()
+		if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
+			tcp.statusLock.Unlock()
+			//log.Infof("keepalive continue")
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		tcp.statusLock.Unlock()
+
+		tcp.sendQueueLock.Lock()
+		for _, d := range tcp.sendQueue {
+			// status > 0 is sending
+			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 3 {
+				continue
+			}
+			log.Infof("try to send %+v", *d)
+			d.Status = 1
+			d.SendTimes++
+
+			if d.SendTimes >= 36 {
+				delete(tcp.sendQueue, d.Unique)
+				log.Warnf("send timeout(6s), delete %+v", *d)
+				continue
+			}
+			d.Time   = time.Now().Unix()
+			sd      := d.encode()
+			log.Infof("try to send %+v", sd)
+
+			data    := Pack(CMD_CRONTAB_CHANGE, sd)
+			dl      := len(data)
+			n, err  := tcp.conn.Write(data)
+
+			if err != nil {
+				log.Errorf("[agent - client] agent keepalive error: %d, %v", n, err)
+				tcp.statusLock.Lock()
+				tcp.disconnect()
+				tcp.statusLock.Unlock()
+			} else if n != dl {
+				log.Errorf("[agent - client] %s send not complete", tcp.conn.RemoteAddr().String())
+			}
+		}
+		tcp.sendQueueLock.Unlock()
+		time.Sleep(time.Second * 1)
+	}
 }
 
 func (tcp *AgentClient) keepalive() {
@@ -70,7 +165,7 @@ func (tcp *AgentClient) keepalive() {
 		tcp.statusLock.Lock()
 		if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
 			tcp.statusLock.Unlock()
-			log.Infof("keepalive continue")
+			//log.Infof("keepalive continue")
 			time.Sleep(3 * time.Second)
 			continue
 		}
@@ -84,16 +179,15 @@ func (tcp *AgentClient) keepalive() {
 		} else if n != dl {
 			log.Errorf("[agent - client] %s send not complete", tcp.conn.RemoteAddr().String())
 		}
-		log.Infof("client keepalive")
+		//log.Infof("client keepalive")
 		time.Sleep(3 * time.Second)
 	}
 	log.Debugf("keepalive exit 2")
-
 }
 
 func (tcp *AgentClient) OnLeader(leader bool) {
 	go func() {
-		log.Debugf("==============AgentClient OnLeader %v===============", leader)
+		log.Debugf("==============agent client OnLeader %v===============", leader)
 		var ip string
 		var port int
 		for {
@@ -106,14 +200,7 @@ func (tcp *AgentClient) OnLeader(leader bool) {
 			break
 		}
 		log.Infof("leader %v:%v", ip, port)
-		//if leader {
-		//	// 断开client到 agent server的连接
-		//	tcp.stop()
-		//} else {
-			// 查询leader的 服务
-			// 连接到agent server (leader)
-			tcp.start(ip, port)
-		//}
+		tcp.start(ip, port)
 	}()
 }
 
@@ -183,11 +270,13 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 			}
 			tcp.statusLock.Unlock()
 
-			log.Debugf("====================agent start %s:%d====================", serviceIp, port)
+			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
 
 			for {
-				//log.Debugf("====agent is running====")
-
+				if tcp.conn == nil {
+					log.Errorf("============================tcp conn nil")
+					break
+				}
 				size, err := tcp.conn.Read(readBuffer[0:])
 				//log.Debugf("read buffer len: %d, cap:%d", len(readBuffer), cap(readBuffer))
 				if err != nil || size <= 0 {
@@ -197,7 +286,7 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					tcp.statusLock.Unlock()
 					break
 				}
-				//log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
+				log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
 				tcp.onMessage(readBuffer[:size])
 				select {
 				case <-tcp.ctx.Done():
@@ -220,6 +309,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		contentLen := int(tcp.buffer[0]) | int(tcp.buffer[1]) << 8 | int(tcp.buffer[2]) << 16 | int(tcp.buffer[3]) << 24
 		//2字节 command
 		cmd := int(tcp.buffer[4]) | int(tcp.buffer[5]) << 8
+		log.Debugf("cmd==%v", cmd)
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists: %v, %s", cmd, tcp.buffer, string(tcp.buffer))
 			tcp.buffer = make([]byte, 0)
@@ -245,6 +335,12 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			}
 		case CMD_TICK:
 			//log.Debugf("keepalive: %s", string(dataB))
+		case CMD_CRONTAB_CHANGE:
+			unique := string(dataB)
+			log.Infof("%v send ok, delete from send queue", unique)
+			tcp.sendQueueLock.Lock()
+			delete(tcp.sendQueue, unique)
+			tcp.sendQueueLock.Unlock()
 		default:
 			//tcp.sendRaw(pack(cmd, msg))
 			//log.Debugf("does not support")

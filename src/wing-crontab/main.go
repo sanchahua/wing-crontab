@@ -7,6 +7,9 @@ import (
 	"controllers/http"
 	log "github.com/sirupsen/logrus"
 	"controllers/agent"
+	"models/cron"
+	"encoding/binary"
+	"encoding/json"
 )
 
 func main() {
@@ -24,7 +27,16 @@ func main() {
 	consul.SetOnleader(agentController.OnLeader)(consulControl)
 	consulControl.Start()
 
-	httpController := http.NewHttpController(ctx)
+	httpController := http.NewHttpController(ctx, http.SetHook(func(event int, row *cron.CronEntity) {
+		var e = make([]byte, 4)
+		binary.LittleEndian.PutUint32(e, uint32(event))
+		data, err := json.Marshal(row)
+		if err != nil {
+			return
+		}
+		e = append(e, data...)
+		agentController.SendToLeader(e)
+	}))
 	httpController.Start()
 	defer httpController.Close()
 

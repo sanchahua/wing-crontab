@@ -27,6 +27,10 @@ func NewAgentController(
 	return c
 }
 
+func (c *AgentController) SendToLeader(data []byte) {
+	c.client.Send(data)
+}
+
 func (c *AgentController) OnLeader(isLeader bool) {
 	c.client.OnLeader(isLeader)
 }
