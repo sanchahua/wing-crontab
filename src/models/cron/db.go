@@ -53,7 +53,7 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 
 // 根据指定id查询行
 func (db *DbCron) Get(rid int64) (*CronEntity, error) {
-	sqlStr := "select * from cron where id=?"
+	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark` from cron where id=?"
 	data := db.handler.QueryRow(sqlStr, rid)
 	var (
 		row CronEntity
