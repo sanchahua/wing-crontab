@@ -13,10 +13,12 @@ type AgentController struct {
 func NewAgentController(
 	ctx *app.Context,
 	getleader agent.GetLeaferFunc,
-	//onevent agent.OnEventFunc,
+	onevent ...agent.OnNodeEventFunc,
 ) *AgentController {
 	c := &AgentController{}
-	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress)
+	server := agent.NewAgentServer(ctx.Context(),
+		ctx.Config.BindAddress,
+		agent.SetEventCallback(onevent...))
 	client := agent.NewAgentClient(
 		ctx.Context(),
 		agent.SetGetLeafer(getleader),

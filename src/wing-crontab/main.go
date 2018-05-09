@@ -5,6 +5,7 @@ import (
 	"library/path"
 	"controllers/consul"
 	"controllers/http"
+	"controllers/crontab"
 	log "github.com/sirupsen/logrus"
 	"controllers/agent"
 	"models/cron"
@@ -19,8 +20,14 @@ func main() {
 	ctx := app.NewContext()
 	consulControl := consul.NewConsulController(ctx)
 	defer consulControl.Close()
-	//
-	agentController := agent.NewAgentController(ctx, consulControl.GetLeader)
+
+	crontabController := crontab.NewCrontabController()
+	crontabController.Start()
+	defer crontabController.Stop()
+
+	agentController := agent.NewAgentController(ctx, consulControl.GetLeader, func(event int, data interface{}) {
+		crontabController.OnCrontabChange(event, data.(*cron.CronEntity))
+	})
 	agentController.Start()
 	defer agentController.Close()
 

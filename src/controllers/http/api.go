@@ -36,13 +36,7 @@ type HttpServer struct {
 	db *sql.DB
 	hooks []ChangeHook
 }
-const (
-	EVENT_STOP   = 1
-	EVENT_START  = 2
-	EVENT_UPDATE = 3
-	EVENT_ADD    = 4
-	EVENT_DELETE = 5
-)
+
 type ChangeHook func(event int, row *cron.CronEntity)
 type HttpControllerOption func(http *HttpServer)
 func SetHook(f ChangeHook) HttpControllerOption {
@@ -133,7 +127,7 @@ func (server *HttpServer) stop(request *restful.Request, w *restful.Response) {
 	// 更新db记录
 	row, err := server.cron.Stop(id)
 	if err == nil {
-		server.firedHooks(EVENT_STOP, row)
+		server.firedHooks(cron.EVENT_STOP, row)
 	}
 	log.Debugf("成功停止%d", id)
 	out, _ := output(200, "ok", row)
@@ -147,7 +141,7 @@ func (server *HttpServer) start(request *restful.Request, w *restful.Response)  
 	// 更新db记录
 	row, err := server.cron.Start(id)
 	if err == nil {
-		server.firedHooks(EVENT_START, row)
+		server.firedHooks(cron.EVENT_START, row)
 	}
 	log.Debugf("成功开始%d", id)
 	out, _ := output(200, "ok", row)
@@ -171,7 +165,7 @@ func (server *HttpServer) delete(request *restful.Request, w *restful.Response) 
 		w.Write(out)
 	}
 	if err == nil {
-		server.firedHooks(EVENT_DELETE, row)
+		server.firedHooks(cron.EVENT_DELETE, row)
 	}
 }
 
@@ -201,7 +195,7 @@ func (server *HttpServer) update(request *restful.Request, w *restful.Response) 
 	out, _ := output(200, "ok", row)
 	w.Write(out)
 	if err == nil {
-		server.firedHooks(EVENT_UPDATE, row)
+		server.firedHooks(cron.EVENT_UPDATE, row)
 	}
 }
 
@@ -229,7 +223,7 @@ func (server *HttpServer) add(request *restful.Request, w *restful.Response) {
 	out, _ := output(200, httpErrors[200], row)
 	w.Write(out)
 	if err == nil {
-		server.firedHooks(EVENT_ADD, row)
+		server.firedHooks(cron.EVENT_ADD, row)
 	}
 }
 
