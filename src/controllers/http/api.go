@@ -105,7 +105,7 @@ func (server *HttpServer) firedHooks(event int, row *cron.CronEntity) {
 //http://localhost:9990/cron/list
 func (server *HttpServer) list(request *restful.Request, w *restful.Response) {
 	list, err := server.cron.GetList()
-	if err == nil {
+	if err != nil {
 		data, _ := output(200, httpErrors[200], err)
 		w.Write(data)
 		return
