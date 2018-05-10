@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"time"
+	"controllers/models"
 )
 
 func main() {
@@ -37,9 +38,13 @@ func main() {
 	agentController.Start()
 	defer agentController.Close()
 
+	logController := models.NewLogController(ctx)
+	defer logController.Close()
+
 	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
 	crontab.SetOnRun(func(id int64, runServer string, output []byte, useTime time.Duration) {
 		log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
+		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), runServer)
 	})(crontabController)
 	crontabController.Start()
 	defer crontabController.Stop()
