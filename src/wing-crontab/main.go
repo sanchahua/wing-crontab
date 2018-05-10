@@ -13,6 +13,8 @@ import (
 	"encoding/json"
 	"time"
 	"controllers/models"
+	"database/sql"
+	"fmt"
 )
 
 func main() {
@@ -20,8 +22,36 @@ func main() {
 	defer app.Release()
 
 	ctx := app.NewContext()
+	var err error
+
+	// init database
+	var handler *sql.DB
+	{
+		dataSource := fmt.Sprintf(
+			"%s:%s@tcp(%s:%d)/%s?charset=%s",
+			ctx.Config.MysqlUser,
+			ctx.Config.MysqlPassword,
+			ctx.Config.MysqlHost,
+			ctx.Config.MysqlPort,
+			ctx.Config.MysqlDatabase,
+			ctx.Config.MysqlCharset,
+		)
+		handler, err = sql.Open("mysql", dataSource)
+		if err != nil {
+			log.Panicf("链接数据库错误：%+v", err)
+		}
+		//设置最大空闲连接数
+		handler.SetMaxIdleConns(8)
+		//设置最大允许打开的连接
+		handler.SetMaxOpenConns(8)
+		defer handler.Close()
+	}
+
 	consulControl := consul.NewConsulController(ctx)
 	defer consulControl.Close()
+
+	cronController := models.NewCronController(ctx, handler)
+	defer cronController.Close()
 
 	crontabController := crontab.NewCrontabController()
 
@@ -33,12 +63,12 @@ func main() {
 			log.Errorf("%+v", err)
 			return
 		}
-		crontabController.OnCrontabChange(event, &e)
+		crontabController.Add(event, &e)
 	}, crontabController.RunCommand)
 	agentController.Start()
 	defer agentController.Close()
 
-	logController := models.NewLogController(ctx)
+	logController := models.NewLogController(ctx, handler)
 	defer logController.Close()
 
 	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
@@ -50,9 +80,23 @@ func main() {
 	defer crontabController.Stop()
 
 	consul.SetOnleader(agentController.OnLeader)(consulControl)
+	consul.SetOnleader(func(isLeader bool) {
+		if !isLeader {
+			return
+		}
+		list, err := cronController.GetList()
+		if err != nil {
+			log.Errorf("%+v", err)
+			return
+		}
+		log.Debugf("==============init crontab list==============")
+		for _, e := range list  {
+			crontabController.Add(cron.EVENT_ADD, e)
+		}
+	})(consulControl)
 	consulControl.Start()
 
-	httpController := http.NewHttpController(ctx, http.SetHook(func(event int, row *cron.CronEntity) {
+	httpController := http.NewHttpController(ctx, cronController, http.SetHook(func(event int, row *cron.CronEntity) {
 		var e = make([]byte, 4)
 		binary.LittleEndian.PutUint32(e, uint32(event))
 		data, err := json.Marshal(row)
