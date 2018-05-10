@@ -30,7 +30,19 @@ func TestNewLogController(t *testing.T) {
 		t.Errorf("Get error: %+v", err)
 	}
 
-	list, num, err := con.GetList(0, "", "", 0, 0)
+	list, num, err := con.GetList(0, "", "123", 0, 0)
+	log.Info(list, num, err)
+	if err != nil || list == nil || num <= 0 {
+		t.Errorf("GetList search error 2: %+v", err)
+	}
+
+	list, num, err = con.GetList(0, "ello", "", 0, 0)
+	log.Info(list, num, err)
+	if err != nil || list == nil || num <= 0 {
+		t.Errorf("GetList search error 1: %+v", err)
+	}
+
+	list, num, err = con.GetList(0, "", "", 0, 0)
 	if err != nil || list == nil || num <= 0 {
 		t.Errorf("GetList error: %+v", err)
 	}
@@ -40,29 +52,27 @@ func TestNewLogController(t *testing.T) {
 		t.Errorf("GetList error: %+v", err)
 	}
 
-	list, num, err = con.GetList(0, "ello", "", 0, 0)
+	list, num, err = con.GetList(96, "", "", 0, 9999999)
 	if err != nil || list == nil || num <= 0 {
-		t.Errorf("GetList search error 1: %+v", err)
+		t.Errorf("GetList error: %+v", err)
 	}
 
-	list, num, err = con.GetList(0, "", "123", 0, 0)
-	if err != nil || list == nil || num <= 0 {
-		t.Errorf("GetList search error 2: %+v", err)
-	}
 
-	e, err = con.Delete(e.Id)
-	if err != nil || e == nil || e.Id <= 0 {
-		t.Errorf("Delete error: %+v", err)
-	}
+	
 
-	// not after does not exists, if err == nil should be error
-	e, err = con.Get(e.Id)
-	if err == nil {
-		t.Errorf("Get -- after delete error: %+v", err)
-	}
+		e, err = con.Delete(e.Id)
+		if err != nil || e == nil || e.Id <= 0 {
+			t.Errorf("Delete error: %+v", err)
+		}
 
-	list, err = con.DeleteFormCronId(96)
-	if err != nil || list == nil {
-		t.Errorf("DeleteFormCronId search error: %+v", err)
-	}
+		// not after does not exists, if err == nil should be error
+		e, err = con.Get(e.Id)
+		if err == nil {
+			t.Errorf("Get -- after delete error: %+v", err)
+		}
+
+		list, err = con.DeleteFormCronId(96)
+		if err != nil || list == nil {
+			t.Errorf("DeleteFormCronId search error: %+v", err)
+		}
 }

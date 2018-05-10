@@ -21,7 +21,7 @@ func newDbLog(handler *sql.DB) ILog {
 // 获取所有的定时任务列表
 func (db *DbLog) GetList(cronId int64, search string, runServer string, page int64, limit int64) ([]*LogEntity, int64, error) {
 	sqlStr  := "select `id`, `cron_id`, `time`, `output`, `use_time`, `run_server`  from log where 1 "
-	sqlStr2 := "select count(id) as num  from log where 1 "
+	sqlStr2 := "select count(*) as num  from log where 1 "
 	var params []interface{}
 	var params2 []interface{}
 	if cronId > 0 {
@@ -33,11 +33,11 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 	}
 	search = strings.Trim(search, " ")
 	if search != "" {
-		params = append(params, search)
-		params2 = append(params2, search)
+		params = append(params, "%"+search+"%")
+		params2 = append(params2, "%"+search+"%")
 
-		sqlStr  += " and output like concat('%',?,'%')"
-		sqlStr2 += " and output like concat('%',?,'%')"
+		sqlStr  += " and output like ?"
+		sqlStr2 += " and output like ?"
 	}
 	runServer = strings.Trim(runServer, " ")
 	if runServer != "" {
@@ -50,7 +50,6 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 
 	sqlStr += " limit ?,?"
 
-	log.Debugf("\n%+v\n%v\n%+v\n%+v", sqlStr, sqlStr2, params, params2)
 
 	if page < 1 {
 		page = 1
@@ -61,22 +60,21 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 	params = append(params, page)
 	params = append(params, limit)
 
+	log.Debugf("\n%+v\n%v\n%+v\n%+v", sqlStr, sqlStr2, params, params2)
 
-	rows, err  := db.handler.Query(sqlStr, params...)
+	stmtOut, err := db.handler.Prepare(sqlStr)
+	if err != nil {
+		log.Error(err)
+		return nil, 0, err
+	}
+	defer stmtOut.Close()
 
+	rows, err  := stmtOut.Query(params...)
 	if nil != err || rows == nil {
 		log.Errorf("查询数据库错误：%+v", err)
 		return nil, 0, err
 	}
 	defer rows.Close()
-
-	rows2, err := db.handler.Query(sqlStr2, params2...)
-	if nil != err || rows == nil {
-		log.Errorf("查询数据库错误：%+v", err)
-		return nil, 0, err
-	}
-	defer rows2.Close()
-
 	var records []*LogEntity
 	var (
 		id int64
@@ -87,7 +85,7 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 		run_server string
 	)
 	for rows.Next() {
-		//id`, `cron_id`, `time`, `output`, `use_time`, `run_server` 
+		//id`, `cron_id`, `time`, `output`, `use_time`, `run_server`
 		err = rows.Scan(&id, &cron_id, &Time, &output, &use_time, &run_server)
 		if err != nil {
 			log.Errorf("查询错误，sql=%s，error=%+v", sqlStr, err)
@@ -101,8 +99,22 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 			UseTime:   use_time,
 			RunServer: run_server,
 		}
+		//log.Infof("%+v", *row)
 		records = append(records, row)
 	}
+
+	stmtOut2, err := db.handler.Prepare(sqlStr2)
+	if err != nil {
+		log.Error(err)
+		return nil, 0, err
+	}
+	defer stmtOut2.Close()
+	rows2, err := stmtOut2.Query(params2...)
+	if nil != err || rows2 == nil {
+		log.Errorf("查询数据库错误：%+v", err)
+		return nil, 0, err
+	}
+	defer rows2.Close()
 
 	var num int64 = 0
 	for rows2.Next() {
