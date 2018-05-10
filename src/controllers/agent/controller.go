@@ -29,7 +29,7 @@ func NewAgentController(
 	client := agent.NewAgentClient(
 		ctx.Context(),
 		agent.SetGetLeafer(getleader),
-		agent.SetOncommand(func(id int64, command string) {
+		agent.SetOnCommand(func(id int64, command string) {
 			oncommand(id, command, ctx.Config.BindAddress)
 		}),
 	)

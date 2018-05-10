@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"sync"
 	"context"
-	"library/crontab"
 	wstring "library/string"
 	"encoding/binary"
 )
@@ -16,36 +15,28 @@ import (
 type AgentClient struct {
 	ctx context.Context
 	buffer  []byte
-	onEvent []OnEventFunc
 	conn     *net.TCPConn
 	statusLock *sync.Mutex
 	status int
 	getLeader GetLeaferFunc
 	sendQueue map[string]*SendData
 	sendQueueLock *sync.Mutex
-	oncommand OnCommandFunc
+	onCommand OnCommandFunc
 }
 
 type GetLeaferFunc     func()(string, int, error)
-type OnEventFunc       func(data *crontab.CrontabEntity) bool
-type AgentClientOption func(tcp *AgentClient)
+type ClientOption      func(tcp *AgentClient)
 type OnCommandFunc     func(id int64, command string)
 
-func SetGetLeafer(f GetLeaferFunc) AgentClientOption {
+func SetGetLeafer(f GetLeaferFunc) ClientOption {
 	return func(tcp *AgentClient) {
 		tcp.getLeader = f
 	}
 }
 
-func SetOncommand(f OnCommandFunc) AgentClientOption {
+func SetOnCommand(f OnCommandFunc) ClientOption {
 	return func(tcp *AgentClient) {
-		tcp.oncommand = f
-	}
-}
-
-func SetOnEvent(f OnEventFunc) AgentClientOption {
-	return func(tcp *AgentClient) {
-		tcp.onEvent = append(tcp.onEvent, f)
+		tcp.onCommand = f
 	}
 }
 
@@ -80,16 +71,15 @@ func (d *SendData) encode() []byte {
 // 接收到事件后执行指定的定时任务
 // onleader 触发后，如果是leader，client停止
 // 如果不是leader，client查询到leader的服务地址，连接到server
-func NewAgentClient(ctx context.Context, opts ...AgentClientOption) *AgentClient {
+func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 	c := &AgentClient{
-		ctx:        ctx,
-		buffer:     make([]byte, 0),
-		onEvent:    make([]OnEventFunc, 0),
-		conn:       nil,
-		statusLock: new(sync.Mutex),
-		status:     0,
-		sendQueue:  make(map[string]*SendData),
-		sendQueueLock:new(sync.Mutex),
+		ctx:           ctx,
+		buffer:        make([]byte, 0),
+		conn:          nil,
+		statusLock:    new(sync.Mutex),
+		status:        0,
+		sendQueue:     make(map[string]*SendData),
+		sendQueueLock: new(sync.Mutex),
 	}
 	for _, f := range opts {
 		f(c)
@@ -336,7 +326,7 @@ func (tcp *AgentClient) onMessage() {
 			tcp.sendQueueLock.Unlock()
 		case CMD_RUN_COMMAND:
 			id := binary.LittleEndian.Uint64(content[:8])
-			go tcp.oncommand(int64(id), string(content[8:]))
+			go tcp.onCommand(int64(id), string(content[8:]))
 		default:
 		}
 	}
