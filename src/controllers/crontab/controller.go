@@ -4,7 +4,9 @@ import (
 	"models/cron"
 	log "github.com/sirupsen/logrus"
 	cronv2 "gopkg.in/robfig/cron.v2"
+	"os/exec"
 	"sync"
+	"time"
 )
 
 type CrontabController struct {
@@ -12,8 +14,10 @@ type CrontabController struct {
 	crontabList map[int64] *CronEntity//cronv2.EntryID
 	lock *sync.Mutex
 	running bool
+	onwillrun OnWillRunFunc
+	onrun OnRunFunc
 }
-
+type OnRunFunc func(id int64, runServer string, output []byte, useTime time.Duration)
 type CronEntity struct {
 	// 数据库的基本属性
 	Id int64        `json:"id"`
@@ -22,6 +26,7 @@ type CronEntity struct {
 	Remark string   `json:"remark"`
 	Stop bool       `json:"stop"`
 	CronId cronv2.EntryID    `json:"cron_id"`//runtime cron id
+	onwillrun OnWillRunFunc `json:"-"`
 }
 
 func (row *CronEntity) Run() {
@@ -32,16 +37,34 @@ func (row *CronEntity) Run() {
 	}
 
 	//roundbin to target server and run command
-	log.Infof("was run: %+v", *row)
+	log.Infof("will run: %+v", *row)
+	row.onwillrun(row.Id, row.Command)
 }
 
+type OnWillRunFunc func(id int64, command string)
+type CrontabControllerOption func(c *CrontabController)
+func SetOnWillRun(f OnWillRunFunc) CrontabControllerOption {
+	return func(c *CrontabController) {
+		c.onwillrun = f
+	}
+}
 
-func NewCrontabController() *CrontabController {
+func SetOnRun(f OnRunFunc) CrontabControllerOption {
+	return func(c *CrontabController) {
+		log.Debugf("set c.onrun")
+		c.onrun = f
+	}
+}
+
+func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 	c := &CrontabController{
 		handler: cronv2.New(),
 		crontabList:make(map[int64] *CronEntity),//cronv2.EntryID),
 		lock:new(sync.Mutex),
 		running:false,
+	}
+	for _, f := range opts {
+		f(c)
 	}
 	return c
 }
@@ -79,6 +102,7 @@ func (c *CrontabController) OnCrontabChange(event int, entity *cron.CronEntity) 
 				Remark :entity.Remark,//string   `json:"remark"`
 				Stop :entity.Stop,//bool       `json:"stop"`
 				CronId :0,//int64    `json:"cron_id"`
+				onwillrun:c.onwillrun,
 			}
 		}
 
@@ -172,4 +196,21 @@ func (c *CrontabController) OnCrontabChange(event int, entity *cron.CronEntity) 
 			}
 		}
 	}
+}
+
+func (c *CrontabController) RunCommand(id int64, command string, runServer string) {
+	var cmd *exec.Cmd
+	var err error
+	start := time.Now()
+	cmd = exec.Command("bash", "-c", command)
+	res, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Errorf("执行命令发%s生错误：%+v", command, err)
+	}
+	log.Debugf("%+v:%v was run", id, command)
+	if c.onrun == nil {
+		log.Errorf("c.onrun is nil")
+		return
+	}
+	c.onrun(id, runServer, res, time.Since(start))
 }

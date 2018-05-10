@@ -22,7 +22,7 @@ type tcpClientNode struct {
 	wg *sync.WaitGroup
 	lock *sync.Mutex          // 互斥锁，修改资源时锁定
 	onclose []NodeFunc
-	agents tcpClients
+	agents TcpClients
 	ctx context.Context
 	onevents []OnNodeEventFunc
 }
@@ -83,7 +83,7 @@ func (node *tcpClientNode) send(data []byte) (int, error) {
 	return (*node.conn).Write(data)
 }
 
-func (node *tcpClientNode) asyncSend(data []byte) {
+func (node *tcpClientNode) AsyncSend(data []byte) {
 	node.lock.Lock()
 	if node.status & tcpNodeOnline <= 0 {
 		node.lock.Unlock()
@@ -163,7 +163,7 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 		//	//tcp.onSetProEvent(node, content)
 		//	node.setPro(content)
 		case CMD_TICK:
-			node.asyncSend(packDataTickOk)
+			node.AsyncSend(packDataTickOk)
 			//case CMD_POS:
 			//	// 如果是pos事件通知，执行回调函数
 			//	for _, f:= range tcp.onPos {
@@ -178,10 +178,10 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 				event := binary.LittleEndian.Uint32(data.Data[:4])
 				go node.eventFired(int(event), data.Data[4:])
 				log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
-				node.asyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
+				node.AsyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
 			}
 		default:
-			node.asyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
+			node.AsyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
 			node.recvBuf = make([]byte, 0)
 			return
 		}

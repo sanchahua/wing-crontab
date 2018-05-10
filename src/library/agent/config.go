@@ -19,6 +19,7 @@ const (
 	CMD_SHOW_MEMBERS
 	CMD_POS
 	CMD_CRONTAB_CHANGE
+	CMD_RUN_COMMAND
 )
 
 const (
@@ -45,12 +46,12 @@ const (
 
 type NodeFunc func(n *tcpClientNode)
 type NodeOption func(n *tcpClientNode)
-type tcpClients []*tcpClientNode
+type TcpClients []*tcpClientNode
 
 
 type OnPosFunc func(r []byte)
 var (
-	packDataTickOk     = Pack(CMD_TICK, []byte("ok"))
+	packDataTickOk     = Pack(CMD_TICK, []byte("keepalive res ok"))
 	packDataSetPro     = Pack(CMD_SET_PRO, []byte("ok"))
 )
 

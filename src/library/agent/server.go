@@ -15,7 +15,7 @@ type TcpService struct {
 	//ctx *app.Context
 	listener *net.Listener
 	wg *sync.WaitGroup
-	agents tcpClients
+	agents TcpClients
 	status int
 	conn *net.TCPConn
 	buffer []byte
@@ -75,9 +75,18 @@ func (tcp *TcpService) Start() {
 					NodeClose(tcp.agents.remove),
 					SetOnNodeEvent(tcp.onevents...),
 				)
+			log.Infof("new connect %v", conn.RemoteAddr().String())
+			tcp.agents.append(node)
+			log.Infof("nodes len %v", len(tcp.agents))
+			//tcp.Clients() // debug
 			go node.readMessage()
 		}
 	}()
+}
+
+func (tcp *TcpService) Clients() TcpClients {
+	log.Debugf("get clients %v", len(tcp.agents))
+	return tcp.agents
 }
 
 func (tcp *TcpService) Close() {
@@ -91,12 +100,12 @@ func (tcp *TcpService) Close() {
 	log.Debugf("tcp service closed.")
 }
 
-func (tcp *TcpService) SendEvent(table string, data []byte) {
-	// 广播给agent client
-	// agent client 再发送给连接到当前service_plugin/tcp的客户端
-	packData := Pack(CMD_EVENT, data)
-	tcp.agents.asyncSend(packData)
-}
+//func (tcp *TcpService) SendEvent(table string, data []byte) {
+//	// 广播给agent client
+//	// agent client 再发送给连接到当前service_plugin/tcp的客户端
+//	packData := Pack(CMD_EVENT, data)
+//	tcp.agents.asyncSend(packData)
+//}
 
 // 心跳
 func (tcp *TcpService) keepalive() {
@@ -105,6 +114,10 @@ func (tcp *TcpService) keepalive() {
 		case <-tcp.ctx.Done():
 			return
 		default:
+		}
+		if tcp.agents == nil {
+			time.Sleep(time.Second * 3)
+			continue
 		}
 		tcp.agents.asyncSend(packDataTickOk)
 		time.Sleep(time.Second * 3)

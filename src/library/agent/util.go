@@ -15,7 +15,8 @@ func hasCmd(cmd int) bool {
 		cmd == CMD_RELOAD||
 		cmd == CMD_SHOW_MEMBERS||
 		cmd == CMD_POS ||
-		cmd == CMD_CRONTAB_CHANGE
+		cmd == CMD_CRONTAB_CHANGE ||
+		cmd == CMD_RUN_COMMAND
 }
 
 func PackPro(flag int, content []byte) []byte {
