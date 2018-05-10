@@ -8,17 +8,6 @@ import (
 	"context"
 )
 
-//agent 所需要做的事情
-
-//如果当前的节点不是leader
-//那么查询leader的agent服务ip以及端口
-//所有非leader节点连接到leader节点
-//如果pos改变，广播到所有的非leader节点上
-//非leader节点保存pos信息
-
-// todo 这里还需要一个异常检测机制
-// 定期检测是否有leader在运行，如果没有，尝试强制解锁，然后选出新的leader
-
 type TcpService struct {
 	Address string               // 监听ip
 	lock *sync.Mutex
@@ -26,13 +15,20 @@ type TcpService struct {
 	//ctx *app.Context
 	listener *net.Listener
 	wg *sync.WaitGroup
-	agents tcpClients
+	agents TcpClients
 	status int
 	conn *net.TCPConn
 	buffer []byte
 	ctx context.Context
+	onevents []OnNodeEventFunc
 }
+type AgentServerOption func(s *TcpService)
 
+func SetEventCallback(f ...OnNodeEventFunc) AgentServerOption {
+	return func(s *TcpService) {
+		s.onevents = append(s.onevents, f...)
+	}
+}
 func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOption) *TcpService {
 	tcp := &TcpService{
 		ctx:              ctx,
@@ -44,6 +40,7 @@ func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOpti
 		agents:           nil,
 		status:           0,
 		buffer:           make([]byte, 0),
+		onevents:         make([]OnNodeEventFunc, 0),
 	}
 	go tcp.keepalive()
 	for _, f := range opts {
@@ -51,23 +48,6 @@ func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOpti
 	}
 	return tcp
 }
-
-// agent client 收到事件回调
-// 这个回调应该来源于service_plugin/tcp
-// 最终被转发到SendAll
-//func OnEvent(f OnEventFunc) AgentServerOption {
-//	return func(s *TcpService) {
-//		s.onEvent = append(s.onEvent, f)
-//	}
-//}
-
-// agent client 收到一些其他的事件
-// 原封不动转发到service_plugin/tcp SendRaw
-//func OnRaw(f OnRawFunc) AgentServerOption {
-//	return func(s *TcpService) {
-//		s.client.onRaw = append(s.client.onRaw, f)
-//	}
-//}
 
 func (tcp *TcpService) Start() {
 	go func() {
@@ -89,10 +69,24 @@ func (tcp *TcpService) Start() {
 				log.Warnf("tcp service accept with error: %+v", err)
 				continue
 			}
-			node := newNode(tcp.ctx, &conn, NodeClose(tcp.agents.remove), NodePro(tcp.agents.append))
+			node := newNode(
+					tcp.ctx,
+					&conn,
+					NodeClose(tcp.agents.remove),
+					SetOnNodeEvent(tcp.onevents...),
+				)
+			log.Infof("new connect %v", conn.RemoteAddr().String())
+			tcp.agents.append(node)
+			log.Infof("nodes len %v", len(tcp.agents))
+			//tcp.Clients() // debug
 			go node.readMessage()
 		}
 	}()
+}
+
+func (tcp *TcpService) Clients() TcpClients {
+	log.Debugf("get clients %v", len(tcp.agents))
+	return tcp.agents
 }
 
 func (tcp *TcpService) Close() {
@@ -106,20 +100,12 @@ func (tcp *TcpService) Close() {
 	log.Debugf("tcp service closed.")
 }
 
-// binlog的pos发生改变会通知到这里
-// r为压缩过的二进制数据
-// 可以直接写到pos cache缓存文件
-//func (tcp *TcpService) SendPos(data []byte) {
-//	packData := Pack(CMD_POS, data)
+//func (tcp *TcpService) SendEvent(table string, data []byte) {
+//	// 广播给agent client
+//	// agent client 再发送给连接到当前service_plugin/tcp的客户端
+//	packData := Pack(CMD_EVENT, data)
 //	tcp.agents.asyncSend(packData)
 //}
-
-func (tcp *TcpService) SendEvent(table string, data []byte) {
-	// 广播给agent client
-	// agent client 再发送给连接到当前service_plugin/tcp的客户端
-	packData := Pack(CMD_EVENT, data)
-	tcp.agents.asyncSend(packData)
-}
 
 // 心跳
 func (tcp *TcpService) keepalive() {
@@ -128,6 +114,10 @@ func (tcp *TcpService) keepalive() {
 		case <-tcp.ctx.Done():
 			return
 		default:
+		}
+		if tcp.agents == nil {
+			time.Sleep(time.Second * 3)
+			continue
 		}
 		tcp.agents.asyncSend(packDataTickOk)
 		time.Sleep(time.Second * 3)

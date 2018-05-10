@@ -10,6 +10,7 @@ import (
 	"context"
 	"library/crontab"
 	wstring "library/string"
+	"encoding/binary"
 )
 
 type AgentClient struct {
@@ -22,15 +23,23 @@ type AgentClient struct {
 	getLeader GetLeaferFunc
 	sendQueue map[string]*SendData
 	sendQueueLock *sync.Mutex
+	oncommand OnCommandFunc
 }
 
 type GetLeaferFunc     func()(string, int, error)
 type OnEventFunc       func(data *crontab.CrontabEntity) bool
 type AgentClientOption func(tcp *AgentClient)
+type OnCommandFunc     func(id int64, command string)
 
 func SetGetLeafer(f GetLeaferFunc) AgentClientOption {
 	return func(tcp *AgentClient) {
 		tcp.getLeader = f
+	}
+}
+
+func SetOncommand(f OnCommandFunc) AgentClientOption {
+	return func(tcp *AgentClient) {
+		tcp.oncommand = f
 	}
 }
 
@@ -341,6 +350,10 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			tcp.sendQueueLock.Lock()
 			delete(tcp.sendQueue, unique)
 			tcp.sendQueueLock.Unlock()
+		case CMD_RUN_COMMAND:
+			id := binary.LittleEndian.Uint64(dataB[:8])
+			command := string(dataB[8:])
+			go tcp.oncommand(int64(id), command)
 		default:
 			//tcp.sendRaw(pack(cmd, msg))
 			//log.Debugf("does not support")
