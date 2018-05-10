@@ -309,6 +309,9 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 
 func (tcp *AgentClient) onMessage() {
 	for {
+		if len(tcp.buffer) < 6 {
+			return
+		}
 		cmd, content, err := Unpack(&tcp.buffer)
 		if err != nil {
 			log.Errorf("%+v", err)
