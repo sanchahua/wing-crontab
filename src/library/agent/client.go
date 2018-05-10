@@ -325,7 +325,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			return
 		}
 		if bufferLen < 4 + contentLen {
-			log.Errorf("content len error")
+			log.Errorf("content len error: bufferLen=%v,contentLen=%v, %+v", bufferLen, contentLen, tcp.buffer)
 			return
 		}
 		dataB := tcp.buffer[6:4 + contentLen]
