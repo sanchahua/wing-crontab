@@ -362,7 +362,11 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			log.Errorf("tcp.buffer is empty")
 			return
 		}
-		tcp.buffer = append(tcp.buffer[:0], tcp.buffer[contentLen+4:]...)
+		if len(tcp.buffer) < contentLen+4 {
+			log.Errorf("buffer error")
+		} else {
+			tcp.buffer = append(tcp.buffer[:0], tcp.buffer[contentLen+4:]...)
+		}
 	}
 }
 
