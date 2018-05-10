@@ -314,6 +314,10 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		if bufferLen < 6 {
 			return
 		}
+		if bufferLen > 102400 {
+			tcp.buffer = make([]byte, 0)
+			return
+		}
 		//4字节长度，包含2自己的cmd
 		contentLen := int(tcp.buffer[0]) | int(tcp.buffer[1]) << 8 | int(tcp.buffer[2]) << 16 | int(tcp.buffer[3]) << 24
 		//2字节 command
@@ -364,6 +368,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		}
 		if len(tcp.buffer) < contentLen+4 {
 			log.Errorf("buffer error")
+			tcp.buffer = make([]byte, 0)
 		} else {
 			tcp.buffer = append(tcp.buffer[:0], tcp.buffer[contentLen+4:]...)
 		}
