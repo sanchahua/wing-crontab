@@ -23,25 +23,35 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 	sqlStr  := "select `id`, `cron_id`, `time`, `output`, `use_time`, `run_server`  from log where 1 "
 	sqlStr2 := "select count(id) as num  from log where 1 "
 	var params []interface{}
+	var params2 []interface{}
 	if cronId > 0 {
 		params = append(params, cronId)
+		params2 = append(params2, cronId)
+
 		sqlStr  += " and `cron_id`=?"
 		sqlStr2 += " and `cron_id`=?"
 	}
 	search = strings.Trim(search, " ")
 	if search != "" {
 		params = append(params, search)
+		params2 = append(params2, search)
+
 		sqlStr  += " and output like concat('%',?,'%')"
 		sqlStr2 += " and output like concat('%',?,'%')"
 	}
 	runServer = strings.Trim(runServer, " ")
 	if runServer != "" {
 		params = append(params, runServer)
-		sqlStr  += " and runServer=?"
-		sqlStr2 += " and runServer=?"
+		params2 = append(params2, runServer)
+
+		sqlStr  += " and run_server=?"
+		sqlStr2 += " and run_server=?"
 	}
 
 	sqlStr += " limit ?,?"
+
+	log.Debugf("\n%+v\n%v\n%+v\n%+v", sqlStr, sqlStr2, params, params2)
+
 	if page < 1 {
 		page = 1
 	}
@@ -60,7 +70,7 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 	}
 	defer rows.Close()
 
-	rows2, err := db.handler.Query(sqlStr2, params...)
+	rows2, err := db.handler.Query(sqlStr2, params2...)
 	if nil != err || rows == nil {
 		log.Errorf("查询数据库错误：%+v", err)
 		return nil, 0, err
@@ -96,7 +106,7 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 
 	var num int64 = 0
 	for rows2.Next() {
-		err = rows.Scan(&num)
+		err = rows2.Scan(&num)
 		if err != nil {
 			log.Errorf("查询错误，sql=%s，error=%+v", sqlStr2, err)
 			continue
