@@ -27,6 +27,13 @@ type CronEntity struct {
 	Remark string   `json:"remark"`
 	Stop bool       `json:"stop"`
 }
+const (
+	EVENT_STOP   = 1
+	EVENT_START  = 2
+	EVENT_UPDATE = 3
+	EVENT_ADD    = 4
+	EVENT_DELETE = 5
+)
 
 type ICron interface {
 	GetList() ([]*CronEntity, error)

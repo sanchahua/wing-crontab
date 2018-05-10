@@ -19,7 +19,7 @@ func TestNewHttpController(t *testing.T) {
 	defer app.Release()
 	ctx := app.NewContext()
 	con := NewHttpController(ctx)
-	
+
 	entity, err := con.cron.Add("*/1 * * * * *", "php -v", "", false)
 	if err != nil {
 		t.Errorf("%+v", err)
