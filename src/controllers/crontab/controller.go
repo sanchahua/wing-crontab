@@ -81,7 +81,7 @@ func (c *CrontabController) Stop() {
 	c.handler.Stop()
 }
 
-func (c *CrontabController) OnCrontabChange(event int, entity *cron.CronEntity) {
+func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 	var err error
 	switch event {
 	case cron.EVENT_ADD:

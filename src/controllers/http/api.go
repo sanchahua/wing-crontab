@@ -9,8 +9,8 @@ import (
 	"models/cron"
 	"library/http"
 	"app"
-	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
+	//"database/sql"
+	//_ "github.com/go-sql-driver/mysql"
 )
 
 //查看数据库配置列表
@@ -33,7 +33,7 @@ import (
 type HttpServer struct {
 	cron cron.ICron
 	server *http.HttpServer
-	db *sql.DB
+	//db *sql.DB
 	hooks []ChangeHook
 }
 
@@ -44,28 +44,29 @@ func SetHook(f ChangeHook) HttpControllerOption {
 		http.hooks = append(http.hooks, f)
 	}
 }
-func NewHttpController(ctx *app.Context, opts ...HttpControllerOption) *HttpServer {
+
+func NewHttpController(ctx *app.Context, cr cron.ICron, opts ...HttpControllerOption) *HttpServer {
 
 	//config, _ := app.GetMysqlConfig()
-	dataSource := fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s?charset=%s",
-		ctx.Config.MysqlUser,
-		ctx.Config.MysqlPassword,
-		ctx.Config.MysqlHost,
-		ctx.Config.MysqlPort,
-		ctx.Config.MysqlDatabase,
-		ctx.Config.MysqlCharset,
-	)
-	handler, err := sql.Open("mysql", dataSource)
-	if err != nil {
-		log.Panicf("链接数据库错误：%+v", err)
-	}
-	//设置最大空闲连接数
-	handler.SetMaxIdleConns(8)
-	//设置最大允许打开的连接
-	handler.SetMaxOpenConns(8)
-	cr := cron.NewCron(handler)
-	h  := &HttpServer{cron:cr, db:handler, hooks:make([]ChangeHook, 0)}
+	//dataSource := fmt.Sprintf(
+	//	"%s:%s@tcp(%s:%d)/%s?charset=%s",
+	//	ctx.Config.MysqlUser,
+	//	ctx.Config.MysqlPassword,
+	//	ctx.Config.MysqlHost,
+	//	ctx.Config.MysqlPort,
+	//	ctx.Config.MysqlDatabase,
+	//	ctx.Config.MysqlCharset,
+	//)
+	//handler, err := sql.Open("mysql", dataSource)
+	//if err != nil {
+	//	log.Panicf("链接数据库错误：%+v", err)
+	//}
+	////设置最大空闲连接数
+	//handler.SetMaxIdleConns(8)
+	////设置最大允许打开的连接
+	//handler.SetMaxOpenConns(8)
+	//cr := cron.NewCron(handler)
+	h  := &HttpServer{cron:cr, hooks:make([]ChangeHook, 0)}
 	h.server = http.NewHttpServer(
 		ctx.Config.HttpBindAddress,
 		http.SetRoute("GET",  "/cron/list",        h.list),
@@ -90,7 +91,7 @@ func (server *HttpServer) Start() {
 
 func (server *HttpServer) Close() {
 	server.server.Close()
-	server.db.Close()
+	//server.db.Close()
 }
 
 func (server *HttpServer) firedHooks(event int, row *cron.CronEntity) {

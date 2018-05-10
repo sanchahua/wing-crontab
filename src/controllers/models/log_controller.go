@@ -1,9 +1,8 @@
 package models
 
-import ("app"
-	"fmt"
+import (
+	"app"
 	"database/sql"
-	log "github.com/sirupsen/logrus"
 	mlog "models/log"
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -13,24 +12,24 @@ type LogController struct {
 	handler *sql.DB
 }
 
-func NewLogController(ctx *app.Context) *LogController {
-	dataSource := fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s?charset=%s",
-		ctx.Config.MysqlUser,//User,
-		ctx.Config.MysqlPassword,
-		ctx.Config.MysqlHost,
-		ctx.Config.MysqlPort,
-		ctx.Config.MysqlDatabase,
-		ctx.Config.MysqlCharset,
-	)
-	handler, err := sql.Open("mysql", dataSource)
-	if err != nil {
-		log.Panicf("链接数据库错误：%+v", err)
-	}
-	//设置最大空闲连接数
-	handler.SetMaxIdleConns(8)
-	//设置最大允许打开的连接
-	handler.SetMaxOpenConns(8)
+func NewLogController(ctx *app.Context, handler *sql.DB) *LogController {
+	//dataSource := fmt.Sprintf(
+	//	"%s:%s@tcp(%s:%d)/%s?charset=%s",
+	//	ctx.Config.MysqlUser,//User,
+	//	ctx.Config.MysqlPassword,
+	//	ctx.Config.MysqlHost,
+	//	ctx.Config.MysqlPort,
+	//	ctx.Config.MysqlDatabase,
+	//	ctx.Config.MysqlCharset,
+	//)
+	//handler, err := sql.Open("mysql", dataSource)
+	//if err != nil {
+	//	log.Panicf("链接数据库错误：%+v", err)
+	//}
+	////设置最大空闲连接数
+	//handler.SetMaxIdleConns(8)
+	////设置最大允许打开的连接
+	//handler.SetMaxOpenConns(8)
 
 	db := mlog.NewLog(handler)
 	return &LogController{db:db, handler:handler}
