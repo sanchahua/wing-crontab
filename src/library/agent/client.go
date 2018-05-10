@@ -235,8 +235,6 @@ func (tcp *AgentClient) connect(ip string, port int) {
 }
 
 func (tcp *AgentClient) start(serviceIp string, port int) {
-	//agentH := PackPro(FlagAgent, []byte(""))
-	//hl := len(agentH)
 	var readBuffer [tcpDefaultReadBufferSize]byte
 	go func() {
 		if serviceIp == "" || port == 0 {
@@ -296,7 +294,9 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					break
 				}
 				log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
-				tcp.onMessage(readBuffer[:size])
+				tcp.buffer = append(tcp.buffer, readBuffer[:size]...)
+				tcp.onMessage()
+
 				select {
 				case <-tcp.ctx.Done():
 					return
@@ -307,70 +307,34 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 	}()
 }
 
-func (tcp *AgentClient) onMessage(msg []byte) {
-	tcp.buffer = append(tcp.buffer, msg...)
+func (tcp *AgentClient) onMessage() {
 	for {
-		bufferLen := len(tcp.buffer)
-		if bufferLen < 6 {
+		cmd, content, err := Unpack(&tcp.buffer)
+		if err != nil {
+			log.Errorf("%+v", err)
 			return
 		}
-		if bufferLen > 102400 {
-			tcp.buffer = make([]byte, 0)
+		if content == nil {
 			return
 		}
-		//4字节长度，包含2自己的cmd
-		contentLen := int(tcp.buffer[0]) | int(tcp.buffer[1]) << 8 | int(tcp.buffer[2]) << 16 | int(tcp.buffer[3]) << 24
-		//2字节 command
-		cmd := int(tcp.buffer[4]) | int(tcp.buffer[5]) << 8
-		log.Debugf("cmd==%v", cmd)
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists: %v, %s", cmd, tcp.buffer, string(tcp.buffer))
 			tcp.buffer = make([]byte, 0)
 			return
 		}
-		if bufferLen < 4 + contentLen {
-			log.Errorf("content len error: bufferLen=%v,contentLen=%v, %+v", bufferLen, contentLen, tcp.buffer)
-			return
-		}
-		dataB := tcp.buffer[6:4 + contentLen]
 		switch cmd {
-		case CMD_EVENT:
-			var data crontab.CrontabEntity
-			err := json.Unmarshal(dataB, &data)
-			if err == nil {
-				log.Debugf("agent receive event: %+v", data)
-				//tcp.SendAll(data["table"].(string), dataB)
-				for _, f := range tcp.onEvent {
-					f(&data)
-				}
-			} else {
-				log.Errorf("json Unmarshal error: %+v, %s, %+v", dataB, string(dataB), err)
-			}
 		case CMD_TICK:
-			//log.Debugf("keepalive: %s", string(dataB))
+			//keepalive
 		case CMD_CRONTAB_CHANGE:
-			unique := string(dataB)
+			unique := string(content)
 			log.Infof("%v send ok, delete from send queue", unique)
 			tcp.sendQueueLock.Lock()
 			delete(tcp.sendQueue, unique)
 			tcp.sendQueueLock.Unlock()
 		case CMD_RUN_COMMAND:
-			id := binary.LittleEndian.Uint64(dataB[:8])
-			command := string(dataB[8:])
-			go tcp.oncommand(int64(id), command)
+			id := binary.LittleEndian.Uint64(content[:8])
+			go tcp.oncommand(int64(id), string(content[8:]))
 		default:
-			//tcp.sendRaw(pack(cmd, msg))
-			//log.Debugf("does not support")
-		}
-		if len(tcp.buffer) <= 0 {
-			log.Errorf("tcp.buffer is empty")
-			return
-		}
-		if len(tcp.buffer) < contentLen+4 {
-			log.Errorf("buffer error")
-			tcp.buffer = make([]byte, 0)
-		} else {
-			tcp.buffer = append(tcp.buffer[:0], tcp.buffer[contentLen+4:]...)
 		}
 	}
 }
