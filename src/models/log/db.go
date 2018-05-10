@@ -57,7 +57,7 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 	if limit < 1 || limit > 10000 {
 		limit = 50
 	}
-	params = append(params, page)
+	params = append(params, (page - 1) * limit)
 	params = append(params, limit)
 
 	log.Debugf("\n%+v\n%v\n%+v\n%+v", sqlStr, sqlStr2, params, params2)
@@ -99,7 +99,7 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 			UseTime:   use_time,
 			RunServer: run_server,
 		}
-		//log.Infof("%+v", *row)
+		log.Infof("%+v", *row)
 		records = append(records, row)
 	}
 
