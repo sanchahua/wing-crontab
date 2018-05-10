@@ -141,23 +141,32 @@ func (node *tcpClientNode) asyncSendService() {
 func (node *tcpClientNode) onMessage(msg []byte) {
 	node.recvBuf = append(node.recvBuf, msg...)
 	for {
-		size := len(node.recvBuf)
-		if size < 6 {
+		if len(node.recvBuf) < 6 {
 			return
 		}
-		clen := int(node.recvBuf[0]) | int(node.recvBuf[1]) << 8 |
-			int(node.recvBuf[2]) << 16 | int(node.recvBuf[3]) << 24
-		if len(node.recvBuf) < 	clen + 4 {
+		//clen := int(node.recvBuf[0]) | int(node.recvBuf[1]) << 8 |
+		//	int(node.recvBuf[2]) << 16 | int(node.recvBuf[3]) << 24
+		//if len(node.recvBuf) < 	clen + 4 {
+		//	return
+		//}
+		//cmd  := int(node.recvBuf[4]) | int(node.recvBuf[5]) << 8
+		//if !hasCmd(cmd) {
+		//	log.Errorf("cmd %d does not exists, data: %v", cmd, node.recvBuf)
+		//	node.recvBuf = make([]byte, 0)
+		//	return
+		//}
+		//content := node.recvBuf[6 : clen + 4]
+		//log.Debugf("%+v", content)
+
+		cmd, content, err := Unpack(&node.recvBuf)
+		if err != nil {
+			log.Errorf("%+v", err)
 			return
 		}
-		cmd  := int(node.recvBuf[4]) | int(node.recvBuf[5]) << 8
-		if !hasCmd(cmd) {
-			log.Errorf("cmd %d does not exists, data: %v", cmd, node.recvBuf)
-			node.recvBuf = make([]byte, 0)
+		if content == nil {
 			return
 		}
-		content := node.recvBuf[6 : clen + 4]
-		log.Debugf("%+v", content)
+
 		switch cmd {
 		//case CMD_SET_PRO:
 		//	//tcp.onSetProEvent(node, content)
@@ -185,7 +194,7 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 			node.recvBuf = make([]byte, 0)
 			return
 		}
-		node.recvBuf = append(node.recvBuf[:0], node.recvBuf[clen + 4:]...)
+		//node.recvBuf = append(node.recvBuf[:0], node.recvBuf[clen + 4:]...)
 	}
 }
 
