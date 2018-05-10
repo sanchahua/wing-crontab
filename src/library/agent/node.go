@@ -119,7 +119,7 @@ func (node *tcpClientNode) asyncSendService() {
 			}
 			(*node.conn).SetWriteDeadline(time.Now().Add(time.Second * 30))
 			size, err := (*node.conn).Write(msg)
-			log.Debugf("send: %+v, to %+v", (*node.conn).RemoteAddr().String())
+			log.Debugf("send: %+v, to %+v", msg, (*node.conn).RemoteAddr().String())
 			if err != nil {
 				log.Errorf("tcp send to %s error: %v", (*node.conn).RemoteAddr().String(), err)
 				node.close()
