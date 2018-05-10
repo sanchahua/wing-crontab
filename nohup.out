@@ -71,3 +71,23 @@ ATTENTION: default value of option force_s3tc_enable overridden by environment.
 [18053:18075:0510/131104.528417:ERROR:render_media_log.cc(30)] MediaEvent: MEDIA_ERROR_LOG_ENTRY {"error":"Failed to reconcile encoded audio times with decoded output."}
 [18053:18075:0510/131734.454622:ERROR:render_media_log.cc(30)] MediaEvent: MEDIA_ERROR_LOG_ENTRY {"error":"Failed to reconcile encoded audio times with decoded output."}
 [18053:18075:0510/132034.441105:ERROR:render_media_log.cc(30)] MediaEvent: MEDIA_ERROR_LOG_ENTRY {"error":"Failed to reconcile encoded audio times with decoded output."}
+[18053:18075:0510/133034.412366:ERROR:render_media_log.cc(30)] MediaEvent: MEDIA_ERROR_LOG_ENTRY {"error":"Failed to reconcile encoded audio times with decoded output."}
+[14203:14203:0510/133046.868496:ERROR:gles2_cmd_decoder.cc(18288)] [.DisplayCompositor-0x2290e5527000]GL ERROR :GL_INVALID_OPERATION : glCreateAndConsumeTextureCHROMIUM: invalid mailbox name
+[14203:14203:0510/133046.883918:ERROR:gles2_cmd_decoder.cc(10129)] [.DisplayCompositor-0x2290e5527000]RENDER WARNING: texture bound to texture unit 0 is not renderable. It maybe non-power-of-2 and have incompatible texture filtering.
+[14203:14203:0510/133046.884025:ERROR:gles2_cmd_decoder.cc(18288)] [.DisplayCompositor-0x2290e5527000]GL ERROR :GL_INVALID_OPERATION : glCreateAndConsumeTextureCHROMIUM: invalid mailbox name
+[14203:14203:0510/133046.884061:ERROR:gles2_cmd_decoder.cc(10129)] [.DisplayCompositor-0x2290e5527000]RENDER WARNING: texture bound to texture unit 0 is not renderable. It maybe non-power-of-2 and have incompatible texture filtering.
+[14203:14203:0510/133046.884113:ERROR:gles2_cmd_decoder.cc(18288)] [.DisplayCompositor-0x2290e5527000]GL ERROR :GL_INVALID_OPERATION : glCreateAndConsumeTextureCHROMIUM: invalid mailbox name
+[14203:14203:0510/133046.884142:ERROR:gles2_cmd_decoder.cc(10129)] [.DisplayCompositor-0x2290e5527000]RENDER WARNING: texture bound to texture unit 0 is not renderable. It maybe non-power-of-2 and have incompatible texture filtering.
+[14203:14203:0510/133046.884175:ERROR:gles2_cmd_decoder.cc(18288)] [.DisplayCompositor-0x2290e5527000]GL ERROR :GL_INVALID_OPERATION : glCreateAndConsumeTextureCHROMIUM: invalid mailbox name
+[14203:14203:0510/133046.884219:ERROR:gles2_cmd_decoder.cc(10129)] [.DisplayCompositor-0x2290e5527000]RENDER WARNING: texture bound to texture unit 0 is not renderable. It maybe non-power-of-2 and have incompatible texture filtering.
+[14203:14203:0510/133046.884318:ERROR:gles2_cmd_decoder.cc(18288)] [.DisplayCompositor-0x2290e5527000]GL ERROR :GL_INVALID_OPERATION : glCreateAndConsumeTextureCHROMIUM: invalid mailbox name
+[14203:14203:0510/133046.884368:ERROR:gles2_cmd_decoder.cc(10129)] [.DisplayCompositor-0x2290e5527000]RENDER WARNING: texture bound to texture unit 0 is not renderable. It maybe non-power-of-2 and have incompatible texture filtering.
+[14203:14203:0510/133046.884698:ERROR:gles2_cmd_decoder.cc(18288)] [.DisplayCompositor-0x2290e5527000]GL ERROR :GL_INVALID_OPERATION : glCreateAndConsumeTextureCHROMIUM: invalid mailbox name
+[14203:14203:0510/133046.884741:ERROR:gles2_cmd_decoder.cc(10129)] [.DisplayCompositor-0x2290e5527000]RENDER WARNING: texture bound to texture unit 0 is not renderable. It maybe non-power-of-2 and have incompatible texture filtering.
+[14203:14203:0510/133046.884786:ERROR:gles2_cmd_decoder.cc(18288)] [.DisplayCompositor-0x2290e5527000]GL ERROR :GL_INVALID_OPERATION : glCreateAndConsumeTextureCHROMIUM: invalid mailbox name
+[14203:14203:0510/133046.884820:ERROR:gles2_cmd_decoder.cc(10129)] [.DisplayCompositor-0x2290e5527000]RENDER WARNING: texture bound to texture unit 0 is not renderable. It maybe non-power-of-2 and have incompatible texture filtering.
+[14203:14203:0510/133046.884858:ERROR:gles2_cmd_decoder.cc(18288)] [.DisplayCompositor-0x2290e5527000]GL ERROR :GL_INVALID_OPERATION : glCreateAndConsumeTextureCHROMIUM: invalid mailbox name
+[14203:14203:0510/133046.884889:ERROR:gles2_cmd_decoder.cc(10129)] [.DisplayCompositor-0x2290e5527000]RENDER WARNING: texture bound to texture unit 0 is not renderable. It maybe non-power-of-2 and have incompatible texture filtering.
+[18053:18075:0510/133934.818821:ERROR:render_media_log.cc(30)] MediaEvent: MEDIA_ERROR_LOG_ENTRY {"error":"Failed to reconcile encoded audio times with decoded output."}
+[18053:18075:0510/134341.176945:ERROR:render_media_log.cc(30)] MediaEvent: MEDIA_ERROR_LOG_ENTRY {"error":"Failed to reconcile encoded audio times with decoded output."}
+[18053:18075:0510/134534.433783:ERROR:render_media_log.cc(30)] MediaEvent: MEDIA_ERROR_LOG_ENTRY {"error":"Failed to reconcile encoded audio times with decoded output."}
