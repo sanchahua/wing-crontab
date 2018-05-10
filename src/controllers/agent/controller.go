@@ -18,30 +18,33 @@ type OnCommandFunc func(id int64, command string, runServer string)
 
 func NewAgentController(
 	ctx *app.Context,
-	getleader agent.GetLeaferFunc,
-	onevent agent.OnNodeEventFunc,
-	oncommand OnCommandFunc,
+	getLeader agent.GetLeaderFunc,
+	onEvent agent.OnNodeEventFunc,
+	onCommand OnCommandFunc,
 ) *AgentController {
-	c := &AgentController{index:0}
+	c      := &AgentController{index:0}
 	server := agent.NewAgentServer(ctx.Context(),
-		ctx.Config.BindAddress,
-		agent.SetEventCallback(onevent))
+				ctx.Config.BindAddress,
+				agent.SetEventCallback(onEvent),
+			)
 	client := agent.NewAgentClient(
-		ctx.Context(),
-		agent.SetGetLeafer(getleader),
-		agent.SetOnCommand(func(id int64, command string) {
-			oncommand(id, command, ctx.Config.BindAddress)
-		}),
-	)
+				ctx.Context(),
+				agent.SetGetLeader(getLeader),
+				agent.SetOnCommand(func(id int64, command string) {
+					onCommand(id, command, ctx.Config.BindAddress)
+				}),
+			)
 	c.server = server
 	c.client = client
 	return c
 }
 
+// send data to leader
 func (c *AgentController) SendToLeader(data []byte) {
 	c.client.Send(data)
 }
 
+// roundbin dispatch to all clients
 func (c *AgentController) Dispatch(id int64, command string) {
 	clients := c.server.Clients()
 	l := int64(len(clients))
@@ -60,14 +63,17 @@ func (c *AgentController) Dispatch(id int64, command string) {
 	client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
 }
 
+// set on leader select callback
 func (c *AgentController) OnLeader(isLeader bool) {
 	c.client.OnLeader(isLeader)
 }
 
+// start agent
 func (c *AgentController) Start() {
 	c.server.Start()
 }
 
+// close agent
 func (c *AgentController) Close() {
 	c.server.Close()
 }

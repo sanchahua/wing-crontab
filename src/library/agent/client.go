@@ -18,17 +18,17 @@ type AgentClient struct {
 	conn     *net.TCPConn
 	statusLock *sync.Mutex
 	status int
-	getLeader GetLeaferFunc
+	getLeader GetLeaderFunc
 	sendQueue map[string]*SendData
 	sendQueueLock *sync.Mutex
 	onCommand OnCommandFunc
 }
 
-type GetLeaferFunc     func()(string, int, error)
+type GetLeaderFunc     func()(string, int, error)
 type ClientOption      func(tcp *AgentClient)
 type OnCommandFunc     func(id int64, command string)
 
-func SetGetLeafer(f GetLeaferFunc) ClientOption {
+func SetGetLeader(f GetLeaderFunc) ClientOption {
 	return func(tcp *AgentClient) {
 		tcp.getLeader = f
 	}
