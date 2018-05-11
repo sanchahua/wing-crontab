@@ -205,7 +205,7 @@ func (c *CrontabController) RunCommand(id int64, command string, runServer strin
 	cmd = exec.Command("bash", "-c", command)
 	res, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Errorf("执行命令发%s生错误：%+v", command, err)
+		log.Errorf("执行命令(%v)发生错误：%+v", command, err)
 	}
 	log.Debugf("%+v:%v was run", id, command)
 	if c.onrun == nil {
