@@ -119,7 +119,7 @@ func (node *tcpClientNode) asyncSendService() {
 			}
 			(*node.conn).SetWriteDeadline(time.Now().Add(time.Second * 30))
 			size, err := (*node.conn).Write(msg)
-			log.Debugf("send: %+v, to %+v", (*node.conn).RemoteAddr().String())
+			log.Debugf("send: %+v, to %+v", msg, (*node.conn).RemoteAddr().String())
 			if err != nil {
 				log.Errorf("tcp send to %s error: %v", (*node.conn).RemoteAddr().String(), err)
 				node.close()
@@ -138,37 +138,27 @@ func (node *tcpClientNode) asyncSendService() {
 	}
 }
 
-func (node *tcpClientNode) onMessage(msg []byte) {
-	node.recvBuf = append(node.recvBuf, msg...)
+func (node *tcpClientNode) onMessage() {
 	for {
-		size := len(node.recvBuf)
-		if size < 6 {
+		if len(node.recvBuf) < 6 {
 			return
 		}
-		clen := int(node.recvBuf[0]) | int(node.recvBuf[1]) << 8 |
-			int(node.recvBuf[2]) << 16 | int(node.recvBuf[3]) << 24
-		if len(node.recvBuf) < 	clen + 4 {
+		cmd, content, err := Unpack(&node.recvBuf)
+		if err != nil {
+			log.Errorf("%+v", err)
 			return
 		}
-		cmd  := int(node.recvBuf[4]) | int(node.recvBuf[5]) << 8
+		if content == nil {
+			return
+		}
 		if !hasCmd(cmd) {
-			log.Errorf("cmd %d does not exists, data: %v", cmd, node.recvBuf)
 			node.recvBuf = make([]byte, 0)
+			log.Errorf("cmd（%v）does not exists", cmd)
 			return
 		}
-		content := node.recvBuf[6 : clen + 4]
-		log.Debugf("%+v", content)
 		switch cmd {
-		//case CMD_SET_PRO:
-		//	//tcp.onSetProEvent(node, content)
-		//	node.setPro(content)
 		case CMD_TICK:
 			node.AsyncSend(packDataTickOk)
-			//case CMD_POS:
-			//	// 如果是pos事件通知，执行回调函数
-			//	for _, f:= range tcp.onPos {
-			//		f(content)
-			//	}
 		case CMD_CRONTAB_CHANGE:
 			var data SendData
 			err := json.Unmarshal(content, &data)
@@ -185,7 +175,6 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 			node.recvBuf = make([]byte, 0)
 			return
 		}
-		node.recvBuf = append(node.recvBuf[:0], node.recvBuf[clen + 4:]...)
 	}
 }
 
@@ -210,7 +199,8 @@ func (node *tcpClientNode) readMessage() {
 			node.close()
 			return
 		}
-		node.onMessage(readBuffer[:size])
+		node.recvBuf = append(node.recvBuf, readBuffer[:size]...)
+		node.onMessage()
 	}
 }
 
