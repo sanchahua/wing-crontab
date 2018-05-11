@@ -7,6 +7,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"fmt"
 	"models/cron"
+	mlog "models/log"
 	"library/http"
 	"app"
 	//"database/sql"
@@ -32,6 +33,7 @@ import (
 
 type HttpServer struct {
 	cron cron.ICron
+	log mlog.ILog
 	server *http.HttpServer
 	//db *sql.DB
 	hooks []ChangeHook
@@ -45,7 +47,11 @@ func SetHook(f ChangeHook) HttpControllerOption {
 	}
 }
 
-func NewHttpController(ctx *app.Context, cr cron.ICron, opts ...HttpControllerOption) *HttpServer {
+func NewHttpController(
+	ctx *app.Context,
+	cr cron.ICron,
+	log mlog.ILog,
+	opts ...HttpControllerOption) *HttpServer {
 
 	//config, _ := app.GetMysqlConfig()
 	//dataSource := fmt.Sprintf(
@@ -66,10 +72,11 @@ func NewHttpController(ctx *app.Context, cr cron.ICron, opts ...HttpControllerOp
 	////设置最大允许打开的连接
 	//handler.SetMaxOpenConns(8)
 	//cr := cron.NewCron(handler)
-	h  := &HttpServer{cron:cr, hooks:make([]ChangeHook, 0)}
+	h  := &HttpServer{cron:cr, hooks:make([]ChangeHook, 0), log:log}
 	h.server = http.NewHttpServer(
 		ctx.Config.HttpBindAddress,
 		http.SetRoute("GET",  "/cron/list",        h.list),
+		http.SetRoute("GET",  "/log/list",         h.logs),
 		http.SetRoute("GET",  "/cron/stop/{id}",   h.stop),
 		http.SetRoute("GET",  "/cron/start/{id}",  h.start),
 		http.SetRoute("GET",  "/cron/delete/{id}", h.delete),
@@ -111,6 +118,32 @@ func (server *HttpServer) list(request *restful.Request, w *restful.Response) {
 		return
 	}
 	data, err := output(200, httpErrors[200], list)
+	log.Debugf("josn: %v, %v", list, data)
+	if err == nil {
+		w.Write(data)
+	} else {
+		w.Write(systemError("编码json发生错误"))
+	}
+}
+
+func (server *HttpServer) logs(request *restful.Request, w *restful.Response) {
+	strCronId := request.QueryParameter("cron_id")
+	cronId, _ := strconv.ParseInt(strCronId, 10, 64)
+	search    := request.QueryParameter("search")
+	runServer := request.QueryParameter("run_server")
+	strPage   := request.QueryParameter("page")
+	page, _   := strconv.ParseInt(strPage, 10, 64)
+	strLimit  := request.QueryParameter("limit")
+	limit, _  := strconv.ParseInt(strLimit, 10, 64)
+	//cronId int64, search string, runServer string, page int64, limit int64
+
+	list, num, err := server.log.GetList(cronId, search, runServer, page, limit)
+	if err != nil {
+		data, _ := output(200, httpErrors[200], err)
+		w.Write(data)
+		return
+	}
+	data, err := output(200, httpErrors[200], map[string]interface{}{"list":list, "total":num})
 	log.Debugf("josn: %v, %v", list, data)
 	if err == nil {
 		w.Write(data)

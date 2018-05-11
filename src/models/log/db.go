@@ -48,7 +48,7 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 		sqlStr2 += " and run_server=?"
 	}
 
-	sqlStr += " limit ?,?"
+	sqlStr += " order by id desc limit ?,?"
 
 
 	if page < 1 {

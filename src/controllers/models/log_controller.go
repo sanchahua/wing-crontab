@@ -35,10 +35,6 @@ func NewLogController(ctx *app.Context, handler *sql.DB) *LogController {
 	return &LogController{db:db, handler:handler}
 }
 
-func (db *LogController) Close() {
-	db.handler.Close()
-}
-
 // 获取所有的定时任务列表
 func (db *LogController) GetList(cronId int64, search string, runServer string, page int64, limit int64) ([]*mlog.LogEntity, int64, error) {
 	return db.db.GetList(cronId, search, runServer, page, limit)
