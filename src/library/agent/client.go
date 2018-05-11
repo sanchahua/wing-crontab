@@ -309,6 +309,7 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 
 func (tcp *AgentClient) onMessage(msg []byte) {
 	tcp.buffer = append(tcp.buffer, msg...)
+	log.Debugf("buffer: %+v", tcp.buffer)
 	for {
 		bufferLen := len(tcp.buffer)
 		if bufferLen < 6 {
@@ -368,6 +369,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		}
 		if len(tcp.buffer) < contentLen+4 {
 			log.Errorf("buffer error")
+			log.Errorf("content len error: bufferLen=%v,contentLen=%v, %+v", bufferLen, contentLen, tcp.buffer)
 			tcp.buffer = make([]byte, 0)
 		} else {
 			tcp.buffer = append(tcp.buffer[:0], tcp.buffer[contentLen+4:]...)
