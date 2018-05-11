@@ -8,16 +8,12 @@ import (
 )
 
 const (
-	CMD_SET_PRO = iota // 注册客户端操作，加入到指定分组
-	CMD_AUTH           // 认证（暂未使用）
-	CMD_ERROR          // 错误响应
+	CMD_ERROR = iota          // 错误响应
 	CMD_TICK           // 心跳包
-	CMD_EVENT          // 事件
 	CMD_AGENT
 	CMD_STOP
 	CMD_RELOAD
 	CMD_SHOW_MEMBERS
-	CMD_POS
 	CMD_CRONTAB_CHANGE
 	CMD_RUN_COMMAND
 )
@@ -28,13 +24,6 @@ const (
 )
 
 const (
-	FlagSetPro = iota
-	FlagPing
-	FlagControl
-	FlagAgent
-)
-
-const (
 	serviceEnable = 1 << iota
 	agentStatusOnline
 	agentStatusConnect
@@ -42,6 +31,7 @@ const (
 const (
 	tcpNodeOnline = 1 << iota
 )
+const MAX_PACKAGE_LEN = 1024000
 
 
 type NodeFunc func(n *tcpClientNode)
@@ -52,7 +42,6 @@ type TcpClients []*tcpClientNode
 type OnPosFunc func(r []byte)
 var (
 	packDataTickOk     = Pack(CMD_TICK, []byte("keepalive res ok"))
-	packDataSetPro     = Pack(CMD_SET_PRO, []byte("ok"))
 )
 
 type AgentConfig struct {
