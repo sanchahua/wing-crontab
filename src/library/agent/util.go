@@ -34,13 +34,12 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	if data == nil || len(*data) == 0 {
 		return 0, nil, nil
 	}
-
+	log.Debugf("data: %+v", *data)
 	if len(*data) > MAX_PACKAGE_LEN {
+		log.Errorf("max len error")
 		(*data) = make([]byte, 0)
 		return 0, nil, nil
 	}
-
-	log.Debugf("data: %+v", *data)
 	if len(*data) < 6 {
 		return 0, nil, nil
 	}
