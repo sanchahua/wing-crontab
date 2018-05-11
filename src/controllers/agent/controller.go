@@ -7,12 +7,16 @@ import (
 	log "github.com/sirupsen/logrus"
 	"sync/atomic"
 	"time"
+	"runtime"
+	"sync"
 )
 
 type AgentController struct {
 	client *agent.AgentClient
 	server *agent.TcpService
 	index int64
+	dispatch chan *runItem
+	lock *sync.Mutex
 }
 
 type runItem struct {
@@ -28,7 +32,11 @@ func NewAgentController(
 	onEvent agent.OnNodeEventFunc,
 	onCommand OnCommandFunc,
 ) *AgentController {
-	c      := &AgentController{index:0}
+	c      := &AgentController{
+				index:0,
+				dispatch:make(chan *runItem, 10000),
+				lock:new(sync.Mutex),
+				}
 	server := agent.NewAgentServer(ctx.Context(),
 				ctx.Config.BindAddress,
 				agent.SetEventCallback(onEvent),
@@ -42,6 +50,10 @@ func NewAgentController(
 			)
 	c.server = server
 	c.client = client
+	cpu := runtime.NumCPU()
+	for i:=0;i<cpu;i++ {
+		go c.dispatchProcess()
+	}
 	return c
 }
 
@@ -49,36 +61,52 @@ func NewAgentController(
 func (c *AgentController) SendToLeader(data []byte) {
 	c.client.Send(data)
 }
-
-// roundbin dispatch to all clients
 func (c *AgentController) Dispatch(id int64, command string) {
-	start := time.Now()
-	clients := c.server.Clients()
-
-	l := int64(len(clients))
-	if l <= 0 {
-		log.Debugf("clients empty")
-		return
+	if len(c.dispatch) < cap(c.dispatch) {
+		c.dispatch <- &runItem{id: id, command: command}
+	} else {
+		log.Errorf("dispatch cache full")
 	}
-	if c.index >= l {
-		atomic.StoreInt64(&c.index, 0)
-	}
-	log.Infof("clients %+v", l)
+}
+func (c *AgentController) dispatchProcess() {
+	//need to add wait for dispatch complete if exit
+	// roundbin dispatch to all clients
+	for {
+		select {
+			case item, ok := <- c.dispatch:
+				if !ok {
+					return
+				}
+			start := time.Now()
+			clients := c.server.Clients()
 
-	for key, client := range clients {
-		if key == int(c.index) {
-			log.Infof("dispatch %v=>%v to client[%v]", id, command, c.index)
+			l := int64(len(clients))
+			if l <= 0 {
+				log.Debugf("clients empty")
+				return
+			}
+			if c.index >= l {
+				atomic.StoreInt64(&c.index, 0)
+			}
+			log.Infof("clients %+v", l)
+			//c.lock.Lock()
 			//client := clients[c.index]
-			atomic.AddInt64(&c.index, 1)
-			data := make([]byte, 8)
-			binary.LittleEndian.PutUint64(data, uint64(id))
-			data = append(data, []byte(command)...)
-			client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
-			break
+			//c.lock.Unlock()
+			for key, client := range clients {
+				if key != int(c.index) {
+					continue
+				}
+				log.Infof("dispatch %v=>%v to client[%v]", item.id, item.command, c.index)
+				//client := clients[c.index]
+				atomic.AddInt64(&c.index, 1)
+				data := make([]byte, 8)
+				binary.LittleEndian.PutUint64(data, uint64(item.id))
+				data = append(data, []byte(item.command)...)
+				client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
+			}
+			log.Debugf("dispatch use time %+v", time.Since(start))
 		}
 	}
-
-	log.Debugf("dispatch use time %+v", time.Since(start))
 }
 
 // set on leader select callback
