@@ -15,6 +15,7 @@ import (
 type AgentClient struct {
 	ctx context.Context
 	buffer  []byte
+	bufferLock *sync.Mutex
 	conn     *net.TCPConn
 	statusLock *sync.Mutex
 	status int
@@ -80,6 +81,7 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		status:        0,
 		sendQueue:     make(map[string]*SendData),
 		sendQueueLock: new(sync.Mutex),
+		bufferLock:    new(sync.Mutex),
 	}
 	for _, f := range opts {
 		f(c)
@@ -297,7 +299,9 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 }
 
 func (tcp *AgentClient) onMessage(msg []byte) {
+	tcp.bufferLock.Lock()
 	tcp.buffer = append(tcp.buffer, msg...)
+	tcp.bufferLock.Unlock()
 	for {
 		bufferLen := len(tcp.buffer)
 		if bufferLen < 6 {
@@ -305,11 +309,14 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		}
 		if bufferLen > MAX_PACKAGE_LEN {
 			log.Errorf("buffer len is max then the limit %+v", MAX_PACKAGE_LEN)
+			tcp.bufferLock.Lock()
 			tcp.buffer = make([]byte, 0)
+			tcp.bufferLock.Unlock()
 			return
 		}
-
+		tcp.bufferLock.Lock()
 		cmd, content, err := Unpack(&tcp.buffer)
+		tcp.bufferLock.Unlock()
 		if err != nil {
 			return
 		}
@@ -346,7 +353,9 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		//}
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)
+			tcp.bufferLock.Lock()
 			tcp.buffer = make([]byte, 0)
+			tcp.bufferLock.Unlock()
 			return
 		}
 		//log.Debugf("CMD_TICK=%+v, CMD_CRONTAB_CHANGE=%+v, CMD_RUN_COMMAND=%+v", CMD_TICK, CMD_CRONTAB_CHANGE, CMD_RUN_COMMAND)

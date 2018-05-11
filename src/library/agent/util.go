@@ -57,7 +57,14 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	content := make([]byte, len((*data)[6 : clen + 4]))
 	//content := data[6 : clen + 4]
 	copy(content, (*data)[6 : clen + 4])
+
+	//if len(*data) < clen + 4 {
+	//	log.Errorf("package error")
+	//	*data  = append((*data)[:0], (*data)[len(*data):]...)
+	//} else {
+	log.Debugf("data==%+v, %+v==%+v",clen+4, *data, string(*data))
 	*data  = append((*data)[:0], (*data)[clen+4:]...)
+	//}
 	//tcp.buffer = append(tcp.buffer[:0], tcp.buffer[end:]...)
 	//log.Debugf("return(%+v)(%+v)(%+v)", cmd, content, nil)
 	return cmd, content, nil

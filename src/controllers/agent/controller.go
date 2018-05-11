@@ -13,7 +13,6 @@ type AgentController struct {
 	client *agent.AgentClient
 	server *agent.TcpService
 	index int64
-	dispatchChannel chan *runItem
 }
 
 type runItem struct {
@@ -55,6 +54,7 @@ func (c *AgentController) SendToLeader(data []byte) {
 func (c *AgentController) Dispatch(id int64, command string) {
 	start := time.Now()
 	clients := c.server.Clients()
+
 	l := int64(len(clients))
 	if l <= 0 {
 		log.Debugf("clients empty")
@@ -64,14 +64,19 @@ func (c *AgentController) Dispatch(id int64, command string) {
 		atomic.StoreInt64(&c.index, 0)
 	}
 	log.Infof("clients %+v", l)
-	log.Infof("dispatch %v=>%v to client[%v]", id, command, c.index)
 
-	client := clients[c.index]
-	atomic.AddInt64(&c.index, 1)
-	data := make([]byte, 8)
-	binary.LittleEndian.PutUint64(data, uint64(id))
-	data = append(data, []byte(command)...)
-	client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
+	for key, client := range clients {
+		if key == int(c.index) {
+			log.Infof("dispatch %v=>%v to client[%v]", id, command, c.index)
+			//client := clients[c.index]
+			atomic.AddInt64(&c.index, 1)
+			data := make([]byte, 8)
+			binary.LittleEndian.PutUint64(data, uint64(id))
+			data = append(data, []byte(command)...)
+			client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
+			break
+		}
+	}
 
 	log.Debugf("dispatch use time %+v", time.Since(start))
 }
