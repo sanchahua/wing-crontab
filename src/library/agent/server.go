@@ -76,8 +76,9 @@ func (tcp *TcpService) Start() {
 					SetOnNodeEvent(tcp.onevents...),
 				)
 			log.Infof("new connect %v", conn.RemoteAddr().String())
+			log.Infof("#####################nodes len before %v", len(tcp.agents))
 			tcp.agents.append(node)
-			log.Infof("nodes len %v", len(tcp.agents))
+			log.Infof("#####################nodes len after %v", len(tcp.agents))
 			//tcp.Clients() // debug
 			go node.readMessage()
 		}
@@ -86,10 +87,7 @@ func (tcp *TcpService) Start() {
 
 func (tcp *TcpService) Clients() TcpClients {
 	log.Debugf("get clients %v", len(tcp.agents))
-	tcp.lock.Lock()
-	cc := tcp.agents
-	tcp.lock.Unlock()
-	return cc
+	return tcp.agents
 }
 
 func (tcp *TcpService) Close() {

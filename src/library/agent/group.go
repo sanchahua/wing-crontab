@@ -14,8 +14,8 @@ func (c *TcpClients) send(data []byte) {
 }
 
 func (c *TcpClients) asyncSend(data []byte) {
-	for key, node := range *c {
-		log.Debugf("%v node keepalive", key)
+	for _, node := range *c {
+		//log.Debugf("%v node keepalive", key)
 		node.AsyncSend(data)
 	}
 }
@@ -27,7 +27,7 @@ func (c *TcpClients) remove(node *tcpClientNode) {
 			break
 		}
 	}
-	log.Debugf("remove node, current len %v", len(*c))
+	log.Debugf("#####################remove node, current len %v", len(*c))
 }
 
 func (c *TcpClients) close() {

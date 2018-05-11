@@ -13,6 +13,12 @@ type AgentController struct {
 	client *agent.AgentClient
 	server *agent.TcpService
 	index int64
+	dispatchChannel chan *runItem
+}
+
+type runItem struct {
+	id int64
+	command string
 }
 
 type OnCommandFunc func(id int64, command string, runServer string)

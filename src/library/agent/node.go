@@ -22,7 +22,6 @@ type tcpClientNode struct {
 	wg *sync.WaitGroup
 	lock *sync.Mutex          // 互斥锁，修改资源时锁定
 	onclose []NodeFunc
-	agents TcpClients
 	ctx context.Context
 	onevents []OnNodeEventFunc
 }
@@ -76,6 +75,7 @@ func (node *tcpClientNode) close() {
 	for _, f := range node.onclose {
 		f(node)
 	}
+	log.Warnf("node close")
 }
 
 func (node *tcpClientNode) send(data []byte) (int, error) {
@@ -119,7 +119,7 @@ func (node *tcpClientNode) asyncSendService() {
 			}
 			(*node.conn).SetWriteDeadline(time.Now().Add(time.Second * 30))
 			size, err := (*node.conn).Write(msg)
-			log.Debugf("send: %+v, to %+v", msg, (*node.conn).RemoteAddr().String())
+			//log.Debugf("send: %+v, to %+v", msg, (*node.conn).RemoteAddr().String())
 			if err != nil {
 				log.Errorf("tcp send to %s error: %v", (*node.conn).RemoteAddr().String(), err)
 				node.close()
@@ -141,7 +141,7 @@ func (node *tcpClientNode) asyncSendService() {
 func (node *tcpClientNode) onMessage(msg []byte) {
 	node.recvBuf = append(node.recvBuf, msg...)
 
-	log.Debugf("data: %+v", node.recvBuf)
+	//log.Debugf("data: %+v", node.recvBuf)
 
 	for {
 		if node.recvBuf == nil || len(node.recvBuf) < 6 {

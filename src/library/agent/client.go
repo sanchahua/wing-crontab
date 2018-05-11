@@ -283,7 +283,7 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					tcp.statusLock.Unlock()
 					break
 				}
-				log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
+				//log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
 				tcp.onMessage(readBuffer[:size])
 
 				select {
@@ -349,12 +349,12 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			tcp.buffer = make([]byte, 0)
 			return
 		}
-		log.Debugf("CMD_TICK=%+v, CMD_CRONTAB_CHANGE=%+v, CMD_RUN_COMMAND=%+v", CMD_TICK, CMD_CRONTAB_CHANGE, CMD_RUN_COMMAND)
-		log.Debugf("cmd=%+v,,,content=%+v,,,%+v", cmd, content, string(content))
+		//log.Debugf("CMD_TICK=%+v, CMD_CRONTAB_CHANGE=%+v, CMD_RUN_COMMAND=%+v", CMD_TICK, CMD_CRONTAB_CHANGE, CMD_RUN_COMMAND)
+		//log.Debugf("cmd=%+v,,,content=%+v,,,%+v", cmd, content, string(content))
 		switch cmd {
 		case CMD_TICK:
 			//keepalive
-			log.Info("keepalive")
+			//log.Info("keepalive")
 		case CMD_CRONTAB_CHANGE:
 			unique := string(content)
 			log.Infof("%v send ok, delete from send queue", unique)
