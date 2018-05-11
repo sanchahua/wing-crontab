@@ -36,4 +36,11 @@
 /tools
 /*.pid
 /*/*.pid
+<<<<<<< HEAD
 /*/*/*.pid
+=======
+/*/*/*.pid
+/bin/wing-crontab
+/bin2/*
+/bin3/*
+>>>>>>> 2c599a261a84fe45fb0fc47820521c011c6ad216
