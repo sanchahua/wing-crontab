@@ -315,6 +315,7 @@ func (tcp *AgentClient) onMessage() {
 			tcp.buffer = make([]byte, 0)
 			return
 		}
+		log.Debugf("cmd=%+v,,,content=%+v", cmd, content)
 		switch cmd {
 		case CMD_TICK:
 			//keepalive
@@ -326,6 +327,8 @@ func (tcp *AgentClient) onMessage() {
 			tcp.sendQueueLock.Unlock()
 		case CMD_RUN_COMMAND:
 			id := binary.LittleEndian.Uint64(content[:8])
+			log.Debugf("id == (%v) === (%v) ", id, content[:8])
+			log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
 			go tcp.onCommand(int64(id), string(content[8:]))
 		default:
 		}

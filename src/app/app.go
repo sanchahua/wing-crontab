@@ -21,10 +21,6 @@ var (
 	Pid        = path.CurrentPath + "/wing-crontab.pid"
 	DEBUG      = false
 	ConfigPath = path.CurrentPath + "/config"
-<<<<<<< HEAD
-	CachePath  = path.CurrentPath + "/cache"
-=======
->>>>>>> 2c599a261a84fe45fb0fc47820521c011c6ad216
 	LogPath    = path.CurrentPath + "/logs"
 )
 
@@ -48,40 +44,10 @@ type Config struct {
 
 	LogLevel int          `toml:"log_level"`
 	PprofListen string    `toml:"pprof_listen"`
-<<<<<<< HEAD
-	ControlListen string  `toml:"control_listen"`
-	TimeZone string       `toml:"time_zone"`
-	CachePath string      `toml:"cache_path"`
-=======
->>>>>>> 2c599a261a84fe45fb0fc47820521c011c6ad216
 	LogPath string        `toml:"log_path"`
 	PidFile string        `toml:"pid_file"`
 }
 
-<<<<<<< HEAD
-//type HttpNodeConfig struct {
-//	Name   string
-//	Nodes  []string
-//	Filter []string
-//}
-
-//type HttpConfig struct {
-//	Enable   bool
-//	TimeTick time.Duration //故障检测的时间间隔，单位为秒
-//	Groups   map[string]HttpNodeConfig
-//}
-
-// app init
-// config path parse
-// cache path parse
-// log path parse
-// get app config
-// check app is running, if pid file exists, app is running
-// write pid file
-// start pprof
-// set logger
-=======
->>>>>>> 2c599a261a84fe45fb0fc47820521c011c6ad216
 func Init(configPath string) {
 
 	log.SetFormatter(&log.TextFormatter{
@@ -98,10 +64,6 @@ func Init(configPath string) {
 	log.SetLevel(log.Level(appConfig.LogLevel)) //log.DebugLevel)
 
 	Pid = appConfig.PidFile
-<<<<<<< HEAD
-	CachePath = appConfig.CachePath
-=======
->>>>>>> 2c599a261a84fe45fb0fc47820521c011c6ad216
 	LogPath   = appConfig.LogPath
 	// set log context hook
 	log.AddHook(mlog.ContextHook{LogPath:LogPath})
@@ -132,13 +94,6 @@ func Init(configPath string) {
 			http.ListenAndServe(appConfig.PprofListen, nil)
 		}
 	}()
-	// set timezone
-<<<<<<< HEAD
-	time.LoadLocation(appConfig.TimeZone)
-=======
-	//time.LoadLocation(appConfig.TimeZone)
->>>>>>> 2c599a261a84fe45fb0fc47820521c011c6ad216
-	// set log format
 
 	// set cpu num
 	cpu := runtime.NumCPU()
@@ -216,33 +171,6 @@ func getAppConfig() (*Config, error) {
 		log.Errorf("config file parse with error: %+v", err)
 		return nil, ErrorFileParse
 	}
-<<<<<<< HEAD
-	if appConfig.TimeZone == "" {
-		appConfig.TimeZone = "Local"
-	}
-
-	appConfig.CachePath = strings.Trim(appConfig.CachePath, " ")
-	if appConfig.CachePath != "" && !path.Exists(appConfig.CachePath) {
-		path.Mkdir(appConfig.CachePath)
-	}
-	appConfig.CachePath = pathParse(appConfig.CachePath, CachePath)
-	if appConfig.CachePath != "" && !path.Exists(appConfig.CachePath) {
-		path.Mkdir(appConfig.CachePath)
-	}
-
-	appConfig.CachePath = strings.Trim(appConfig.CachePath," ")
-	if appConfig.CachePath != "" && !path.Exists(appConfig.CachePath) {
-		path.Mkdir(appConfig.CachePath)
-	}
-	appConfig.CachePath = pathParse(appConfig.CachePath, CachePath)
-	if appConfig.CachePath != "" && !path.Exists(appConfig.CachePath) {
-		path.Mkdir(appConfig.CachePath)
-	}
-=======
-	//if appConfig.TimeZone == "" {
-	//	appConfig.TimeZone = "Local"
-	//}
->>>>>>> 2c599a261a84fe45fb0fc47820521c011c6ad216
 
 	appConfig.LogPath = strings.Trim(appConfig.LogPath, " ")
 	if appConfig.LogPath != "" && !path.Exists(appConfig.LogPath) {
@@ -367,34 +295,4 @@ func getMysqlConfig() (*MysqlConfig, error) {
 		return nil, ErrorFileParse
 	}
 	return &appConfig, nil
-<<<<<<< HEAD
 }
-
-//type ConsulConfig struct{
-//	Address string `toml:"address"`
-//}
-
-// consul config
-//type ClusterConfig struct {
-//	Enable bool `toml:"enable"`
-//	Type string `toml:"type"`
-//	Lock string `toml:"lock"`
-//	Consul *ConsulConfig
-//}
-
-//func getClusterConfig() (*ClusterConfig, error) {
-//	var config ClusterConfig
-//	configFile := ConfigPath + "/cluster.toml"
-//	if !file.Exists(configFile) {
-//		log.Errorf("config file not found: %s", configFile)
-//		return nil, ErrorFileNotFound
-//	}
-//	if _, err := toml.DecodeFile(configFile, &config); err != nil {
-//		log.Println(err)
-//		return nil, ErrorFileParse
-//	}
-//	return &config, nil
-//}
-=======
-}
->>>>>>> 2c599a261a84fe45fb0fc47820521c011c6ad216

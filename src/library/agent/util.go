@@ -50,7 +50,7 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	}
 	log.Debugf("cmd=%+v", (*data)[4:6])
 	cmd     := int(binary.LittleEndian.Uint16((*data)[4:6]))
-	log.Debugf("content=%+v", (*data)[6 : clen + 4])
+	log.Debugf("content=%+v === %v", (*data)[6 : clen + 4], string((*data)[6 : clen + 4]))
 	content := (*data)[6 : clen + 4]
 	(*data)  = append((*data)[:0], (*data)[clen+4:]...)
 	return cmd, content, nil
