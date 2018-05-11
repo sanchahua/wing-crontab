@@ -5,6 +5,9 @@ import (
 	"app"
 	log "github.com/sirupsen/logrus"
 	"library/path"
+	"database/sql"
+	"fmt"
+	"controllers/models"
 )
 
 func TestNewHttpController(t *testing.T) {
@@ -18,7 +21,33 @@ func TestNewHttpController(t *testing.T) {
 
 	defer app.Release()
 	ctx := app.NewContext()
-	con := NewHttpController(ctx)
+	var err error
+	var handler *sql.DB
+	{
+		dataSource := fmt.Sprintf(
+			"%s:%s@tcp(%s:%d)/%s?charset=%s",
+			ctx.Config.MysqlUser,
+			ctx.Config.MysqlPassword,
+			ctx.Config.MysqlHost,
+			ctx.Config.MysqlPort,
+			ctx.Config.MysqlDatabase,
+			ctx.Config.MysqlCharset,
+		)
+		handler, err = sql.Open("mysql", dataSource)
+		if err != nil {
+			log.Panicf("链接数据库错误：%+v", err)
+		}
+		//设置最大空闲连接数
+		handler.SetMaxIdleConns(8)
+		//设置最大允许打开的连接
+		handler.SetMaxOpenConns(8)
+		defer handler.Close()
+	}
+	cronController := models.NewCronController(ctx, handler)
+	defer cronController.Close()
+	logController := models.NewLogController(ctx, handler)
+
+	con := NewHttpController(ctx, cronController, logController)
 
 	entity, err := con.cron.Add("*/1 * * * * *", "php -v", "", false)
 	if err != nil {
