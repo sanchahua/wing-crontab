@@ -37,3 +37,6 @@
 /*.pid
 /*/*.pid
 /*/*/*.pid
+/bin/wing-crontab
+/bin2/*
+/bin3/*
