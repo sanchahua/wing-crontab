@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	log "github.com/sirupsen/logrus"
 	"sync/atomic"
+	"time"
 )
 
 type AgentController struct {
@@ -46,6 +47,7 @@ func (c *AgentController) SendToLeader(data []byte) {
 
 // roundbin dispatch to all clients
 func (c *AgentController) Dispatch(id int64, command string) {
+	start := time.Now()
 	clients := c.server.Clients()
 	l := int64(len(clients))
 	if l <= 0 {
@@ -55,12 +57,17 @@ func (c *AgentController) Dispatch(id int64, command string) {
 	if c.index >= l {
 		atomic.StoreInt64(&c.index, 0)
 	}
+	log.Infof("clients %+v", l)
+	log.Infof("dispatch %v=>%v to client[%v]", id, command, c.index)
+
 	client := clients[c.index]
 	atomic.AddInt64(&c.index, 1)
 	data := make([]byte, 8)
 	binary.LittleEndian.PutUint64(data, uint64(id))
 	data = append(data, []byte(command)...)
 	client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
+
+	log.Debugf("dispatch use time %+v", time.Since(start))
 }
 
 // set on leader select callback

@@ -86,7 +86,10 @@ func (tcp *TcpService) Start() {
 
 func (tcp *TcpService) Clients() TcpClients {
 	log.Debugf("get clients %v", len(tcp.agents))
-	return tcp.agents
+	tcp.lock.Lock()
+	cc := tcp.agents
+	tcp.lock.Unlock()
+	return cc
 }
 
 func (tcp *TcpService) Close() {

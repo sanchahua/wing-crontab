@@ -199,18 +199,20 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 }
 
 func (c *CrontabController) RunCommand(id int64, command string, runServer string) {
-	var cmd *exec.Cmd
-	var err error
-	start := time.Now()
-	cmd = exec.Command("bash", "-c", command)
-	res, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Errorf("执行命令(%v)发生错误：%+v", command, err)
-	}
-	log.Debugf("%+v:%v was run", id, command)
-	if c.onrun == nil {
-		log.Errorf("c.onrun is nil")
-		return
-	}
-	c.onrun(id, runServer, res, time.Since(start))
+	go func() {
+		var cmd *exec.Cmd
+		var err error
+		start := time.Now()
+		cmd = exec.Command("bash", "-c", command)
+		res, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Errorf("执行命令(%v)发生错误：%+v", command, err)
+		}
+		log.Debugf("%+v:%v was run", id, command)
+		if c.onrun == nil {
+			log.Errorf("c.onrun is nil")
+			return
+		}
+		c.onrun(id, runServer, res, time.Since(start))
+	}()
 }
