@@ -151,7 +151,11 @@ func (node *tcpClientNode) onMessage() {
 		if content == nil {
 			return
 		}
-
+		if !hasCmd(cmd) {
+			node.recvBuf = make([]byte, 0)
+			log.Errorf("cmd（%v）does not exists", cmd)
+			return
+		}
 		switch cmd {
 		case CMD_TICK:
 			node.AsyncSend(packDataTickOk)
