@@ -74,7 +74,6 @@ func main() {
 	defer agentController.Close()
 
 	logController := models.NewLogController(ctx, handler)
-	defer logController.Close()
 
 	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
 	crontab.SetOnRun(func(id int64, runServer string, output []byte, useTime time.Duration) {
@@ -101,7 +100,7 @@ func main() {
 	})(consulControl)
 	consulControl.Start()
 
-	httpController := http.NewHttpController(ctx, cronController, http.SetHook(func(event int, row *cron.CronEntity) {
+	httpController := http.NewHttpController(ctx, cronController, logController, http.SetHook(func(event int, row *cron.CronEntity) {
 		var e = make([]byte, 4)
 		binary.LittleEndian.PutUint32(e, uint32(event))
 		data, err := json.Marshal(row)
