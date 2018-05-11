@@ -284,8 +284,7 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					break
 				}
 				log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
-				tcp.buffer = append(tcp.buffer, readBuffer[:size]...)
-				tcp.onMessage()
+				tcp.onMessage(readBuffer[:size])
 
 				select {
 				case <-tcp.ctx.Done():
@@ -297,28 +296,65 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 	}()
 }
 
-func (tcp *AgentClient) onMessage() {
+func (tcp *AgentClient) onMessage(msg []byte) {
+	tcp.buffer = append(tcp.buffer, msg...)
 	for {
-		if len(tcp.buffer) < 6 {
+		bufferLen := len(tcp.buffer)
+		if bufferLen < 6 {
 			return
 		}
-		cmd, content, err := Unpack(&tcp.buffer)
-		if err != nil {
-			log.Errorf("%+v", err)
-			return
-		}
-		if content == nil {
-			return
-		}
-		if !hasCmd(cmd) {
-			log.Errorf("cmd %d dos not exists: %v, %s", cmd, tcp.buffer, string(tcp.buffer))
+		if bufferLen > MAX_PACKAGE_LEN {
+			log.Errorf("buffer len is max then the limit %+v", MAX_PACKAGE_LEN)
 			tcp.buffer = make([]byte, 0)
 			return
 		}
-		log.Debugf("cmd=%+v,,,content=%+v", cmd, content)
+
+		cmd, content, err := Unpack(&tcp.buffer)
+		if err != nil {
+			return
+		}
+
+		/////////////////////////////////
+		/*clen := int(binary.LittleEndian.Uint32(tcp.buffer[:4]))
+		log.Debugf("clen=%+v", clen)
+		if len(tcp.buffer) < clen + 4 {
+			log.Errorf("content len error")
+			return
+		}
+		log.Debugf("cmd=%+v", tcp.buffer[4:6])
+		cmd     := int(binary.LittleEndian.Uint16(tcp.buffer[4:6]))
+		log.Debugf("content=%+v === %v", tcp.buffer[6 : clen + 4], string(tcp.buffer[6 : clen + 4]))
+		content := tcp.buffer[6 : clen + 4]
+		//data  = append(data[:0], data[clen+4:]...)
+		log.Debugf("----(%+v)(%+v)(%+v)", cmd, content, string(content))
+		end := clen+4*/
+		//cmd, content, end, err := Unpack(tcp.buffer)
+		//if err != nil {
+		//	log.Errorf("%+v", err)
+		//	return
+		//}
+		/////////////////////////////////
+
+
+
+
+
+
+
+		//if content == nil {
+		//	return
+		//}
+		if !hasCmd(cmd) {
+			log.Errorf("cmd %d dos not exists", cmd)
+			tcp.buffer = make([]byte, 0)
+			return
+		}
+		log.Debugf("CMD_TICK=%+v, CMD_CRONTAB_CHANGE=%+v, CMD_RUN_COMMAND=%+v", CMD_TICK, CMD_CRONTAB_CHANGE, CMD_RUN_COMMAND)
+		log.Debugf("cmd=%+v,,,content=%+v,,,%+v", cmd, content, string(content))
 		switch cmd {
 		case CMD_TICK:
 			//keepalive
+			log.Info("keepalive")
 		case CMD_CRONTAB_CHANGE:
 			unique := string(content)
 			log.Infof("%v send ok, delete from send queue", unique)

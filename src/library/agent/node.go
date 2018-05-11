@@ -5,11 +5,11 @@ import (
 	"net"
 	log "github.com/sirupsen/logrus"
 	"sync"
-	"fmt"
 	"io"
 	"context"
 	"encoding/json"
 	"encoding/binary"
+	"fmt"
 )
 
 type tcpClientNode struct {
@@ -138,19 +138,46 @@ func (node *tcpClientNode) asyncSendService() {
 	}
 }
 
-func (node *tcpClientNode) onMessage() {
+func (node *tcpClientNode) onMessage(msg []byte) {
+	node.recvBuf = append(node.recvBuf, msg...)
+
+	log.Debugf("data: %+v", node.recvBuf)
+
 	for {
-		if len(node.recvBuf) < 6 {
+		if node.recvBuf == nil || len(node.recvBuf) < 6 {
 			return
 		}
+
+		if len(node.recvBuf) > MAX_PACKAGE_LEN {
+			log.Errorf("max len error")
+			node.recvBuf = make([]byte, 0)
+			return
+		}
+///////////////////////////////////////////////////
+
+
+		//clen := int(binary.LittleEndian.Uint32(node.recvBuf[:4]))
+		//log.Debugf("clen=%+v", clen)
+		//if len(node.recvBuf) < clen + 4 {
+		//	log.Warnf("content len error")
+		//	return //0, nil, 0, DataLenError
+		//}
+		//log.Debugf("cmd=%+v", node.recvBuf[4:6])
+		//cmd     := int(binary.LittleEndian.Uint16(node.recvBuf[4:6]))
+		//log.Debugf("content=%+v === %v", node.recvBuf[6 : clen + 4], string(node.recvBuf[6 : clen + 4]))
+		//content := node.recvBuf[6 : clen + 4]
+		////data  = append(data[:0], data[clen+4:]...)
+		//log.Debugf("return(%+v)(%+v)(%+v)", cmd, content, nil)
+
 		cmd, content, err := Unpack(&node.recvBuf)
 		if err != nil {
-			log.Errorf("%+v", err)
 			return
 		}
-		if content == nil {
-			return
-		}
+		//end:= clen+4//, nil
+		//if content == nil {
+		//	return
+		//}
+		/////////////////////////////////////////
 		if !hasCmd(cmd) {
 			node.recvBuf = make([]byte, 0)
 			log.Errorf("cmd（%v）does not exists", cmd)
@@ -175,6 +202,7 @@ func (node *tcpClientNode) onMessage() {
 			node.recvBuf = make([]byte, 0)
 			return
 		}
+		//node.recvBuf = append( node.recvBuf[:0],  node.recvBuf[end:]...)
 	}
 }
 
@@ -199,8 +227,7 @@ func (node *tcpClientNode) readMessage() {
 			node.close()
 			return
 		}
-		node.recvBuf = append(node.recvBuf, readBuffer[:size]...)
-		node.onMessage()
+		node.onMessage(readBuffer[:size])
 	}
 }
 
