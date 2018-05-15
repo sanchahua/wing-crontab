@@ -21,7 +21,8 @@ CREATE TABLE `log` (
  `time` bigint(20) NOT NULL COMMENT '命令运行的时间',
  `output` longtext NOT NULL COMMENT '执行命令输出',
  `use_time` bigint(20) NOT NULL COMMENT '执行命令耗时，单位为毫秒',
+ `dispatch_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '调度server',
  `run_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '该命令在那个节点上被执行（服务器）',
  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=2190516 DEFAULT CHARSET=utf8
 ````

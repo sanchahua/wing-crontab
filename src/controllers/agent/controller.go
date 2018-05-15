@@ -17,6 +17,7 @@ type AgentController struct {
 	index int64
 	dispatch chan *runItem
 	lock *sync.Mutex
+	ctx *app.Context
 }
 
 type runItem struct {
@@ -24,7 +25,7 @@ type runItem struct {
 	command string
 }
 
-type OnCommandFunc func(id int64, command string, runServer string)
+type OnCommandFunc func(id int64, command string, dispatchServer string, runServer string)
 
 func NewAgentController(
 	ctx *app.Context,
@@ -36,7 +37,8 @@ func NewAgentController(
 				index:0,
 				dispatch:make(chan *runItem, 10000),
 				lock:new(sync.Mutex),
-				}
+				ctx:ctx,
+			}
 	server := agent.NewAgentServer(ctx.Context(),
 				ctx.Config.BindAddress,
 				agent.SetEventCallback(onEvent),
@@ -44,8 +46,18 @@ func NewAgentController(
 	client := agent.NewAgentClient(
 				ctx.Context(),
 				agent.SetGetLeader(getLeader),
-				agent.SetOnCommand(func(id int64, command string) {
-					onCommand(id, command, ctx.Config.BindAddress)
+				agent.SetOnCommand(func(content []byte) {
+
+					id := binary.LittleEndian.Uint64(content[:8])
+					//log.Debugf("id == (%v) === (%v) ", id, content[:8])
+					//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
+					commandLen := binary.LittleEndian.Uint64(content[8:16])
+					command    := content[16:16+commandLen]
+
+					//dispatchServerLen := content[16+commandLen:24+commandLen]
+					dispatchServer    := content[16+commandLen:]
+
+					onCommand(int64(id), string(command), string(dispatchServer), ctx.Config.BindAddress)
 				}),
 			)
 	c.server = server
@@ -71,6 +83,11 @@ func (c *AgentController) Dispatch(id int64, command string) {
 func (c *AgentController) dispatchProcess() {
 	//need to add wait for dispatch complete if exit
 	// roundbin dispatch to all clients
+
+	//dataDispatchServerLen := make([]byte, 8)
+	//binary.LittleEndian.PutUint64(dataDispatchServerLen, uint64(len(c.ctx.Config.BindAddress)))
+
+
 	for {
 		select {
 			case item, ok := <- c.dispatch:
@@ -101,7 +118,16 @@ func (c *AgentController) dispatchProcess() {
 				atomic.AddInt64(&c.index, 1)
 				data := make([]byte, 8)
 				binary.LittleEndian.PutUint64(data, uint64(item.id))
+
+				dataCommendLen := make([]byte, 8)
+				binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
+
+				data = append(data, dataCommendLen...)
 				data = append(data, []byte(item.command)...)
+
+				//data = append(data, dataDispatchServerLen...)
+				data = append(data, []byte(c.ctx.Config.BindAddress)...)
+
 				client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
 			}
 			log.Debugf("dispatch use time %+v", time.Since(start))

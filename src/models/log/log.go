@@ -23,12 +23,13 @@ type LogEntity struct {
 	Time int64       `json:"time"`
 	Output string    `json:"output"`
 	UseTime int64    `json:"use_time"`
+	DispatchServer string `json:"dispatch_server"`
 	RunServer string `json:"run_server"`
 }
 type ILog interface {
-	GetList(cronId int64, search string, runServer string, page int64, limit int64) ([]*LogEntity, int64, error)
+	GetList(cronId int64, search string, dispatchServer, runServer string, page int64, limit int64) ([]*LogEntity, int64, error)
 	Get(rid int64) (*LogEntity, error)
-	Add(cronId int64, output string, useTime int64, runServer string) (*LogEntity, error)
+	Add(cronId int64, output string, useTime int64, dispatchServer, runServer string) (*LogEntity, error)
 	Delete(id int64) (*LogEntity, error)
 	DeleteFormCronId(cronId int64) ([]*LogEntity, error)
 }

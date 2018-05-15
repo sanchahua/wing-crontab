@@ -19,8 +19,8 @@ func newDbLog(handler *sql.DB) ILog {
 }
 
 // 获取所有的定时任务列表
-func (db *DbLog) GetList(cronId int64, search string, runServer string, page int64, limit int64) ([]*LogEntity, int64, error) {
-	sqlStr  := "select `id`, `cron_id`, `time`, `output`, `use_time`, `run_server`  from log where 1 "
+func (db *DbLog) GetList(cronId int64, search string, dispatchServer, runServer string, page int64, limit int64) ([]*LogEntity, int64, error) {
+	sqlStr  := "select `id`, `cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server`  from log where 1 "
 	sqlStr2 := "select count(*) as num  from log where 1 "
 	var params []interface{}
 	var params2 []interface{}
@@ -46,6 +46,15 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 
 		sqlStr  += " and run_server=?"
 		sqlStr2 += " and run_server=?"
+	}
+
+	dispatchServer = strings.Trim(dispatchServer, " ")
+	if dispatchServer != "" {
+		params = append(params, dispatchServer)
+		params2 = append(params2, dispatchServer)
+
+		sqlStr  += " and dispatch_server=?"
+		sqlStr2 += " and dispatch_server=?"
 	}
 
 	sqlStr += " order by id desc limit ?,?"
@@ -83,10 +92,11 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 		output string
 		use_time int64
 		run_server string
+		dispatch_server string
 	)
 	for rows.Next() {
 		//id`, `cron_id`, `time`, `output`, `use_time`, `run_server`
-		err = rows.Scan(&id, &cron_id, &Time, &output, &use_time, &run_server)
+		err = rows.Scan(&id, &cron_id, &Time, &output, &use_time, &dispatch_server, &run_server)
 		if err != nil {
 			log.Errorf("查询错误，sql=%s，error=%+v", sqlStr, err)
 			continue
@@ -98,6 +108,7 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 			Output:    output,
 			UseTime:   use_time,
 			RunServer: run_server,
+			DispatchServer: dispatch_server,
 		}
 		log.Infof("%+v", *row)
 		records = append(records, row)
@@ -130,7 +141,7 @@ func (db *DbLog) GetList(cronId int64, search string, runServer string, page int
 
 // 根据指定id查询行
 func (db *DbLog) Get(rid int64) (*LogEntity, error) {
-	sqlStr := "select `id`, `cron_id`, `time`, `output`, `use_time`, `run_server` from log where id=?"
+	sqlStr := "select `id`, `cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server` from log where id=?"
 	data := db.handler.QueryRow(sqlStr, rid)
 	var (
 		row LogEntity
@@ -143,9 +154,9 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, output string, useTime int64, runServer string) (*LogEntity, error) {
-	sqlStr := "INSERT INTO `log`(`cron_id`, `time`, `output`, `use_time`, `run_server`) VALUES (?,?,?,?,?)"
-	res, err := db.handler.Exec(sqlStr, cronId, time.Now().Unix(), output, useTime, runServer)
+func (db *DbLog) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string) (*LogEntity, error) {
+	sqlStr := "INSERT INTO `log`(`cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server`) VALUES (?,?,?,?,?,?)"
+	res, err := db.handler.Exec(sqlStr, cronId, time.Now().Unix(), output, useTime, dispatchServer, runServer)
 	if err != nil {
 		log.Errorf("新增log错误：%+v", err)
 		return nil, err
@@ -162,6 +173,7 @@ func (db *DbLog) Add(cronId int64, output string, useTime int64, runServer strin
 		Output:    output,
 		UseTime:   useTime,
 		RunServer: runServer,
+		DispatchServer:dispatchServer,
 	}, nil
 }
 
@@ -188,7 +200,7 @@ func (db *DbLog) Delete(id int64) (*LogEntity, error) {
 }
 
 func (db *DbLog) DeleteFormCronId(cronId int64) ([]*LogEntity, error) {
-	rows, num, err := db.GetList(cronId, "", "", 1, 10000)
+	rows, num, err := db.GetList(cronId, "", "", "", 1, 10000)
 	if err != nil || rows == nil {
 		log.Errorf("delete error, cronId does not exists：%v", err)
 		return rows, err

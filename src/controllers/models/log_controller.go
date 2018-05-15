@@ -36,8 +36,8 @@ func NewLogController(ctx *app.Context, handler *sql.DB) *LogController {
 }
 
 // 获取所有的定时任务列表
-func (db *LogController) GetList(cronId int64, search string, runServer string, page int64, limit int64) ([]*mlog.LogEntity, int64, error) {
-	return db.db.GetList(cronId, search, runServer, page, limit)
+func (db *LogController) GetList(cronId int64, search string, dispatchServer, runServer string, page int64, limit int64) ([]*mlog.LogEntity, int64, error) {
+	return db.db.GetList(cronId, search, dispatchServer, runServer, page, limit)
 }
 
 // 根据指定id查询行
@@ -45,8 +45,8 @@ func (db *LogController) Get(rid int64) (*mlog.LogEntity, error) {
 	return db.db.Get(rid)
 }
 
-func (db *LogController) Add(cronId int64, output string, useTime int64, runServer string) (*mlog.LogEntity, error) {
-	return db.db.Add(cronId, output, useTime, runServer)
+func (db *LogController) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string) (*mlog.LogEntity, error) {
+	return db.db.Add(cronId, output, useTime, dispatchServer, runServer)
 }
 
 

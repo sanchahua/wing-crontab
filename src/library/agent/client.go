@@ -9,7 +9,6 @@ import (
 	"sync"
 	"context"
 	wstring "library/string"
-	"encoding/binary"
 )
 
 type AgentClient struct {
@@ -27,7 +26,7 @@ type AgentClient struct {
 
 type GetLeaderFunc     func()(string, int, error)
 type ClientOption      func(tcp *AgentClient)
-type OnCommandFunc     func(id int64, command string)
+type OnCommandFunc     func(content []byte)
 
 func SetGetLeader(f GetLeaderFunc) ClientOption {
 	return func(tcp *AgentClient) {
@@ -371,10 +370,10 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			delete(tcp.sendQueue, unique)
 			tcp.sendQueueLock.Unlock()
 		case CMD_RUN_COMMAND:
-			id := binary.LittleEndian.Uint64(content[:8])
-			log.Debugf("id == (%v) === (%v) ", id, content[:8])
-			log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
-			go tcp.onCommand(int64(id), string(content[8:]))
+			//id := binary.LittleEndian.Uint64(content[:8])
+			//log.Debugf("id == (%v) === (%v) ", id, content[:8])
+			//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
+			go tcp.onCommand(content)//int64(id), string(content[8:]))
 		default:
 		}
 	}
