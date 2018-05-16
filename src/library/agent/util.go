@@ -4,7 +4,6 @@ import (
 	"errors"
 	"encoding/binary"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 func hasCmd(cmd int) bool {
@@ -19,16 +18,16 @@ func hasCmd(cmd int) bool {
 }
 
 func Pack(cmd int, msg []byte) []byte {
-	start := time.Now()
-	defer log.Debugf("Pack use time %+v", time.Since(start))
+	//start := time.Now()
+	//defer log.Debugf("Pack use time %+v", time.Since(start))
 	l  := len(msg)
 	r  := make([]byte, l+6)
 	cl := l + 2
 	binary.LittleEndian.PutUint32(r[:4], uint32(cl))
-	log.Debugf("pack cl=%+v", r[:4])
+	//log.Debugf("pack cl=%+v", r[:4])
 	binary.LittleEndian.PutUint16(r[4:6], uint16(cmd))
 	copy(r[6:], msg)
-	log.Debugf("pack (cmd=%v)(msg=%v) == %+v", cmd, msg, r)
+	//log.Debugf("pack (cmd=%v)(msg=%v) == %+v", cmd, msg, r)
 	return r
 }
 

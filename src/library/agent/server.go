@@ -12,6 +12,8 @@ import (
 type TcpService struct {
 	Address string               // 监听ip
 	lock *sync.Mutex
+	debuglock *sync.Mutex
+
 	statusLock *sync.Mutex
 	//ctx *app.Context
 	listener *net.Listener
@@ -37,6 +39,7 @@ func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOpti
 		Address:          address,
 		// use for agents
 		lock:             new(sync.Mutex),
+		debuglock:        new(sync.Mutex),
 		statusLock:       new(sync.Mutex),
 		wg:               new(sync.WaitGroup),
 		listener:         nil,
@@ -96,59 +99,42 @@ func (tcp *TcpService) Start() {
 }
 
 func (tcp *TcpService) RandSend(data []byte) {
-	log.Debugf("get clients %v", len(tcp.agents))
-	//return tcp.agents
+	//tcp.debuglock.Lock()
+	//defer tcp.debuglock.Unlock()
 	start := time.Now()
-	//start1 := time.Now()
-	//clients := c.server.Clients()
-	//log.Debugf("c.server.Clients use time: %+v", time.Since(start1))
-
-	//start2 := time.Now()
 	l := int64(len(tcp.agents))
-	//log.Debugf("c.server.Clients use time => 2 : %+v", time.Since(start2))
-
 	if l <= 0 {
-		log.Debugf("clients empty")
 		return
 	}
-	//start22 := time.Now()
+	//log.Debugf("RandSend 1 use time : %+v", time.Since(start))
+	//start2 := time.Now()
 
 	if tcp.index >= l {
 		atomic.StoreInt64(&tcp.index, 0)
 	}
-	//log.Infof("clients %+v", l)
-	//log.Debugf("c.server.Clients use time => 22 : %+v", time.Since(start22))
+	//log.Debugf("RandSend 2 use time : %+v", time.Since(start2))
 
-	tcp.lock.Lock()
-	client := tcp.agents[tcp.index]
-	tcp.lock.Unlock()
-	//for key, client := range tcp.agents {
-	//	if key != int(tcp.index) {
-	//		continue
-	//	}
-		//start3 := time.Now()
-		//log.Infof("dispatch %v=>%v to client[%v]", item.id, item.command, c.index)
-		//client := clients[c.index]
-		//atomic.AddInt64(&tcp.index, 1)
-		//data := make([]byte, 8)
-		//binary.LittleEndian.PutUint64(data, uint64(item.id))
-		//
-		//dataCommendLen := make([]byte, 8)
-		//binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
-		//
-		//data = append(data, dataCommendLen...)
-		//data = append(data, []byte(item.command)...)
-		//
-		////data = append(data, dataDispatchServerLen...)
-		//data = append(data, []byte(c.ctx.Config.BindAddress)...)
-		//log.Debugf("c.server.Clients use time => 3 : %+v", time.Since(start3))
+	//start3 := time.Now()
+	iindex := int(tcp.index)
+	for key, client := range tcp.agents {
+		if key != iindex {
+			continue
+		}
+		//startp := time.Now()
 		sendData := Pack(CMD_RUN_COMMAND, data)
+		//log.Debugf("pack use time: %+v", time.Since(startp))
 
-		start5   := time.Now()
+		//start5   := time.Now()
 		client.AsyncSend(sendData)
-		log.Debugf("AsyncSend send use time: %+v", time.Since(start5))
+		//log.Debugf("AsyncSend send use time: %+v", time.Since(start5))
 
-	//}
+		//start4 := time.Now()
+		atomic.AddInt64(&tcp.index, 1)
+		//log.Debugf("RandSend 4 use time : %+v", time.Since(start4))
+		break
+
+	}
+	//log.Debugf("RandSend 3 use time : %+v", time.Since(start3))
 	log.Debugf("dispatch use time %+v", time.Since(start))
 }
 
