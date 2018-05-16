@@ -30,6 +30,7 @@ type CronEntity struct {
 }
 
 func (row *CronEntity) Run() {
+	start := time.Now()
 	if row.Stop {
 		// 外部注入，停止执行定时任务支持
 		log.Debugf("%+v was stop", row.Id)
@@ -37,8 +38,8 @@ func (row *CronEntity) Run() {
 	}
 
 	//roundbin to target server and run command
-	log.Infof("will run: %+v", *row)
 	row.onwillrun(row.Id, row.Command)
+	log.Infof("will run (use time %+v): %+v", time.Since(start), *row)
 }
 
 type OnWillRunFunc func(id int64, command string)

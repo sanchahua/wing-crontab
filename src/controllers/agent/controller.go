@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"runtime"
 	"sync"
+	"time"
 )
 
 type AgentController struct {
@@ -45,7 +46,7 @@ func NewAgentController(
 				ctx.Context(),
 				agent.SetGetLeader(getLeader),
 				agent.SetOnCommand(func(content []byte) {
-
+					start := time.Now()
 					id := binary.LittleEndian.Uint64(content[:8])
 					//log.Debugf("id == (%v) === (%v) ", id, content[:8])
 					//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
@@ -56,6 +57,7 @@ func NewAgentController(
 					dispatchServer    := content[16+commandLen:]
 
 					onCommand(int64(id), string(command), string(dispatchServer), ctx.Config.BindAddress)
+					log.Debugf("oncommand use time %+v", time.Since(start))
 				}),
 			)
 	c.server = server

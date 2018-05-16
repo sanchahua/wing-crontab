@@ -78,7 +78,9 @@ func main() {
 	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
 	crontab.SetOnRun(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
 		log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
-		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer)
+		start := time.Now()
+		logController.AsyncAdd(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer)
+		log.Debugf("onrun use time %+v", time.Since(start))
 	})(crontabController)
 	defer crontabController.Stop()
 

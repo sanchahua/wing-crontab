@@ -5,13 +5,24 @@ import (
 	"database/sql"
 	mlog "models/log"
 	_ "github.com/go-sql-driver/mysql"
+	"runtime"
+	log "github.com/sirupsen/logrus"
 )
 
 type LogController struct {
 	db mlog.ILog
 	handler *sql.DB
+	addChannel chan *addItem
 }
 
+type addItem struct {
+	cronId int64
+	output string
+	useTime int64
+	dispatchServer string
+	runServer string
+}
+const addChannelLen = 10000
 func NewLogController(ctx *app.Context, handler *sql.DB) *LogController {
 	//dataSource := fmt.Sprintf(
 	//	"%s:%s@tcp(%s:%d)/%s?charset=%s",
@@ -32,7 +43,44 @@ func NewLogController(ctx *app.Context, handler *sql.DB) *LogController {
 	//handler.SetMaxOpenConns(8)
 
 	db := mlog.NewLog(handler)
-	return &LogController{db:db, handler:handler}
+	c := &LogController{db:db, handler:handler, addChannel:make(chan *addItem, addChannelLen)}
+	cpu := runtime.NumCPU()
+	for i := 0; i < cpu; i++ {
+		go c.asyncAdd()
+	}
+	return c
+}
+
+func (db *LogController) asyncAdd() {
+	for {
+		select {
+		case data, ok := <- db.addChannel:
+			if !ok {
+				return
+			}
+			db.db.Add(data.cronId, data.output, data.useTime, data.dispatchServer, data.runServer)
+		}
+	}
+}
+
+func (db *LogController) AsyncAdd(cronId int64, output string, useTime int64, dispatchServer, runServer string) {
+	for {
+		if len(db.addChannel) < cap(db.addChannel) {
+			break
+		}
+		log.Errorf("cache full, try wait, %v, %v", len(db.addChannel) , cap(db.addChannel))
+	}
+	db.addChannel <- &addItem{
+		cronId:cronId,
+		output :output,
+		useTime :useTime,
+		dispatchServer:dispatchServer,
+		runServer :runServer,
+	}//db.db.Add(cronId, output, useTime, dispatchServer, runServer)
+}
+
+func (db *LogController) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string) (*mlog.LogEntity, error) {
+	return db.db.Add(cronId, output, useTime, dispatchServer, runServer)
 }
 
 // 获取所有的定时任务列表
@@ -44,11 +92,6 @@ func (db *LogController) GetList(cronId int64, search string, dispatchServer, ru
 func (db *LogController) Get(rid int64) (*mlog.LogEntity, error) {
 	return db.db.Get(rid)
 }
-
-func (db *LogController) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string) (*mlog.LogEntity, error) {
-	return db.db.Add(cronId, output, useTime, dispatchServer, runServer)
-}
-
 
 func (db *LogController) Delete(id int64) (*mlog.LogEntity, error) {
 	return db.db.Delete(id)

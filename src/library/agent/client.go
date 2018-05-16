@@ -373,7 +373,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			//id := binary.LittleEndian.Uint64(content[:8])
 			//log.Debugf("id == (%v) === (%v) ", id, content[:8])
 			//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
-			go tcp.onCommand(content)//int64(id), string(content[8:]))
+			tcp.onCommand(content)//int64(id), string(content[8:]))
 		default:
 		}
 	}
