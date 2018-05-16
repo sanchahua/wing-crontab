@@ -5,7 +5,7 @@ import (
 	"app"
 	"encoding/binary"
 	log "github.com/sirupsen/logrus"
-	"runtime"
+	//"runtime"
 	"sync"
 	"time"
 )
@@ -58,10 +58,10 @@ func NewAgentController(
 			)
 	c.server = server
 	c.client = client
-	cpu := runtime.NumCPU()
-	for i:= 0;i < cpu; i++ {
-		go c.dispatchProcess()
-	}
+	//cpu := runtime.NumCPU()
+	//for i:= 0;i < cpu; i++ {
+	//	go c.dispatchProcess()
+	//}
 	return c
 }
 
@@ -71,14 +71,17 @@ func (c *AgentController) SendToLeader(data []byte) {
 }
 
 func (c *AgentController) Dispatch(id int64, command string) {
-	if len(c.dispatch) < cap(c.dispatch) {
-		c.dispatch <- &runItem{id: id, command: command}
-	} else {
-		log.Errorf("dispatch cache full")
-	}
+	//if len(c.dispatch) < cap(c.dispatch) {
+	//	c.dispatch <- &runItem{id: id, command: command}
+	//} else {
+	//	log.Errorf("dispatch cache full")
+	//}
+	start := time.Now()
+	c.dispatchProcess(id, command)
+	log.Debugf("dispatch use time %v", time.Since(start))
 }
 
-func (c *AgentController) dispatchProcess() {
+func (c *AgentController) dispatchProcess(id int64, command string) {
 	//need to add wait for dispatch complete if exit
 	// roundbin dispatch to all clients
 
@@ -131,31 +134,31 @@ func (c *AgentController) dispatchProcess() {
 	//	}
 	//	log.Debugf("dispatch use time %+v", time.Since(start))
 	//}
-	for {
-		select {
-			case item, ok := <- c.dispatch:
-				if !ok {
-					return
-				}
+	//for {
+	//	select {
+	//		case item, ok := <- c.dispatch:
+	//			if !ok {
+	//				return
+	//			}
 				//c.lock.Lock()
 				data := make([]byte, 8)
-				binary.LittleEndian.PutUint64(data, uint64(item.id))
+				binary.LittleEndian.PutUint64(data, uint64(id))
 
 				dataCommendLen := make([]byte, 8)
-				binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
+				binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(command)))
 
 				currentTime := make([]byte, 8)
 				binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
 				data = append(data, currentTime...)
 
 				data = append(data, dataCommendLen...)
-				data = append(data, []byte(item.command)...)
+				data = append(data, []byte(command)...)
 
 				data = append(data, []byte(c.ctx.Config.BindAddress)...)
 				c.server.RandSend(data)
 			//c.lock.Unlock()
-		}
-	}
+	//	}
+	//}
 }
 
 // set on leader select callback

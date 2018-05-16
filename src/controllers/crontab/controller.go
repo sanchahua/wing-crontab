@@ -16,6 +16,7 @@ type CrontabController struct {
 	running bool
 	onwillrun OnWillRunFunc
 	onrun OnRunFunc
+	fixTime int
 }
 type OnRunFunc func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
 type CronEntity struct {
@@ -106,12 +107,19 @@ func SetOnRun(f OnRunFunc) CrontabControllerOption {
 	}
 }
 
+
+const (
+	minFixTime = 0
+	maxFixTime = 60
+)
+
 func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 	c := &CrontabController{
 		handler: cronv2.New(),
 		crontabList:make(map[int64] *CronEntity),//cronv2.EntryID),
 		lock:new(sync.Mutex),
 		running:false,
+		fixTime:0,
 	}
 	for _, f := range opts {
 		f(c)
@@ -261,6 +269,17 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 
 func (c *CrontabController) RunCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
 	go func() {
+		f := int(time.Now().Unix() - dispatchTime)
+		//if f > minFixTime && f <= maxFixTime && f > c.fixTime {
+		//	c.fixTime = f
+		//}
+		if f > minFixTime {
+			log.Warnf("diff time %v max then %v", f, minFixTime)
+		}
+		//log.Debugf("#######current fix time %v>%v", c.fixTime, f)
+		//if c.fixTime > 0 {
+		//	time.Sleep(time.Second * time.Duration(c.fixTime))
+		//}
 		var cmd *exec.Cmd
 		var err error
 		start := time.Now()
