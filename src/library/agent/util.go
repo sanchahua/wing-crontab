@@ -4,6 +4,7 @@ import (
 	"errors"
 	"encoding/binary"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 func hasCmd(cmd int) bool {
@@ -18,6 +19,8 @@ func hasCmd(cmd int) bool {
 }
 
 func Pack(cmd int, msg []byte) []byte {
+	start := time.Now()
+	defer log.Debugf("Pack use time %+v", time.Since(start))
 	l  := len(msg)
 	r  := make([]byte, l+6)
 	cl := l + 2

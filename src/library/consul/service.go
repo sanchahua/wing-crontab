@@ -107,7 +107,7 @@ func NewService(
 		ServiceName : name,
 		ServiceHost : host,
 		ServicePort : port,
-		Interval    : time.Second * 10,
+		Interval    : time.Second * 3,
 		Ttl         : 15,
 		status      : 0,
 		leader      : false,

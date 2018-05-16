@@ -5,8 +5,6 @@ import (
 	"app"
 	"encoding/binary"
 	log "github.com/sirupsen/logrus"
-	"sync/atomic"
-	"time"
 	"runtime"
 	"sync"
 )
@@ -16,8 +14,8 @@ type AgentController struct {
 	server *agent.TcpService
 	index int64
 	dispatch chan *runItem
-	lock *sync.Mutex
 	ctx *app.Context
+	lock *sync.Mutex
 }
 
 type runItem struct {
@@ -36,8 +34,8 @@ func NewAgentController(
 	c      := &AgentController{
 				index:0,
 				dispatch:make(chan *runItem, 10000),
-				lock:new(sync.Mutex),
 				ctx:ctx,
+				lock:new(sync.Mutex),
 			}
 	server := agent.NewAgentServer(ctx.Context(),
 				ctx.Config.BindAddress,
@@ -63,7 +61,7 @@ func NewAgentController(
 	c.server = server
 	c.client = client
 	cpu := runtime.NumCPU()
-	for i:=0;i<cpu;i++ {
+	for i:= 0;i < cpu; i++ {
 		go c.dispatchProcess()
 	}
 	return c
@@ -87,35 +85,59 @@ func (c *AgentController) dispatchProcess() {
 	//dataDispatchServerLen := make([]byte, 8)
 	//binary.LittleEndian.PutUint64(dataDispatchServerLen, uint64(len(c.ctx.Config.BindAddress)))
 
-
+	//var dis = func(item *runItem) {
+	//	start := time.Now()
+	//	start1 := time.Now()
+	//	clients := c.server.Clients()
+	//	log.Debugf("c.server.Clients use time: %+v", time.Since(start1))
+	//
+	//	start2 := time.Now()
+	//	l := int64(len(clients))
+	//	if l <= 0 {
+	//		log.Debugf("clients empty")
+	//		return
+	//	}
+	//	if c.index >= l {
+	//		atomic.StoreInt64(&c.index, 0)
+	//	}
+	//	log.Infof("clients %+v", l)
+	//	log.Debugf("c.server.Clients use time => 2 : %+v", time.Since(start2))
+	//
+	//	for key, client := range clients {
+	//		if key != int(c.index) {
+	//			continue
+	//		}
+	//		start3 := time.Now()
+	//		log.Infof("dispatch %v=>%v to client[%v]", item.id, item.command, c.index)
+	//		//client := clients[c.index]
+	//		atomic.AddInt64(&c.index, 1)
+	//		data := make([]byte, 8)
+	//		binary.LittleEndian.PutUint64(data, uint64(item.id))
+	//
+	//		dataCommendLen := make([]byte, 8)
+	//		binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
+	//
+	//		data = append(data, dataCommendLen...)
+	//		data = append(data, []byte(item.command)...)
+	//
+	//		//data = append(data, dataDispatchServerLen...)
+	//		data = append(data, []byte(c.ctx.Config.BindAddress)...)
+	//		log.Debugf("c.server.Clients use time => 3 : %+v", time.Since(start3))
+	//
+	//		start5 := time.Now()
+	//		client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
+	//		log.Debugf("c.server.Clients use time => 5 : %+v", time.Since(start5))
+	//
+	//	}
+	//	log.Debugf("dispatch use time %+v", time.Since(start))
+	//}
 	for {
 		select {
 			case item, ok := <- c.dispatch:
 				if !ok {
 					return
 				}
-			start := time.Now()
-			clients := c.server.Clients()
-
-			l := int64(len(clients))
-			if l <= 0 {
-				log.Debugf("clients empty")
-				return
-			}
-			if c.index >= l {
-				atomic.StoreInt64(&c.index, 0)
-			}
-			log.Infof("clients %+v", l)
-			//c.lock.Lock()
-			//client := clients[c.index]
-			//c.lock.Unlock()
-			for key, client := range clients {
-				if key != int(c.index) {
-					continue
-				}
-				log.Infof("dispatch %v=>%v to client[%v]", item.id, item.command, c.index)
-				//client := clients[c.index]
-				atomic.AddInt64(&c.index, 1)
+				//c.lock.Lock()
 				data := make([]byte, 8)
 				binary.LittleEndian.PutUint64(data, uint64(item.id))
 
@@ -127,10 +149,8 @@ func (c *AgentController) dispatchProcess() {
 
 				//data = append(data, dataDispatchServerLen...)
 				data = append(data, []byte(c.ctx.Config.BindAddress)...)
-
-				client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
-			}
-			log.Debugf("dispatch use time %+v", time.Since(start))
+				c.server.RandSend(data)
+			//c.lock.Unlock()
 		}
 	}
 }

@@ -67,6 +67,7 @@ func SetOnleader(f consul.OnLeaderFunc) ConsulControllerOption {
 
 // leader on select callback
 func (c *ConsulController) OnLeader(isLeader bool) {
+	log.Errorf("on leader( just for debug == %v )", isLeader)
 	for _, f := range c.onleader {
 		f(isLeader)
 	}

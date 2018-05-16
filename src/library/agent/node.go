@@ -63,19 +63,20 @@ func NodeClose(f NodeFunc) NodeOption {
 
 func (node *tcpClientNode) close() {
 	node.lock.Lock()
-	defer node.lock.Unlock()
 	if node.status & tcpNodeOnline <= 0 {
+		node.lock.Unlock()
 		return
 	}
 	if node.status & tcpNodeOnline > 0{
 		node.status ^= tcpNodeOnline
 		(*node.conn).Close()
-		close(node.sendQueue)
+		node.sendQueue <- []byte{byte(0)}//close(node.sendQueue)
 	}
 	for _, f := range node.onclose {
 		f(node)
 	}
 	log.Warnf("node close")
+	node.lock.Unlock()
 }
 
 func (node *tcpClientNode) send(data []byte) (int, error) {
@@ -84,19 +85,15 @@ func (node *tcpClientNode) send(data []byte) (int, error) {
 }
 
 func (node *tcpClientNode) AsyncSend(data []byte) {
-	node.lock.Lock()
-	if node.status & tcpNodeOnline <= 0 {
-		node.lock.Unlock()
-		return
-	}
-	node.lock.Unlock()
+	//start1 := time.Now()
 	for {
 		if len(node.sendQueue) < cap(node.sendQueue) {
 			break
 		}
-		log.Warnf("cache full, try wait, %v, %v", len(node.sendQueue) , cap(node.sendQueue))
+		log.Errorf("cache full, try wait, %v, %v", len(node.sendQueue) , cap(node.sendQueue))
 	}
 	node.sendQueue <- data
+	//log.Debugf("############AsyncSend use time========= %+v", time.Since(start1))
 }
 
 func (node *tcpClientNode) setReadDeadline(t time.Time) {
@@ -115,6 +112,11 @@ func (node *tcpClientNode) asyncSendService() {
 		case msg, ok := <-node.sendQueue:
 			if !ok {
 				log.Info("tcp node sendQueue is closed, sendQueue channel closed.")
+				return
+			}
+			if len(msg) == 1 && msg[0] == byte(0) {
+				close(node.sendQueue)
+				log.Warnf("close sendQueue")
 				return
 			}
 			(*node.conn).SetWriteDeadline(time.Now().Add(time.Second * 30))
