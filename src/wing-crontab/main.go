@@ -80,7 +80,6 @@ func main() {
 		log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
 		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer)
 	})(crontabController)
-	crontabController.Start()
 	defer crontabController.Stop()
 
 	consul.SetOnleader(agentController.OnLeader)(consulControl)
@@ -96,6 +95,13 @@ func main() {
 		log.Debugf("==============init crontab list==============")
 		for _, e := range list  {
 			crontabController.Add(cron.EVENT_ADD, e)
+		}
+	})(consulControl)
+	consul.SetOnleader(func(isLeader bool) {
+		if !isLeader {
+			crontabController.Stop()
+		} else {
+			crontabController.Start()
 		}
 	})(consulControl)
 	consulControl.Start()

@@ -68,14 +68,24 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 	}
 	return c
 }
+
 func (c *CrontabController) Start() {
 	c.lock.Lock()
+	if c.running {
+		c.lock.Unlock()
+		return
+	}
 	c.running = true
 	c.lock.Unlock()
 	c.handler.Start()
 }
+
 func (c *CrontabController) Stop() {
 	c.lock.Lock()
+	if !c.running {
+		c.lock.Unlock()
+		return
+	}
 	c.running = false
 	c.lock.Unlock()
 	c.handler.Stop()
