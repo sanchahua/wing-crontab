@@ -26,6 +26,8 @@ type CronEntity struct {
 	Command string  `json:"command"`
 	Remark string   `json:"remark"`
 	Stop bool       `json:"stop"`
+	StartTime int64 `json:"start_time"`
+	EndTime int64   `json:"end_time"`
 }
 const (
 	EVENT_STOP   = 1
@@ -38,8 +40,8 @@ const (
 type ICron interface {
 	GetList() ([]*CronEntity, error)
 	Get(id int64) (*CronEntity, error)
-	Add(cronSet, command string, remark string, stop bool) (*CronEntity, error)
-	Update(id int64, cronSet, command string, remark string, stop bool) (*CronEntity,error)
+	Add(cronSet, command string, remark string, stop bool, startTime, endTime int64) (*CronEntity, error)
+	Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime int64) (*CronEntity,error)
 	Stop(id int64) (*CronEntity, error)
 	Start(id int64) (*CronEntity, error)
 	Delete(id int64) (*CronEntity, error)

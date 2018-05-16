@@ -139,7 +139,7 @@ func (tcp *AgentClient) sendService() {
 
 			if d.SendTimes >= 36 {
 				delete(tcp.sendQueue, d.Unique)
-				log.Warnf("send timeout(6s), delete %+v", *d)
+				log.Warnf("send timeout(36s), delete %+v", *d)
 				continue
 			}
 			d.Time   = time.Now().Unix()

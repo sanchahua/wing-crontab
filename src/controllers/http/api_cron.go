@@ -134,6 +134,8 @@ func (server *CronApi) update(request *restful.Request, w *restful.Response) {
 	command   := request.QueryParameter("command")
 	remark    := request.QueryParameter("remark")
 	stop      := request.QueryParameter("stop")
+	strStartTime := request.QueryParameter("start_time")
+	strEndTime   := request.QueryParameter("end_time")
 
 	if len(cronSet) <= 0 || len(command) <= 0 || len(remark) <= 0 {
 		out, _ := output(201, "参数错误", nil)
@@ -146,7 +148,9 @@ func (server *CronApi) update(request *restful.Request, w *restful.Response) {
 		w.Write(out)
 		return
 	}
-	row, err := server.cron.Update(id, cronSet, command, remark, stop == "1")
+	startTime, _ := strconv.ParseInt(strStartTime, 10, 64)
+	endTime, _   := strconv.ParseInt(strEndTime, 10, 64)
+	row, err := server.cron.Update(id, cronSet, command, remark, stop == "1", startTime, endTime)
 	log.Debugf("成功更新%d", id)
 	out, _ := output(200, "ok", row)
 	w.Write(out)
@@ -158,10 +162,13 @@ func (server *CronApi) update(request *restful.Request, w *restful.Response) {
 // 添加定时任务
 // http://localhost:9990/cron/add?cronSet=0%20*/1%20*%20*%20*%20*&command=php%20-v&isMutex=0&remark=
 func (server *CronApi) add(request *restful.Request, w *restful.Response) {
-	cronSet := request.QueryParameter("cronSet")
-	command := request.QueryParameter("command")
-	remark := request.QueryParameter("remark")
-	stop := request.QueryParameter("stop")
+	cronSet   := request.QueryParameter("cronSet")
+	command   := request.QueryParameter("command")
+	remark    := request.QueryParameter("remark")
+	stop         := request.QueryParameter("stop")
+	strStartTime := request.QueryParameter("start_time")
+	strEndTime   := request.QueryParameter("end_time")
+
 
 	if len(cronSet) <= 0 || len(command) <= 0 {
 		out, _ := output(201, "参数错误", nil)
@@ -175,7 +182,9 @@ func (server *CronApi) add(request *restful.Request, w *restful.Response) {
 		return
 	}
 
-	row, err := server.cron.Add(cronSet, command, remark, stop == "1")
+	startTime, _ := strconv.ParseInt(strStartTime, 10, 64)
+	endTime, _   := strconv.ParseInt(strEndTime, 10, 64)
+	row, err := server.cron.Add(cronSet, command, remark, stop == "1", startTime, endTime)
 	out, _ := output(200, httpErrors[200], row)
 	w.Write(out)
 	if err == nil {

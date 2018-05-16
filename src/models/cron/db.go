@@ -18,7 +18,7 @@ func newDbCron(handler *sql.DB) ICron {
 
 // 获取所有的定时任务列表
 func (db *DbCron) GetList() ([]*CronEntity, error) {
-	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark` from cron"
+	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time` from cron"
 	rows, err := db.handler.Query(sqlStr)
 	if nil != err || rows == nil {
 		log.Errorf("查询数据库错误：%+v", err)
@@ -32,9 +32,11 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 		command string
 		remark string
 		stop int
+		startTime int64
+		endTime int64
 	)
 	for rows.Next() {
-		err = rows.Scan(&id, &cronSet, &command, &stop, &remark)
+		err = rows.Scan(&id, &cronSet, &command, &stop, &remark, &startTime, &endTime)
 		if err != nil {
 			log.Errorf("查询错误，sql=%s，error=%+v", sqlStr, err)
 			continue
@@ -45,6 +47,8 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 			Command:command,
 			Remark:remark,
 			Stop:stop == 1,
+			StartTime:startTime,
+			EndTime:endTime,
 		}
 		records = append(records, row)
 	}
@@ -53,13 +57,13 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 
 // 根据指定id查询行
 func (db *DbCron) Get(rid int64) (*CronEntity, error) {
-	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark` from cron where id=?"
+	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time` from cron where id=?"
 	data := db.handler.QueryRow(sqlStr, rid)
 	var (
 		row CronEntity
 		stop int
 	)
-	err := data.Scan(&row.Id, &row.CronSet, &row.Command, &stop, &row.Remark)
+	err := data.Scan(&row.Id, &row.CronSet, &row.Command, &stop, &row.Remark, &row.StartTime, &row.EndTime)
 	if err != nil {
 		log.Errorf("查询sql发生错误：%s, %+v", sqlStr, err)
 		return &row, err
@@ -68,13 +72,13 @@ func (db *DbCron) Get(rid int64) (*CronEntity, error) {
 	return &row, nil
 }
 
-func (db *DbCron) Add(cronSet, command string, remark string, stop bool) (*CronEntity, error) {
+func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTime, endTime int64) (*CronEntity, error) {
 	iStop := 0
 	if stop {
 		iStop = 1
 	}
-	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`) VALUES (?,?,?,?)"
-	res, err := db.handler.Exec(sqlStr, cronSet, command, iStop, remark)
+	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`) VALUES (?,?,?,?,?,?)"
+	res, err := db.handler.Exec(sqlStr, cronSet, command, iStop, remark, startTime, endTime)
 	if err != nil {
 		log.Errorf("新增定时任务错误：%+v", err)
 		return nil, err
@@ -90,16 +94,18 @@ func (db *DbCron) Add(cronSet, command string, remark string, stop bool) (*CronE
 		Command:command,
 		Remark:remark,
 		Stop: stop,
+		StartTime:startTime,
+		EndTime:endTime,
 	}, nil
 }
 
-func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop bool) (*CronEntity, error) {
+func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime int64) (*CronEntity, error) {
 	iStop := 0
 	if stop {
 		iStop = 1
 	}
-	sqlStr := "UPDATE `cron` SET `cron_set`=?,`command`=?,`remark`=?, `stop`=? WHERE `id`=?"
-	res, err := db.handler.Exec(sqlStr, cronSet, command, remark, iStop, id)
+	sqlStr := "UPDATE `cron` SET `cron_set`=?,`command`=?,`remark`=?, `stop`=?, `start_time`=?, `end_time`=? WHERE `id`=?"
+	res, err := db.handler.Exec(sqlStr, cronSet, command, remark, iStop, id, startTime, endTime)
 	if err != nil {
 		log.Errorf("更新定时任务错误：%+v", err)
 		return nil, err
@@ -118,6 +124,8 @@ func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop 
 		Command:command,
 		Remark:remark,
 		Stop: stop,
+		StartTime:startTime,
+		EndTime:endTime,
 	}, nil
 }
 
@@ -127,7 +135,7 @@ func (db *DbCron) Stop(id int64) (*CronEntity, error) {
 		log.Errorf("停止定时任务错误：%v", err)
 		return row, err
 	}
-	return db.Update(id, row.CronSet, row.Command, row.Remark, true)
+	return db.Update(id, row.CronSet, row.Command, row.Remark, true, row.StartTime, row.EndTime)
 }
 
 func (db *DbCron) Start(id int64) (*CronEntity, error) {
@@ -136,7 +144,7 @@ func (db *DbCron) Start(id int64) (*CronEntity, error) {
 		log.Errorf("开始定时任务错误：%v", err)
 		return row, err
 	}
-	return db.Update(id, row.CronSet, row.Command, row.Remark, false)
+	return db.Update(id, row.CronSet, row.Command, row.Remark, false, row.StartTime, row.EndTime)
 }
 
 func (db *DbCron) Delete(id int64) (*CronEntity, error) {
