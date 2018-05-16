@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"runtime"
 	"sync"
+	"time"
 )
 
 type AgentController struct {
@@ -23,7 +24,7 @@ type runItem struct {
 	command string
 }
 
-type OnCommandFunc func(id int64, command string, dispatchServer string, runServer string)
+type OnCommandFunc func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string)
 
 func NewAgentController(
 	ctx *app.Context,
@@ -47,10 +48,12 @@ func NewAgentController(
 				agent.SetGetLeader(getLeader),
 				agent.SetOnCommand(func(content []byte) {
 					id             := binary.LittleEndian.Uint64(content[:8])
-					commandLen     := binary.LittleEndian.Uint64(content[8:16])
-					command        := content[16:16 + commandLen]
-					dispatchServer := content[16 + commandLen:]
-					onCommand(int64(id), string(command), string(dispatchServer), binaddress)
+					dispatchTime   := binary.LittleEndian.Uint64(content[8:16])
+
+					commandLen     := binary.LittleEndian.Uint64(content[16:24])
+					command        := content[24:24 + commandLen]
+					dispatchServer := content[24 + commandLen:]
+					onCommand(int64(id), string(command), int64(dispatchTime), string(dispatchServer), binaddress)
 				}),
 			)
 	c.server = server
@@ -66,6 +69,7 @@ func NewAgentController(
 func (c *AgentController) SendToLeader(data []byte) {
 	c.client.Send(data)
 }
+
 func (c *AgentController) Dispatch(id int64, command string) {
 	if len(c.dispatch) < cap(c.dispatch) {
 		c.dispatch <- &runItem{id: id, command: command}
@@ -73,6 +77,7 @@ func (c *AgentController) Dispatch(id int64, command string) {
 		log.Errorf("dispatch cache full")
 	}
 }
+
 func (c *AgentController) dispatchProcess() {
 	//need to add wait for dispatch complete if exit
 	// roundbin dispatch to all clients
@@ -139,10 +144,13 @@ func (c *AgentController) dispatchProcess() {
 				dataCommendLen := make([]byte, 8)
 				binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
 
+				currentTime := make([]byte, 8)
+				binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
+				data = append(data, currentTime...)
+
 				data = append(data, dataCommendLen...)
 				data = append(data, []byte(item.command)...)
 
-				//data = append(data, dataDispatchServerLen...)
 				data = append(data, []byte(c.ctx.Config.BindAddress)...)
 				c.server.RandSend(data)
 			//c.lock.Unlock()

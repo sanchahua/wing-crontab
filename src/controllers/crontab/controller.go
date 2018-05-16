@@ -17,7 +17,7 @@ type CrontabController struct {
 	onwillrun OnWillRunFunc
 	onrun OnRunFunc
 }
-type OnRunFunc func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
+type OnRunFunc func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
 type CronEntity struct {
 	// 数据库的基本属性
 	Id int64        `json:"id"`
@@ -209,7 +209,7 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 	}
 }
 
-func (c *CrontabController) RunCommand(id int64, command string, dispatchServer string, runServer string) {
+func (c *CrontabController) RunCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
 	go func() {
 		var cmd *exec.Cmd
 		var err error
@@ -224,6 +224,6 @@ func (c *CrontabController) RunCommand(id int64, command string, dispatchServer 
 			log.Errorf("c.onrun is nil")
 			return
 		}
-		c.onrun(id, dispatchServer, runServer, res, time.Since(start))
+		c.onrun(id, dispatchTime, dispatchServer, runServer, res, time.Since(start))
 	}()
 }
