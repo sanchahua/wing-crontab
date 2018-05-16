@@ -3,7 +3,6 @@ package agent
 import (
 	"errors"
 	"encoding/binary"
-	log "github.com/sirupsen/logrus"
 )
 
 func hasCmd(cmd int) bool {
@@ -40,17 +39,17 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	}
 	//log.Debugf("data: %+v", *data)
 	if len(*data) > MAX_PACKAGE_LEN {
-		log.Errorf("max len error")
+		//log.Errorf("max len error")
 		return 0, nil, MaxPackError
 	}
 	if len(*data) < 6 {
-		log.Warnf("package is not complete")
+		//log.Warnf("package is not complete")
 		return 0, nil, nil
 	}
 	clen := int(binary.LittleEndian.Uint32((*data)[:4]))
 	//log.Debugf("clen=%+v", clen)
 	if len(*data) < clen + 4 {
-		log.Warnf("package is not complete")
+		//log.Warnf("package is not complete")
 		return 0, nil, DataLenError
 	}
 	//log.Debugf("cmd=%+v", (*data)[4:6])
@@ -64,7 +63,7 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	//	log.Errorf("package error")
 	//	*data  = append((*data)[:0], (*data)[len(*data):]...)
 	//} else {
-	log.Debugf("data==%+v, %+v==%+v",clen+4, *data, string(*data))
+	//log.Debugf("data==%+v, %+v==%+v",clen+4, *data, string(*data))
 	*data  = append((*data)[:0], (*data)[clen+4:]...)
 	//}
 	//tcp.buffer = append(tcp.buffer[:0], tcp.buffer[end:]...)

@@ -271,11 +271,13 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
 
 			for {
+				start := time.Now()
 				if tcp.conn == nil {
 					log.Errorf("============================tcp conn nil")
 					break
 				}
 				size, err := tcp.conn.Read(readBuffer[0:])
+				log.Debugf("read message use time %v", time.Since(start))
 				//log.Debugf("read buffer len: %d, cap:%d", len(readBuffer), cap(readBuffer))
 				if err != nil || size <= 0 {
 					log.Warnf("agent read with error: %+v", err)
@@ -285,8 +287,9 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					break
 				}
 				//log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
+				start = time.Now()
 				tcp.onMessage(readBuffer[:size])
-
+				log.Debugf("#################################on message use time %+v", time.Since(start))
 				select {
 				case <-tcp.ctx.Done():
 					return
@@ -298,9 +301,7 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 }
 
 func (tcp *AgentClient) onMessage(msg []byte) {
-	tcp.bufferLock.Lock()
 	tcp.buffer = append(tcp.buffer, msg...)
-	tcp.bufferLock.Unlock()
 	for {
 		bufferLen := len(tcp.buffer)
 		if bufferLen < 6 {
@@ -308,57 +309,22 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		}
 		if bufferLen > MAX_PACKAGE_LEN {
 			log.Errorf("buffer len is max then the limit %+v", MAX_PACKAGE_LEN)
-			tcp.bufferLock.Lock()
 			tcp.buffer = make([]byte, 0)
-			tcp.bufferLock.Unlock()
 			return
 		}
-		tcp.bufferLock.Lock()
+		start := time.Now()
 		cmd, content, err := Unpack(&tcp.buffer)
-		tcp.bufferLock.Unlock()
 		if err != nil {
 			return
 		}
+		log.Debugf("Unpack use time %v", time.Since(start))
 
-		/////////////////////////////////
-		/*clen := int(binary.LittleEndian.Uint32(tcp.buffer[:4]))
-		log.Debugf("clen=%+v", clen)
-		if len(tcp.buffer) < clen + 4 {
-			log.Errorf("content len error")
-			return
-		}
-		log.Debugf("cmd=%+v", tcp.buffer[4:6])
-		cmd     := int(binary.LittleEndian.Uint16(tcp.buffer[4:6]))
-		log.Debugf("content=%+v === %v", tcp.buffer[6 : clen + 4], string(tcp.buffer[6 : clen + 4]))
-		content := tcp.buffer[6 : clen + 4]
-		//data  = append(data[:0], data[clen+4:]...)
-		log.Debugf("----(%+v)(%+v)(%+v)", cmd, content, string(content))
-		end := clen+4*/
-		//cmd, content, end, err := Unpack(tcp.buffer)
-		//if err != nil {
-		//	log.Errorf("%+v", err)
-		//	return
-		//}
-		/////////////////////////////////
-
-
-
-
-
-
-
-		//if content == nil {
-		//	return
-		//}
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)
-			tcp.bufferLock.Lock()
 			tcp.buffer = make([]byte, 0)
-			tcp.bufferLock.Unlock()
 			return
 		}
-		//log.Debugf("CMD_TICK=%+v, CMD_CRONTAB_CHANGE=%+v, CMD_RUN_COMMAND=%+v", CMD_TICK, CMD_CRONTAB_CHANGE, CMD_RUN_COMMAND)
-		//log.Debugf("cmd=%+v,,,content=%+v,,,%+v", cmd, content, string(content))
+
 		switch cmd {
 		case CMD_TICK:
 			//keepalive
@@ -366,14 +332,16 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		case CMD_CRONTAB_CHANGE:
 			unique := string(content)
 			log.Infof("%v send ok, delete from send queue", unique)
-			tcp.sendQueueLock.Lock()
+			//tcp.sendQueueLock.Lock()
 			delete(tcp.sendQueue, unique)
-			tcp.sendQueueLock.Unlock()
+			//tcp.sendQueueLock.Unlock()
 		case CMD_RUN_COMMAND:
 			//id := binary.LittleEndian.Uint64(content[:8])
 			//log.Debugf("id == (%v) === (%v) ", id, content[:8])
 			//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
+			start = time.Now()
 			tcp.onCommand(content)//int64(id), string(content[8:]))
+			log.Debugf("onCommand use time %v", time.Since(start))
 		default:
 		}
 	}
