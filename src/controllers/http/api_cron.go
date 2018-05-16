@@ -137,7 +137,7 @@ func (server *CronApi) update(request *restful.Request, w *restful.Response) {
 	strStartTime := request.QueryParameter("start_time")
 	strEndTime   := request.QueryParameter("end_time")
 
-	if len(cronSet) <= 0 || len(command) <= 0 || len(remark) <= 0 {
+	if len(cronSet) <= 0 || len(command) <= 0 {
 		out, _ := output(201, "参数错误", nil)
 		w.Write(out)
 		return
@@ -151,11 +151,14 @@ func (server *CronApi) update(request *restful.Request, w *restful.Response) {
 	startTime, _ := strconv.ParseInt(strStartTime, 10, 64)
 	endTime, _   := strconv.ParseInt(strEndTime, 10, 64)
 	row, err := server.cron.Update(id, cronSet, command, remark, stop == "1", startTime, endTime)
-	log.Debugf("成功更新%d", id)
+
 	out, _ := output(200, "ok", row)
 	w.Write(out)
 	if err == nil {
+		log.Debugf("成功更新%d", id)
 		server.firedHooks(cron.EVENT_UPDATE, row)
+	} else {
+		log.Debugf("更新失败%d： %v", id, err)
 	}
 }
 

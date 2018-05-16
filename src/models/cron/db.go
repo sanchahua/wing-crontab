@@ -105,7 +105,7 @@ func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop 
 		iStop = 1
 	}
 	sqlStr := "UPDATE `cron` SET `cron_set`=?,`command`=?,`remark`=?, `stop`=?, `start_time`=?, `end_time`=? WHERE `id`=?"
-	res, err := db.handler.Exec(sqlStr, cronSet, command, remark, iStop, id, startTime, endTime)
+	res, err := db.handler.Exec(sqlStr, cronSet, command, remark, iStop, startTime, endTime, id)
 	if err != nil {
 		log.Errorf("更新定时任务错误：%+v", err)
 		return nil, err

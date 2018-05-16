@@ -27,11 +27,60 @@ type CronEntity struct {
 	Stop bool       `json:"stop"`
 	CronId cronv2.EntryID    `json:"cron_id"`//runtime cron id
 	onwillrun OnWillRunFunc `json:"-"`
+	StartTime int64 `json:"start_time"`
+	EndTime int64 `json:"end_time"`
 }
+
+type IFilter interface {
+	Check() bool
+}
+type CronEntityMiddleWare func(entity *CronEntity) IFilter
+type StopFilter struct {
+	row *CronEntity
+}
+func StopMiddleware() CronEntityMiddleWare {
+	return func(entity *CronEntity) IFilter {
+		return &StopFilter{entity}
+	}
+}
+
+func (f *StopFilter) Check() bool {
+	return f.row.Stop
+}
+
+type TimeFilter struct {
+	row *CronEntity
+	next IFilter
+}
+func TimeMiddleware(next IFilter) CronEntityMiddleWare {
+	return func(entity *CronEntity) IFilter {
+		return &TimeFilter{row:entity, next:next}
+	}
+}
+
+func (f *TimeFilter) Check() bool {
+	if f.next.Check() {
+		return true
+	}
+
+	if f.row.EndTime <= 0 {
+		return false
+	}
+
+	current := time.Now().Unix()
+	if current >= f.row.StartTime && current < f.row.EndTime {
+		return false
+	}
+	return true
+}
+
 
 func (row *CronEntity) Run() {
 	start := time.Now()
-	if row.Stop {
+
+	m := StopMiddleware()(row)
+	m  = TimeMiddleware(m)(row)
+	if m.Check() {
 		// 外部注入，停止执行定时任务支持
 		log.Debugf("%+v was stop", row.Id)
 		return
@@ -114,11 +163,10 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 				Stop :entity.Stop,//bool       `json:"stop"`
 				CronId :0,//int64    `json:"cron_id"`
 				onwillrun:c.onwillrun,
+				StartTime:entity.StartTime,
+				EndTime:entity.EndTime,
 			}
 		}
-
-
-
 
 		c.lock.Lock()
 		if c.running {
@@ -193,12 +241,14 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 			e.Command     = entity.Command
 			e.Stop        = entity.Stop
 			e.Remark      = entity.Remark
+			e.StartTime   = entity.StartTime
+			e.EndTime     = entity.EndTime
 			e.CronId, err = c.handler.AddJob(entity.CronSet, e)
 			if err != nil {
 				log.Errorf("%+v", err)
 			}
-
 			c.lock.Lock()
+			c.crontabList[entity.Id] = e
 			if !c.running {
 				c.lock.Unlock()
 				c.Start()
