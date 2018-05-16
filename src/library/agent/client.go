@@ -9,8 +9,14 @@ import (
 	"sync"
 	"context"
 	wstring "library/string"
+	"runtime"
 )
 
+type dataItem struct {
+	cmd int
+	content []byte
+}
+const dataChannelLen=10000
 type AgentClient struct {
 	ctx context.Context
 	buffer  []byte
@@ -22,6 +28,7 @@ type AgentClient struct {
 	sendQueue map[string]*SendData
 	sendQueueLock *sync.Mutex
 	onCommand OnCommandFunc
+	dataChannel chan *dataItem
 }
 
 type GetLeaderFunc     func()(string, int, error)
@@ -81,12 +88,17 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		sendQueue:     make(map[string]*SendData),
 		sendQueueLock: new(sync.Mutex),
 		bufferLock:    new(sync.Mutex),
+		dataChannel:   make(chan *dataItem, dataChannelLen),
 	}
 	for _, f := range opts {
 		f(c)
 	}
 	go c.keepalive()
 	go c.sendService()
+	cpu := runtime.NumCPU()
+	for i := 0;i<cpu;i++ {
+		go c.onData()
+	}
 	return c
 }
 
@@ -300,6 +312,37 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 	}()
 }
 
+func (tcp *AgentClient) onData() {
+	for {
+		select {
+		case data, ok := <- tcp.dataChannel:
+			if !ok {
+				return
+			}
+
+			switch data.cmd {
+			case CMD_TICK:
+				//keepalive
+				//log.Info("keepalive")
+			case CMD_CRONTAB_CHANGE:
+				unique := string(data.content)
+				log.Infof("%v send ok, delete from send queue", unique)
+				//tcp.sendQueueLock.Lock()
+				delete(tcp.sendQueue, unique)
+				//tcp.sendQueueLock.Unlock()
+			case CMD_RUN_COMMAND:
+				//id := binary.LittleEndian.Uint64(content[:8])
+				//log.Debugf("id == (%v) === (%v) ", id, content[:8])
+				//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
+				start := time.Now()
+				tcp.onCommand(data.content)//int64(id), string(content[8:]))
+				log.Debugf("onCommand use time %v", time.Since(start))
+			default:
+			}
+		}
+	}
+}
+
 func (tcp *AgentClient) onMessage(msg []byte) {
 	tcp.buffer = append(tcp.buffer, msg...)
 	for {
@@ -324,26 +367,11 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			tcp.buffer = make([]byte, 0)
 			return
 		}
-
-		switch cmd {
-		case CMD_TICK:
-			//keepalive
-			//log.Info("keepalive")
-		case CMD_CRONTAB_CHANGE:
-			unique := string(content)
-			log.Infof("%v send ok, delete from send queue", unique)
-			//tcp.sendQueueLock.Lock()
-			delete(tcp.sendQueue, unique)
-			//tcp.sendQueueLock.Unlock()
-		case CMD_RUN_COMMAND:
-			//id := binary.LittleEndian.Uint64(content[:8])
-			//log.Debugf("id == (%v) === (%v) ", id, content[:8])
-			//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
-			start = time.Now()
-			tcp.onCommand(content)//int64(id), string(content[8:]))
-			log.Debugf("onCommand use time %v", time.Since(start))
-		default:
+		tcp.dataChannel <- &dataItem{
+			cmd : cmd,
+			content:content,
 		}
+
 	}
 }
 
