@@ -238,7 +238,7 @@ func (tcp *AgentClient) connect(ip string, port int) {
 }
 
 func (tcp *AgentClient) start(serviceIp string, port int) {
-	var readBuffer [tcpDefaultReadBufferSize]byte
+	var readBuffer [128]byte
 	go func() {
 		if serviceIp == "" || port == 0 {
 			log.Warnf("ip or port empty %s:%d", serviceIp, port)
