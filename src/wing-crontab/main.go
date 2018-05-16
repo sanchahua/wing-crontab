@@ -108,7 +108,7 @@ func main() {
 	})(consulControl)
 	consulControl.Start()
 
-	httpController := http.NewHttpController(ctx, cronController, logController, http.SetHook(func(event int, row *cron.CronEntity) {
+	httpController := http.NewHttpController(ctx, cronController, logController, http.SetCronHook(func(event int, row *cron.CronEntity) {
 		var e = make([]byte, 4)
 		binary.LittleEndian.PutUint32(e, uint32(event))
 		data, err := json.Marshal(row)
