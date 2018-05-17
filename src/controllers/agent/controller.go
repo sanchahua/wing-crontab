@@ -5,10 +5,9 @@ import (
 	"app"
 	"encoding/binary"
 	log "github.com/sirupsen/logrus"
-	//"runtime"
 	"sync"
 	"time"
-	"runtime"
+	"library/data"
 )
 
 type AgentController struct {
@@ -18,11 +17,17 @@ type AgentController struct {
 	dispatch chan *runItem
 	ctx *app.Context
 	lock *sync.Mutex
+
+	nums map[int64] int64
+	numsLock *sync.Mutex
+	queueNomal *data.EsQueue
+	queueMutex *data.EsQueue
 }
 
 type runItem struct {
 	id int64
 	command string
+	isMutex bool
 }
 
 type OnCommandFunc func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string)
@@ -33,7 +38,7 @@ func NewAgentController(
 	onEvent agent.OnNodeEventFunc,
 	onCommand OnCommandFunc,
 ) *AgentController {
-	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx, lock:new(sync.Mutex),}
+	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx, lock:new(sync.Mutex), numsLock:new(sync.Mutex)}
 	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent))
 	client := agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader),
 				agent.SetOnCommand(func(content []byte) {
@@ -46,10 +51,10 @@ func NewAgentController(
 				}), )
 	c.server = server
 	c.client = client
-	cpu := runtime.NumCPU()
-	for i:= 0; i < cpu; i++ {
-		go c.dispatchProcess()
-	}
+	//cpu := runtime.NumCPU()
+	//for i:= 0; i < cpu; i++ {
+	//	go c.dispatchProcess()
+	//}
 	return c
 }
 
@@ -58,21 +63,51 @@ func (c *AgentController) SendToLeader(data []byte) {
 	c.client.Send(data)
 }
 
-func (c *AgentController) Dispatch(id int64, command string) {
-	start := time.Now().Unix()
-	for {
-		if len(c.dispatch) < cap(c.dispatch) {
-			break
-		} else {
-			log.Errorf("dispatch cache full")
-		}
-		// only wait 6 seconds, if timeout, just return
-		if time.Now().Unix() - start >= 6 {
-			log.Errorf("Dispatch wait timeout: %v, %v", id, command)
-			return
-		}
+func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
+	//start := time.Now().Unix()
+	//for {
+	//	if len(c.dispatch) < cap(c.dispatch) {
+	//		break
+	//	} else {
+	//		log.Errorf("dispatch cache full")
+	//	}
+	//	// only wait 6 seconds, if timeout, just return
+	//	if time.Now().Unix() - start >= 6 {
+	//		log.Errorf("Dispatch wait timeout: %v, %v", id, command)
+	//		return
+	//	}
+	//}
+
+	c.numsLock.Lock()
+	num, _ := c.nums[id]
+	c.numsLock.Unlock()
+
+	if num >= 1000 {
+		log.Warnf("%v list is max then 1000", id)
+		return
 	}
-	c.dispatch <- &runItem{id: id, command: command}
+
+	item := &runItem{id: id, command: command, isMutex: isMutex}
+
+	var ok = false
+	if isMutex {
+		ok, _ = c.queueMutex.Put(item)
+	} else {
+		ok, _ = c.queueNomal.Put(item)
+	}
+
+	if !ok {
+		log.Errorf("put queue failure")
+	}
+
+	c.numsLock.Lock()
+	_, ok = c.nums[id]
+	if !ok {
+		c.nums[id] = 0
+	}
+	c.nums[id]++
+	c.numsLock.Unlock()
+
 	//start := time.Now()
 	//c.dispatchProcess(id, command)
 	//log.Debugf("dispatch use time %v", time.Since(start))

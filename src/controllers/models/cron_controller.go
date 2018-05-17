@@ -47,12 +47,12 @@ func (db *CronController) Get(pid int64) (*cron.CronEntity, error) {
 	return db.cr.Get(pid)
 }
 
-func (db *CronController) Add(cronSet, command string, remark string, stop bool, startTime, endTime int64) (*cron.CronEntity, error) {
-	return db.cr.Add(cronSet, command, remark, stop, startTime, endTime)
+func (db *CronController) Add(cronSet, command string, remark string, stop bool, startTime, endTime int64, isMutex bool) (*cron.CronEntity, error) {
+	return db.cr.Add(cronSet, command, remark, stop, startTime, endTime, isMutex)
 }
 
-func (db *CronController) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime int64) (*cron.CronEntity,error) {
-	return db.cr.Update(id, cronSet, command, remark, stop, startTime, endTime)
+func (db *CronController) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime int64, isMutex bool) (*cron.CronEntity,error) {
+	return db.cr.Update(id, cronSet, command, remark, stop, startTime, endTime, isMutex)
 }
 
 func (db *CronController) Stop(id int64) (*cron.CronEntity, error) {

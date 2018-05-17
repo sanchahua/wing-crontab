@@ -136,7 +136,7 @@ func (server *CronApi) update(request *restful.Request, w *restful.Response) {
 	stop      := request.QueryParameter("stop")
 	strStartTime := request.QueryParameter("start_time")
 	strEndTime   := request.QueryParameter("end_time")
-
+	strIsMutex   := request.QueryParameter("is_mutex")
 	if len(cronSet) <= 0 || len(command) <= 0 {
 		out, _ := output(201, "参数错误", nil)
 		w.Write(out)
@@ -150,7 +150,11 @@ func (server *CronApi) update(request *restful.Request, w *restful.Response) {
 	}
 	startTime, _ := strconv.ParseInt(strStartTime, 10, 64)
 	endTime, _   := strconv.ParseInt(strEndTime, 10, 64)
-	row, err := server.cron.Update(id, cronSet, command, remark, stop == "1", startTime, endTime)
+	isMutex      := false
+	if strIsMutex != "0" {
+		isMutex = true
+	}
+	row, err     := server.cron.Update(id, cronSet, command, remark, stop == "1", startTime, endTime, isMutex)
 
 	out, _ := output(200, "ok", row)
 	w.Write(out)
@@ -171,6 +175,7 @@ func (server *CronApi) add(request *restful.Request, w *restful.Response) {
 	stop         := request.QueryParameter("stop")
 	strStartTime := request.QueryParameter("start_time")
 	strEndTime   := request.QueryParameter("end_time")
+	strIsMutex   := request.QueryParameter("is_mutex")
 
 
 	if len(cronSet) <= 0 || len(command) <= 0 {
@@ -184,10 +189,13 @@ func (server *CronApi) add(request *restful.Request, w *restful.Response) {
 		w.Write(out)
 		return
 	}
-
+	isMutex      := false
+	if strIsMutex != "0" {
+		isMutex = true
+	}
 	startTime, _ := strconv.ParseInt(strStartTime, 10, 64)
 	endTime, _   := strconv.ParseInt(strEndTime, 10, 64)
-	row, err := server.cron.Add(cronSet, command, remark, stop == "1", startTime, endTime)
+	row, err := server.cron.Add(cronSet, command, remark, stop == "1", startTime, endTime, isMutex)
 	out, _ := output(200, httpErrors[200], row)
 	w.Write(out)
 	if err == nil {

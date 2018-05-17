@@ -41,6 +41,7 @@ type CronEntity struct {
 	onwillrun OnWillRunFunc `json:"-"`
 	StartTime int64 `json:"start_time"`
 	EndTime int64 `json:"end_time"`
+	IsMutex bool  `json:"is_mutex"`
 }
 
 type IFilter interface {
@@ -99,11 +100,11 @@ func (row *CronEntity) Run() {
 	}
 
 	//roundbin to target server and run command
-	row.onwillrun(row.Id, row.Command)
+	row.onwillrun(row.Id, row.Command, row.IsMutex)
 	log.Infof("will run (use time %+v): %+v", time.Since(start), *row)
 }
 
-type OnWillRunFunc func(id int64, command string)
+type OnWillRunFunc func(id int64, command string, isMutex bool)
 type CrontabControllerOption func(c *CrontabController)
 func SetOnWillRun(f OnWillRunFunc) CrontabControllerOption {
 	return func(c *CrontabController) {
@@ -190,6 +191,7 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 				onwillrun:c.onwillrun,
 				StartTime:entity.StartTime,
 				EndTime:entity.EndTime,
+				IsMutex:entity.IsMutex,
 			}
 		}
 
@@ -268,6 +270,8 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 			e.Remark      = entity.Remark
 			e.StartTime   = entity.StartTime
 			e.EndTime     = entity.EndTime
+			e.IsMutex = entity.IsMutex
+
 			e.CronId, err = c.handler.AddJob(entity.CronSet, e)
 			if err != nil {
 				log.Errorf("%+v", err)
