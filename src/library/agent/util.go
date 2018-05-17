@@ -36,6 +36,7 @@ var DataLenError = errors.New("data len error")
 var MaxPackError = errors.New("package len error")
 // return cmd, content, endPoint, error
 func Unpack(data *[]byte) (int, []byte, error) {
+
 	if data == nil || len(*data) == 0 {
 		return 0, nil, nil
 	}

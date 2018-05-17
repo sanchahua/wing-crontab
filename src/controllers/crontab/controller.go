@@ -20,6 +20,7 @@ type CrontabController struct {
 	pullcommand PullCommandFunc
 	fixTime int
 	runList chan *runItem
+	pullc chan struct{}
 }
 const runListMaxLen = 10000
 type runItem struct {
@@ -134,6 +135,8 @@ const (
 )
 
 func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
+	cpu := runtime.NumCPU()
+
 	c := &CrontabController{
 		handler: cronv2.New(),
 		crontabList:make(map[int64] *CronEntity),//cronv2.EntryID),
@@ -141,16 +144,17 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 		running:false,
 		fixTime:0,
 		runList:make(chan *runItem, runListMaxLen),
+		pullc:make(chan struct{}, cpu * 2),
 	}
 	for _, f := range opts {
 		f(c)
 	}
 
-	cpu := runtime.NumCPU() + 2
-	for i := 0; i < cpu; i++ {
+	for i := 0; i < cpu + 2; i++ {
 		go c.run()
 	}
 	go c.pullCommand()
+	go c.asyncPullCommand()
 	return c
 }
 
@@ -303,7 +307,7 @@ func (c *CrontabController) runCommand(data *runItem) {
 	//	c.fixTime = f
 	//}
 	if f > minFixTime {
-		log.Warnf("diff time %v max then %v", f, minFixTime)
+		//log.Warnf("diff time %v max then %v", f, minFixTime)
 	}
 	//log.Debugf("#######current fix time %v>%v", c.fixTime, f)
 	//if c.fixTime > 0 {
@@ -333,8 +337,24 @@ func (c *CrontabController) run() {
 					return
 				}
 				//run one command, pull one
-				go c.pullcommand()
+				if len(c.pullc) < cap(c.pullc) {
+					c.pullc <- struct{}{}
+				}
 				c.runCommand(data)
+		}
+	}
+}
+
+func (c *CrontabController) asyncPullCommand() {
+	for {
+		select {
+			case _, ok := <- c.pullc:
+				if !ok {
+					return
+				}
+				if c.pullcommand != nil {
+					c.pullcommand()
+				}
 		}
 	}
 }
@@ -349,7 +369,9 @@ func (c *CrontabController) pullCommand() {
 	}
 	cpu := runtime.NumCPU()
 	for {
-		c.pullcommand()
+		if len(c.pullc) < cap(c.pullc) {
+			c.pullc <- struct{}{}
+		}
 		if len(c.runList) >= cpu * 2 {
 			break
 		}
@@ -359,8 +381,10 @@ func (c *CrontabController) pullCommand() {
 	// just for check error
 	for {
 		if len(c.runList) < cpu {
-			log.Warnf("runlist len is min then %v", cpu)
-			c.pullcommand()
+			log.Warnf("runlist len is min then %v < %v", len(c.runList), cpu)
+			if len(c.pullc) < cap(c.pullc) {
+				c.pullc <- struct{}{}
+			}
 			time.Sleep(time.Millisecond * 1)
 		} else {
 			time.Sleep(time.Millisecond * 10)
