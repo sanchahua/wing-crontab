@@ -33,34 +33,21 @@ func NewAgentController(
 	onEvent agent.OnNodeEventFunc,
 	onCommand OnCommandFunc,
 ) *AgentController {
-	c      := &AgentController{
-				index:0,
-				dispatch:make(chan *runItem, 10000),
-				ctx:ctx,
-				lock:new(sync.Mutex),
-			}
-	server := agent.NewAgentServer(ctx.Context(),
-				ctx.Config.BindAddress,
-				agent.SetEventCallback(onEvent),
-			)
-	binaddress := ctx.Config.BindAddress
-	client := agent.NewAgentClient(
-				ctx.Context(),
-				agent.SetGetLeader(getLeader),
+	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx, lock:new(sync.Mutex),}
+	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent))
+	client := agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader),
 				agent.SetOnCommand(func(content []byte) {
 					id             := binary.LittleEndian.Uint64(content[:8])
 					dispatchTime   := binary.LittleEndian.Uint64(content[8:16])
-
 					commandLen     := binary.LittleEndian.Uint64(content[16:24])
 					command        := content[24:24 + commandLen]
 					dispatchServer := content[24 + commandLen:]
-					onCommand(int64(id), string(command), int64(dispatchTime), string(dispatchServer), binaddress)
-				}),
-			)
+					onCommand(int64(id), string(command), int64(dispatchTime), string(dispatchServer), ctx.Config.BindAddress)
+				}), )
 	c.server = server
 	c.client = client
 	cpu := runtime.NumCPU()
-	for i:= 0;i < cpu; i++ {
+	for i:= 0; i < cpu; i++ {
 		go c.dispatchProcess()
 	}
 	return c
@@ -72,11 +59,17 @@ func (c *AgentController) SendToLeader(data []byte) {
 }
 
 func (c *AgentController) Dispatch(id int64, command string) {
+	start := time.Now().Unix()
 	for {
 		if len(c.dispatch) < cap(c.dispatch) {
 			break
 		} else {
-			log.Warnf("dispatch cache full")
+			log.Errorf("dispatch cache full")
+		}
+		// only wait 6 seconds, if timeout, just return
+		if time.Now().Unix() - start >= 6 {
+			log.Errorf("Dispatch wait timeout: %v, %v", id, command)
+			return
 		}
 	}
 	c.dispatch <- &runItem{id: id, command: command}

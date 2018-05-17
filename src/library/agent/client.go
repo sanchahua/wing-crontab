@@ -9,7 +9,6 @@ import (
 	"sync"
 	"context"
 	wstring "library/string"
-	"runtime"
 )
 
 type dataItem struct {
@@ -95,10 +94,10 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 	}
 	go c.keepalive()
 	go c.sendService()
-	cpu := runtime.NumCPU()
-	for i := 0;i<cpu;i++ {
-		go c.onData()
-	}
+	//cpu := runtime.NumCPU()
+	//for i := 0;i<cpu;i++ {
+	//	go c.onData()
+	//}
 	return c
 }
 
@@ -312,40 +311,44 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 	}()
 }
 
-func (tcp *AgentClient) onData() {
-	for {
-		select {
-		case data, ok := <- tcp.dataChannel:
-			if !ok {
-				return
-			}
-
-			switch data.cmd {
-			case CMD_TICK:
-				//keepalive
-				//log.Info("keepalive")
-			case CMD_CRONTAB_CHANGE:
-				unique := string(data.content)
-				log.Infof("%v send ok, delete from send queue", unique)
-				//tcp.sendQueueLock.Lock()
-				delete(tcp.sendQueue, unique)
-				//tcp.sendQueueLock.Unlock()
-			case CMD_RUN_COMMAND:
-				//id := binary.LittleEndian.Uint64(content[:8])
-				//log.Debugf("id == (%v) === (%v) ", id, content[:8])
-				//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
-				start := time.Now()
-				tcp.onCommand(data.content)//int64(id), string(content[8:]))
-				log.Debugf("onCommand use time %v", time.Since(start))
-			default:
-			}
-		}
-	}
-}
+//func (tcp *AgentClient) onData() {
+//	for {
+//		select {
+//		case data, ok := <- tcp.dataChannel:
+//			if !ok {
+//				return
+//			}
+//
+//			switch data.cmd {
+//			case CMD_TICK:
+//				//keepalive
+//				//log.Info("keepalive")
+//			case CMD_CRONTAB_CHANGE:
+//				unique := string(data.content)
+//				log.Infof("%v send ok, delete from send queue", unique)
+//				//tcp.sendQueueLock.Lock()
+//				delete(tcp.sendQueue, unique)
+//				//tcp.sendQueueLock.Unlock()
+//			case CMD_RUN_COMMAND:
+//				//id := binary.LittleEndian.Uint64(content[:8])
+//				//log.Debugf("id == (%v) === (%v) ", id, content[:8])
+//				//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
+//				start := time.Now()
+//				tcp.onCommand(data.content)//int64(id), string(content[8:]))
+//				log.Debugf("onCommand use time %v", time.Since(start))
+//			default:
+//			}
+//		}
+//	}
+//}
 
 func (tcp *AgentClient) onMessage(msg []byte) {
+	//start := time.Now()
 	tcp.buffer = append(tcp.buffer, msg...)
+	//log.Debugf("#################append use time %v", time.Since(start))
+
 	for {
+		//start = time.Now()
 		bufferLen := len(tcp.buffer)
 		if bufferLen < 6 {
 			return
@@ -355,22 +358,49 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			tcp.buffer = make([]byte, 0)
 			return
 		}
-		start := time.Now()
+		//log.Debugf("#################check use time %v", time.Since(start))
+
+		//start = time.Now()
 		cmd, content, err := Unpack(&tcp.buffer)
 		if err != nil {
 			return
 		}
-		log.Debugf("Unpack use time %v", time.Since(start))
+		//log.Debugf("#################Unpack use time %v", time.Since(start))
+		//start = time.Now()
 
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)
 			tcp.buffer = make([]byte, 0)
 			return
 		}
-		tcp.dataChannel <- &dataItem{
-			cmd : cmd,
-			content:content,
+		//log.Debugf("#################hasCmd use time %v", time.Since(start))
+
+		//tcp.dataChannel <- &dataItem{
+		//	cmd : cmd,
+		//	content:content,
+		//}
+		//start = time.Now()
+
+		switch cmd {
+		case CMD_TICK:
+			//keepalive
+			//log.Info("keepalive")
+		case CMD_CRONTAB_CHANGE:
+			unique := string(content)
+			//log.Infof("%v send ok, delete from send queue", unique)
+			//tcp.sendQueueLock.Lock()
+			delete(tcp.sendQueue, unique)
+			//tcp.sendQueueLock.Unlock()
+		case CMD_RUN_COMMAND:
+			//id := binary.LittleEndian.Uint64(content[:8])
+			//log.Debugf("id == (%v) === (%v) ", id, content[:8])
+			//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
+			//start2 := time.Now()
+			tcp.onCommand(content)//int64(id), string(content[8:]))
+			//log.Debugf("#################onCommand use time %v", time.Since(start2))
+		default:
 		}
+		//log.Debugf("#################switch use time %v", time.Since(start))
 
 	}
 }
