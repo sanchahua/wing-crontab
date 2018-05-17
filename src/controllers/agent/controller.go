@@ -38,8 +38,11 @@ func NewAgentController(
 	onEvent agent.OnNodeEventFunc,
 	onCommand OnCommandFunc,
 ) *AgentController {
-	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx, lock:new(sync.Mutex), numsLock:new(sync.Mutex)}
-	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent))
+	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx,
+	lock:new(sync.Mutex), numsLock:new(sync.Mutex), queueNomal:data.NewQueue(1024), queueMutex:data.NewQueue(1024),
+	nums:make(map[int64] int64),
+	}
+	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent), agent.SetServerOnPullCommand(c.OnPullCommand))
 	client := agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader),
 				agent.SetOnCommand(func(content []byte) {
 					id             := binary.LittleEndian.Uint64(content[:8])
@@ -60,7 +63,38 @@ func NewAgentController(
 
 // send data to leader
 func (c *AgentController) SendToLeader(data []byte) {
-	c.client.Send(data)
+	c.client.Send(agent.CMD_CRONTAB_CHANGE, data)
+}
+
+func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
+	log.Debugf("######### on pull")
+	itemI, ok, _ := c.queueNomal.Get()
+	if !ok || itemI == nil {
+		return
+	}
+	item := itemI.(*runItem)
+	log.Debugf("(onpull response) send %+v", *item)
+	sendData := make([]byte, 8)
+	binary.LittleEndian.PutUint64(sendData, uint64(item.id))
+
+	dataCommendLen := make([]byte, 8)
+	binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
+
+	currentTime := make([]byte, 8)
+	binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
+	sendData = append(sendData, currentTime...)
+
+	sendData = append(sendData, dataCommendLen...)
+	sendData = append(sendData, []byte(item.command)...)
+
+	sendData = append(sendData, []byte(c.ctx.Config.BindAddress)...)
+	start := time.Now()
+	node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
+	log.Debugf("dispatch use time %+v", time.Since(start))
+}
+
+func (c *AgentController) Pull() {
+	c.client.Write(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
 }
 
 func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
@@ -101,11 +135,12 @@ func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
 	}
 
 	c.numsLock.Lock()
-	_, ok = c.nums[id]
+	a, ok := c.nums[id]
 	if !ok {
-		c.nums[id] = 0
+		a = 0
 	}
-	c.nums[id]++
+	a++
+	c.nums[id] = a
 	c.numsLock.Unlock()
 
 	//start := time.Now()
@@ -166,34 +201,34 @@ func (c *AgentController) dispatchProcess() {
 	//	}
 	//	log.Debugf("dispatch use time %+v", time.Since(start))
 	//}
-	for {
-		select {
-			case item, ok := <- c.dispatch:
-				if !ok {
-					return
-				}
-				//c.lock.Lock()
-				data := make([]byte, 8)
-				binary.LittleEndian.PutUint64(data, uint64(item.id))
-
-				dataCommendLen := make([]byte, 8)
-				binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
-
-				currentTime := make([]byte, 8)
-				binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
-				data = append(data, currentTime...)
-
-				data = append(data, dataCommendLen...)
-				data = append(data, []byte(item.command)...)
-
-				data = append(data, []byte(c.ctx.Config.BindAddress)...)
-				start := time.Now()
-				c.server.RandSend(data)
-				log.Debugf("dispatch use time %+v", time.Since(start))
-
-				//c.lock.Unlock()
-		}
-	}
+	//for {
+	//	select {
+	//		case item, ok := <- c.dispatch:
+	//			if !ok {
+	//				return
+	//			}
+	//			//c.lock.Lock()
+	//			data := make([]byte, 8)
+	//			binary.LittleEndian.PutUint64(data, uint64(item.id))
+	//
+	//			dataCommendLen := make([]byte, 8)
+	//			binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
+	//
+	//			currentTime := make([]byte, 8)
+	//			binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
+	//			data = append(data, currentTime...)
+	//
+	//			data = append(data, dataCommendLen...)
+	//			data = append(data, []byte(item.command)...)
+	//
+	//			data = append(data, []byte(c.ctx.Config.BindAddress)...)
+	//			start := time.Now()
+	//			c.server.RandSend(data)
+	//			log.Debugf("dispatch use time %+v", time.Since(start))
+	//
+	//			//c.lock.Unlock()
+	//	}
+	//}
 }
 
 // set on leader select callback

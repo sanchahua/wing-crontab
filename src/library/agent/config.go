@@ -16,6 +16,7 @@ const (
 	CMD_SHOW_MEMBERS
 	CMD_CRONTAB_CHANGE
 	CMD_RUN_COMMAND
+	CMD_PULL_COMMAND
 )
 
 const (
@@ -34,9 +35,9 @@ const (
 const MAX_PACKAGE_LEN = 1024000
 
 
-type NodeFunc func(n *tcpClientNode)
-type NodeOption func(n *tcpClientNode)
-type TcpClients []*tcpClientNode
+type NodeFunc func(n *TcpClientNode)
+type NodeOption func(n *TcpClientNode)
+type TcpClients []*TcpClientNode
 
 
 type OnPosFunc func(r []byte)

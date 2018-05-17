@@ -25,6 +25,7 @@ type TcpService struct {
 	ctx context.Context
 	onevents []OnNodeEventFunc
 	index int64
+	onpullcommand OnPullCommandFunc
 }
 type AgentServerOption func(s *TcpService)
 
@@ -33,6 +34,14 @@ func SetEventCallback(f ...OnNodeEventFunc) AgentServerOption {
 		s.onevents = append(s.onevents, f...)
 	}
 }
+
+func SetServerOnPullCommand(f OnPullCommandFunc) AgentServerOption {
+	return func(s *TcpService) {
+		s.onpullcommand = f//append(s.onevents, f...)
+	}
+}
+
+
 func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOption) *TcpService {
 	tcp := &TcpService{
 		ctx:              ctx,
@@ -79,12 +88,13 @@ func (tcp *TcpService) Start() {
 			node := newNode(
 					tcp.ctx,
 					&conn,
-					NodeClose(func(n *tcpClientNode) {
+					NodeClose(func(n *TcpClientNode) {
 						tcp.lock.Lock()
 						tcp.agents.remove(n)
 						tcp.lock.Unlock()
 					}),
 					SetOnNodeEvent(tcp.onevents...),
+					SetonPullCommand(tcp.onpullcommand),
 				)
 			log.Infof("new connect %v", conn.RemoteAddr().String())
 			log.Infof("#####################nodes len before %v", len(tcp.agents))

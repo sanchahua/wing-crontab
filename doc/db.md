@@ -25,7 +25,7 @@ CREATE TABLE `cron` (
  `command` varchar(2048) NOT NULL DEFAULT '' COMMENT '定时任务执行的命令',
  `stop` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1停止执行，0非，0为默认值',
  `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '定时任务的备注信息',
- `is_metux` int(11) NOT NULL DEFAULT '0' COMMENT '0可以并发执行 1严格互斥执行',
+ `is_mutex` int(11) NOT NULL DEFAULT '0' COMMENT '0可以并发执行 1严格互斥执行',
  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1538 DEFAULT CHARSET=utf8
 ````

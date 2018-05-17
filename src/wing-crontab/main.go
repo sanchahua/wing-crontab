@@ -76,6 +76,8 @@ func main() {
 	logController := models.NewLogController(ctx, handler)
 
 	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
+	crontab.SetPullCommand(agentController.Pull)(crontabController)
+
 	crontab.SetOnRun(func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
 		log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
 		start := time.Now()

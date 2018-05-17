@@ -17,6 +17,7 @@ type CrontabController struct {
 	running bool
 	onwillrun OnWillRunFunc
 	onrun OnRunFunc
+	pullcommand PullCommandFunc
 	fixTime int
 	runList chan *runItem
 }
@@ -28,7 +29,7 @@ type runItem struct {
 	dispatchServer string
 	runServer string
 }
-
+type PullCommandFunc func()
 type OnRunFunc func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
 type CronEntity struct {
 	// 数据库的基本属性
@@ -112,6 +113,13 @@ func SetOnWillRun(f OnWillRunFunc) CrontabControllerOption {
 	}
 }
 
+
+func SetPullCommand(f PullCommandFunc) CrontabControllerOption {
+	return func(c *CrontabController) {
+		c.pullcommand = f
+	}
+}
+
 func SetOnRun(f OnRunFunc) CrontabControllerOption {
 	return func(c *CrontabController) {
 		log.Debugf("set c.onrun")
@@ -141,6 +149,7 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 	cpu := runtime.NumCPU() + 2
 	for i := 0; i < cpu; i++ {
 		go c.run()
+		go c.pullCommand()
 	}
 	return c
 }
@@ -328,6 +337,19 @@ func (c *CrontabController) run() {
 	}
 }
 
+func (c *CrontabController) pullCommand() {
+	cpu := runtime.NumCPU() + 2
+	for {
+		if len(c.runList) < cpu {
+			//pull command and put into c.runList
+			if c.pullcommand != nil {
+				c.pullcommand()
+			}
+		}
+		time.Sleep(time.Second * 1)
+	}
+}
+
 func (c *CrontabController) RunCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
 	if len(c.runList) >= runListMaxLen {
 		log.Errorf("runlist len is max then %v", runListMaxLen)
@@ -341,7 +363,7 @@ func (c *CrontabController) RunCommand(id int64, command string, dispatchTime in
 		runServer:runServer,
 	}
 
-	return
+	//return
 	//go func() {
 	//	f := int(time.Now().Unix() - dispatchTime)
 	//	//if f > minFixTime && f <= maxFixTime && f > c.fixTime {

@@ -52,15 +52,17 @@ type SendData struct {
 	Status int `json:"status"`
 	Time int64 `json:"time"`
 	SendTimes int `json:"send_times"`
+	Cmd int
 }
 
-func newSendData(data []byte) *SendData {
+func newSendData(cmd int, data []byte) *SendData {
 	return &SendData{
 		Unique:wstring.RandString(128),
 		Data: data,
 		Status: 0,
 		Time: 0,
 		SendTimes:0,
+		Cmd:cmd,
 	}
 
 }
@@ -102,12 +104,19 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 }
 
 // must send success
-func (tcp *AgentClient) Send(data []byte) {
-	d := newSendData(data)
+func (tcp *AgentClient) Send(cmd int, data []byte) {
+	d := newSendData(cmd, data)
 	tcp.sendQueueLock.Lock()
 	tcp.sendQueue[d.Unique] = d
 	tcp.sendQueueLock.Unlock()
 }
+func (tcp *AgentClient) Write(data []byte) (int, error) {
+	if tcp.conn == nil {
+		return 0, nil
+	}
+	return tcp.conn.Write(data)
+}
+
 
 func (tcp *AgentClient) sendService() {
 	for {
@@ -145,7 +154,7 @@ func (tcp *AgentClient) sendService() {
 			sd      := d.encode()
 			log.Infof("try to send %+v", sd)
 
-			data    := Pack(CMD_CRONTAB_CHANGE, sd)
+			data    := Pack(d.Cmd, sd)
 			dl      := len(data)
 			n, err  := tcp.conn.Write(data)
 

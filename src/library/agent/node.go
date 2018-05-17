@@ -12,7 +12,7 @@ import (
 	"fmt"
 )
 
-type tcpClientNode struct {
+type TcpClientNode struct {
 	conn *net.Conn   // 客户端连接进来的资源句柄
 	sendQueue chan []byte // 发送channel
 	sendFailureTimes int64       // 发送失败次数
@@ -24,17 +24,26 @@ type tcpClientNode struct {
 	onclose []NodeFunc
 	ctx context.Context
 	onevents []OnNodeEventFunc
+	onPullCommand OnPullCommandFunc
 }
 
+type OnPullCommandFunc func(node *TcpClientNode)
 type OnNodeEventFunc func(event int, data []byte)
 
 func SetOnNodeEvent(f ...OnNodeEventFunc) NodeOption {
-	return func(n *tcpClientNode) {
+	return func(n *TcpClientNode) {
 		n.onevents = append(n.onevents, f...)
 	}
 }
-func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *tcpClientNode {
-	node := &tcpClientNode{
+
+func SetonPullCommand(f OnPullCommandFunc) NodeOption {
+	return func(n *TcpClientNode) {
+		n.onPullCommand = f//append(n.onevents, f...)
+	}
+}
+
+func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *TcpClientNode {
+	node := &TcpClientNode{
 		conn:             conn,
 		sendQueue:        make(chan []byte, tcpMaxSendQueue),
 		sendFailureTimes: 0,
@@ -56,12 +65,12 @@ func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *tcpClient
 }
 
 func NodeClose(f NodeFunc) NodeOption {
-	return func(n *tcpClientNode) {
+	return func(n *TcpClientNode) {
 		n.onclose = append(n.onclose, f)
 	}
 }
 
-func (node *tcpClientNode) close() {
+func (node *TcpClientNode) close() {
 	node.lock.Lock()
 	if node.status & tcpNodeOnline <= 0 {
 		node.lock.Unlock()
@@ -79,12 +88,12 @@ func (node *tcpClientNode) close() {
 	node.lock.Unlock()
 }
 
-func (node *tcpClientNode) send(data []byte) (int, error) {
+func (node *TcpClientNode) send(data []byte) (int, error) {
 	(*node.conn).SetWriteDeadline(time.Now().Add(time.Second * 3))
 	return (*node.conn).Write(data)
 }
 
-func (node *tcpClientNode) AsyncSend(data []byte) {
+func (node *TcpClientNode) AsyncSend(data []byte) {
 	//start1 := time.Now()
 	for {
 		if len(node.sendQueue) < cap(node.sendQueue) {
@@ -96,11 +105,11 @@ func (node *tcpClientNode) AsyncSend(data []byte) {
 	//log.Debugf("############AsyncSend use time========= %+v", time.Since(start1))
 }
 
-func (node *tcpClientNode) setReadDeadline(t time.Time) {
+func (node *TcpClientNode) setReadDeadline(t time.Time) {
 	(*node.conn).SetReadDeadline(t)
 }
 
-func (node *tcpClientNode) asyncSendService() {
+func (node *TcpClientNode) asyncSendService() {
 	node.wg.Add(1)
 	defer node.wg.Done()
 	for {
@@ -140,7 +149,7 @@ func (node *tcpClientNode) asyncSendService() {
 	}
 }
 
-func (node *tcpClientNode) onMessage(msg []byte) {
+func (node *TcpClientNode) onMessage(msg []byte) {
 	node.recvBuf = append(node.recvBuf, msg...)
 
 	//log.Debugf("data: %+v", node.recvBuf)
@@ -199,6 +208,8 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 				log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
 				node.AsyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
 			}
+		case CMD_PULL_COMMAND:
+			node.onPullCommand(node)
 		default:
 			node.AsyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
 			node.recvBuf = make([]byte, 0)
@@ -208,13 +219,13 @@ func (node *tcpClientNode) onMessage(msg []byte) {
 	}
 }
 
-func (node *tcpClientNode) eventFired(event int, data []byte) {
+func (node *TcpClientNode) eventFired(event int, data []byte) {
 	for _, f := range node.onevents {
 		f(event, data)
 	}
 }
 
-func (node *tcpClientNode) readMessage() {
+func (node *TcpClientNode) readMessage() {
 	//node := newNode(tcp.ctx, conn, NodeClose(tcp.agents.remove), NodePro(tcp.agents.append))
 	var readBuffer [tcpDefaultReadBufferSize]byte
 	// 设定3秒超时，如果添加到分组成功，超时限制将被清除

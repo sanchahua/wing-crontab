@@ -3,7 +3,7 @@ package agent
 import 	log "github.com/sirupsen/logrus"
 
 
-func (c *TcpClients) append(node *tcpClientNode) {
+func (c *TcpClients) append(node *TcpClientNode) {
 	*c = append(*c, node)
 }
 
@@ -20,7 +20,7 @@ func (c *TcpClients) asyncSend(data []byte) {
 	}
 }
 
-func (c *TcpClients) remove(node *tcpClientNode) {
+func (c *TcpClients) remove(node *TcpClientNode) {
 	for index, n := range *c {
 		if n == node {
 			*c = append((*c)[:index], (*c)[index+1:]...)
