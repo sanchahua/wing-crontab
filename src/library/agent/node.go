@@ -90,7 +90,7 @@ func (node *tcpClientNode) AsyncSend(data []byte) {
 		if len(node.sendQueue) < cap(node.sendQueue) {
 			break
 		}
-		log.Errorf("cache full, try wait, %v, %v", len(node.sendQueue) , cap(node.sendQueue))
+		log.Warnf("cache full, try wait, %v, %v", len(node.sendQueue) , cap(node.sendQueue))
 	}
 	node.sendQueue <- data
 	//log.Debugf("############AsyncSend use time========= %+v", time.Since(start1))
