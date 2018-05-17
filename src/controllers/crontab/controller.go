@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"sync"
 	"time"
+	"runtime"
 )
 
 type CrontabController struct {
@@ -17,7 +18,17 @@ type CrontabController struct {
 	onwillrun OnWillRunFunc
 	onrun OnRunFunc
 	fixTime int
+	runList chan *runItem
 }
+const runListMaxLen = 10000
+type runItem struct {
+	id int64
+	command string
+	dispatchTime int64
+	dispatchServer string
+	runServer string
+}
+
 type OnRunFunc func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
 type CronEntity struct {
 	// 数据库的基本属性
@@ -120,9 +131,15 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 		lock:new(sync.Mutex),
 		running:false,
 		fixTime:0,
+		runList:make(chan *runItem, runListMaxLen),
 	}
 	for _, f := range opts {
 		f(c)
+	}
+
+	cpu := runtime.NumCPU() + 2
+	for i := 0; i < cpu; i++ {
+		go c.run()
 	}
 	return c
 }
@@ -267,32 +284,85 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 	}
 }
 
+func (c *CrontabController) runCommand(data *runItem) {
+	f := int(time.Now().Unix() - data.dispatchTime)
+	//if f > minFixTime && f <= maxFixTime && f > c.fixTime {
+	//	c.fixTime = f
+	//}
+	if f > minFixTime {
+		log.Warnf("diff time %v max then %v", f, minFixTime)
+	}
+	//log.Debugf("#######current fix time %v>%v", c.fixTime, f)
+	//if c.fixTime > 0 {
+	//	time.Sleep(time.Second * time.Duration(c.fixTime))
+	//}
+	var cmd *exec.Cmd
+	var err error
+	start := time.Now()
+	cmd = exec.Command("bash", "-c", data.command)
+	res, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Errorf("执行命令(%v)发生错误：%+v", data.command, err)
+	}
+	log.Debugf("%+v:%v was run", data.id, data.command)
+	if c.onrun == nil {
+		log.Errorf("c.onrun is nil")
+		return
+	}
+	c.onrun(data.id, data.dispatchTime, data.dispatchServer, data.runServer, res, time.Since(start))
+}
+
+func (c *CrontabController) run() {
+	for {
+		select {
+			case data, ok := <- c.runList:
+				if !ok {
+					return
+				}
+				c.runCommand(data)
+		}
+	}
+}
+
 func (c *CrontabController) RunCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
-	go func() {
-		f := int(time.Now().Unix() - dispatchTime)
-		//if f > minFixTime && f <= maxFixTime && f > c.fixTime {
-		//	c.fixTime = f
-		//}
-		if f > minFixTime {
-			log.Warnf("diff time %v max then %v", f, minFixTime)
-		}
-		//log.Debugf("#######current fix time %v>%v", c.fixTime, f)
-		//if c.fixTime > 0 {
-		//	time.Sleep(time.Second * time.Duration(c.fixTime))
-		//}
-		var cmd *exec.Cmd
-		var err error
-		start := time.Now()
-		cmd = exec.Command("bash", "-c", command)
-		res, err := cmd.CombinedOutput()
-		if err != nil {
-			log.Errorf("执行命令(%v)发生错误：%+v", command, err)
-		}
-		log.Debugf("%+v:%v was run", id, command)
-		if c.onrun == nil {
-			log.Errorf("c.onrun is nil")
-			return
-		}
-		c.onrun(id, dispatchTime, dispatchServer, runServer, res, time.Since(start))
-	}()
+	if len(c.runList) >= runListMaxLen {
+		log.Errorf("runlist len is max then %v", runListMaxLen)
+		return
+	}
+	c.runList <- &runItem{
+		id:id,
+		command:command,
+		dispatchTime:dispatchTime,
+		dispatchServer:dispatchServer,
+		runServer:runServer,
+	}
+
+	return
+	//go func() {
+	//	f := int(time.Now().Unix() - dispatchTime)
+	//	//if f > minFixTime && f <= maxFixTime && f > c.fixTime {
+	//	//	c.fixTime = f
+	//	//}
+	//	if f > minFixTime {
+	//		log.Warnf("diff time %v max then %v", f, minFixTime)
+	//	}
+	//	//log.Debugf("#######current fix time %v>%v", c.fixTime, f)
+	//	//if c.fixTime > 0 {
+	//	//	time.Sleep(time.Second * time.Duration(c.fixTime))
+	//	//}
+	//	var cmd *exec.Cmd
+	//	var err error
+	//	start := time.Now()
+	//	cmd = exec.Command("bash", "-c", command)
+	//	res, err := cmd.CombinedOutput()
+	//	if err != nil {
+	//		log.Errorf("执行命令(%v)发生错误：%+v", command, err)
+	//	}
+	//	log.Debugf("%+v:%v was run", id, command)
+	//	if c.onrun == nil {
+	//		log.Errorf("c.onrun is nil")
+	//		return
+	//	}
+	//	c.onrun(id, dispatchTime, dispatchServer, runServer, res, time.Since(start))
+	//}()
 }
