@@ -333,7 +333,7 @@ func (c *CrontabController) run() {
 					return
 				}
 				//run one command, pull one
-				c.pullcommand()
+				go c.pullcommand()
 				c.runCommand(data)
 		}
 	}
