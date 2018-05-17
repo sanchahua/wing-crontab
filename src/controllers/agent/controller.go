@@ -152,8 +152,11 @@ func (c *AgentController) dispatchProcess() {
 				data = append(data, []byte(item.command)...)
 
 				data = append(data, []byte(c.ctx.Config.BindAddress)...)
+				start := time.Now()
 				c.server.RandSend(data)
-			//c.lock.Unlock()
+				log.Debugf("dispatch use time %+v", time.Since(start))
+
+				//c.lock.Unlock()
 		}
 	}
 }

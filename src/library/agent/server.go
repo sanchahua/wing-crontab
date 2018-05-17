@@ -101,7 +101,7 @@ func (tcp *TcpService) Start() {
 func (tcp *TcpService) RandSend(data []byte) {
 	//tcp.debuglock.Lock()
 	//defer tcp.debuglock.Unlock()
-	start := time.Now()
+	//start := time.Now()
 	l := int64(len(tcp.agents))
 	if l <= 0 {
 		return
@@ -135,7 +135,6 @@ func (tcp *TcpService) RandSend(data []byte) {
 
 	}
 	//log.Debugf("RandSend 3 use time : %+v", time.Since(start3))
-	log.Debugf("dispatch use time %+v", time.Since(start))
 }
 
 func (tcp *TcpService) Close() {
