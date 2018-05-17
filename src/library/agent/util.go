@@ -3,6 +3,7 @@ package agent
 import (
 	"errors"
 	"encoding/binary"
+	log "github.com/sirupsen/logrus"
 )
 
 func hasCmd(cmd int) bool {
@@ -38,7 +39,7 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	if data == nil || len(*data) == 0 {
 		return 0, nil, nil
 	}
-	//log.Debugf("data: %+v", *data)
+	log.Debugf("data: %+v", *data)
 	if len(*data) > MAX_PACKAGE_LEN {
 		//log.Errorf("max len error")
 		return 0, nil, MaxPackError

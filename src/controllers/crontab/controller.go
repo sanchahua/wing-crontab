@@ -361,8 +361,10 @@ func (c *CrontabController) pullCommand() {
 		if len(c.runList) < cpu {
 			log.Warnf("runlist len is min then %v", cpu)
 			c.pullcommand()
+			time.Sleep(time.Millisecond * 1)
+		} else {
+			time.Sleep(time.Millisecond * 10)
 		}
-		time.Sleep(time.Millisecond * 10)
 	}
 }
 
