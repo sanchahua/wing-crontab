@@ -56,11 +56,12 @@ func main() {
 	defer consulControl.Close()
 
 	cronController := models.NewCronController(ctx, handler)
+	crontabList, _ := cronController.GetList()
 	defer cronController.Close()
 
 	crontabController := crontab.NewCrontabController()
 
-	agentController := agent.NewAgentController(ctx, consulControl.GetLeader, func(event int, data []byte) {
+	agentController := agent.NewAgentController(ctx, uint32(len(crontabList)), consulControl.GetLeader,  func(event int, data []byte) {
 		log.Infof("===========%+v", data)
 		var e cron.CronEntity
 		err := json.Unmarshal(data, &e)
@@ -69,7 +70,7 @@ func main() {
 			return
 		}
 		crontabController.Add(event, &e)
-	}, crontabController.RunCommand)
+	}, crontabController.ReceiveCommand)
 	agentController.Start()
 	defer agentController.Close()
 

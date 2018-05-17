@@ -34,12 +34,18 @@ type OnCommandFunc func(id int64, command string, dispatchTime int64, dispatchSe
 
 func NewAgentController(
 	ctx *app.Context,
+	listLen uint32,
 	getLeader agent.GetLeaderFunc,
 	onEvent agent.OnNodeEventFunc,
 	onCommand OnCommandFunc,
 ) *AgentController {
+	if listLen < 1 {
+		listLen = 10
+	}
 	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx,
-	lock:new(sync.Mutex), numsLock:new(sync.Mutex), queueNomal:data.NewQueue(1024), queueMutex:data.NewQueue(1024),
+	lock:new(sync.Mutex), numsLock:new(sync.Mutex),
+	queueNomal:data.NewQueue(1024 * listLen),
+	queueMutex:data.NewQueue(1024 * listLen),
 	nums:make(map[int64] int64),
 	}
 	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent), agent.SetServerOnPullCommand(c.OnPullCommand))
@@ -90,7 +96,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	sendData = append(sendData, []byte(c.ctx.Config.BindAddress)...)
 	start := time.Now()
 	node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
-	log.Debugf("dispatch use time %+v", time.Since(start))
+	log.Debugf("AsyncSend use time %+v", time.Since(start))
 }
 
 func (c *AgentController) Pull() {

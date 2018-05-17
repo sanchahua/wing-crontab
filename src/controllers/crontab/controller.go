@@ -149,8 +149,8 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 	cpu := runtime.NumCPU() + 2
 	for i := 0; i < cpu; i++ {
 		go c.run()
-		go c.pullCommand()
 	}
+	go c.pullCommand()
 	return c
 }
 
@@ -332,25 +332,41 @@ func (c *CrontabController) run() {
 				if !ok {
 					return
 				}
+				//run one command, pull one
+				c.pullcommand()
 				c.runCommand(data)
 		}
 	}
 }
 
 func (c *CrontabController) pullCommand() {
-	cpu := runtime.NumCPU() + 2
+	for {
+		if c.pullcommand == nil {
+			time.Sleep(time.Second * 1)
+			continue
+		}
+		break
+	}
+	cpu := runtime.NumCPU()
+	for {
+		c.pullcommand()
+		if len(c.runList) >= cpu * 2 {
+			break
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
+
+	// just for check error
 	for {
 		if len(c.runList) < cpu {
-			//pull command and put into c.runList
-			if c.pullcommand != nil {
-				c.pullcommand()
-			}
+			log.Errorf("runlist len is 0")
+			c.pullcommand()
 		}
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 10)
 	}
 }
 
-func (c *CrontabController) RunCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
+func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
 	if len(c.runList) >= runListMaxLen {
 		log.Errorf("runlist len is max then %v", runListMaxLen)
 		return
@@ -362,6 +378,8 @@ func (c *CrontabController) RunCommand(id int64, command string, dispatchTime in
 		dispatchServer:dispatchServer,
 		runServer:runServer,
 	}
+	log.Debugf("ReceiveCommand (%v) %v, %v, %v, %v, %v ", len(c.runList), id, command, dispatchTime, dispatchServer, runServer)
+
 
 	//return
 	//go func() {
