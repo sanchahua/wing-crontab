@@ -330,6 +330,7 @@ func (c *CrontabController) runCommand(data *runItem) {
 }
 
 func (c *CrontabController) run() {
+	cpu := runtime.NumCPU() * 2
 	for {
 		select {
 			case data, ok := <- c.runList:
@@ -337,7 +338,7 @@ func (c *CrontabController) run() {
 					return
 				}
 				//run one command, pull one
-				if len(c.pullc) < cap(c.pullc) {
+				if len(c.pullc) < cap(c.pullc) && len(c.runList) < cpu {
 					c.pullc <- struct{}{}
 				}
 				c.runCommand(data)
