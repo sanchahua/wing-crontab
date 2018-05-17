@@ -21,6 +21,7 @@ type CrontabController struct {
 	fixTime int
 	runList chan *runItem
 	pullc chan struct{}
+	times int64
 }
 const runListMaxLen = 10000
 type runItem struct {
@@ -145,6 +146,7 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 		fixTime:0,
 		runList:make(chan *runItem, runListMaxLen),
 		pullc:make(chan struct{}, cpu * 2),
+		times:0,
 	}
 	for _, f := range opts {
 		f(c)
@@ -347,6 +349,7 @@ func (c *CrontabController) run() {
 }
 
 func (c *CrontabController) asyncPullCommand() {
+	//cpu := int64(runtime.NumCPU()*2)
 	for {
 		select {
 			case _, ok := <- c.pullc:
@@ -354,7 +357,12 @@ func (c *CrontabController) asyncPullCommand() {
 					return
 				}
 				if c.pullcommand != nil {
-					c.pullcommand()
+					// := atomic.AddInt64(&c.times, 1)
+					//log.Debugf("times = %v, cpu = %v", c.times, cpu)
+					//if c.times < cpu {
+						c.pullcommand()
+						//c.times++
+					//}
 				}
 		}
 	}
@@ -405,6 +413,7 @@ func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTim
 		dispatchServer:dispatchServer,
 		runServer:runServer,
 	}
+	//c.times--
 	log.Debugf("ReceiveCommand (%v) %v, %v, %v, %v, %v ", len(c.runList), id, command, dispatchTime, dispatchServer, runServer)
 
 
