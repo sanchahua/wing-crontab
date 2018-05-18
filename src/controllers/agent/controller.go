@@ -60,9 +60,15 @@ func NewAgentController(
 	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent), agent.SetServerOnPullCommand(c.OnPullCommand))
 	client := agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader),
 				agent.SetOnCommand(func(content []byte) {
+					if len(content) < 24 {
+						return
+					}
 					id             := binary.LittleEndian.Uint64(content[:8])
 					dispatchTime   := binary.LittleEndian.Uint64(content[8:16])
 					commandLen     := binary.LittleEndian.Uint64(content[16:24])
+					if len(content) < int(24 + commandLen) {
+						return
+					}
 					command        := content[24:24 + commandLen]
 					dispatchServer := content[24 + commandLen:]
 					onCommand(int64(id), string(command), int64(dispatchTime), string(dispatchServer), ctx.Config.BindAddress)
@@ -117,6 +123,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	if c.index >= int64(len(c.queueNomal) - 1) {
 		atomic.StoreInt64(&c.index, 0)
 	}
+	c.queueNomalLock.Lock()
 	for _ , queueNormal := range c.queueNomal {
 		index++
 		if index != c.index {
@@ -125,6 +132,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 		atomic.AddInt64(&c.index, 1)
 		itemI, ok, _ := queueNormal.Get()
 		if !ok || itemI == nil {
+			c.queueNomalLock.Unlock()
 			//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
 			return
 		}
@@ -150,6 +158,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 		//log.Debugf("OnPullCommand use time %+v", time.Since(start))
 		break
 	}
+	c.queueNomalLock.Unlock()
 }
 
 func (c *AgentController) Pull() {
