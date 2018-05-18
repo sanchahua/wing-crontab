@@ -39,7 +39,6 @@ type OnCommandFunc func(id int64, command string, dispatchTime int64, dispatchSe
 const maxQueueLen = 64
 func NewAgentController(
 	ctx *app.Context,
-	listLen uint32,//[]*cron.CronEntity,
 	getLeader agent.GetLeaderFunc,
 	onEvent agent.OnNodeEventFunc,
 	onCommand OnCommandFunc,
