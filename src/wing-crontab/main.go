@@ -62,7 +62,7 @@ func main() {
 	crontabController := crontab.NewCrontabController()
 
 	agentController := agent.NewAgentController(ctx, uint32(len(crontabList)), consulControl.GetLeader,  func(event int, data []byte) {
-		log.Infof("===========%+v", data)
+		//log.Infof("===========%+v", data)
 		var e cron.CronEntity
 		err := json.Unmarshal(data, &e)
 		if err != nil {
@@ -80,10 +80,10 @@ func main() {
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 
 	crontab.SetOnRun(func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
-		log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
-		start := time.Now()
+		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
+		//start := time.Now()
 		logController.AsyncAdd(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchTime, dispatchServer, runServer, time.Now().Unix())
-		log.Debugf("onrun use time %+v", time.Since(start))
+		//log.Debugf("onrun use time %+v", time.Since(start))
 	})(crontabController)
 	defer crontabController.Stop()
 

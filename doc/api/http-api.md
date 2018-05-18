@@ -66,7 +66,7 @@ remark 备注，可以为空
 }
 ````
 
-curl http://localhost:9990/cron/add -X POST -d "cronSet=*/1 * * * * *&command=curl http://test.com/index.php&remark=&stop=0"
+curl http://localhost:9990/cron/add -X POST -d "cronSet=*/1 * * * * *&command=curl http://test.com/index.php&remark=&stop=0&is_mutex=0"
 curl http://localhost:9990/cron/add -X POST -d "cronSet=*/1 * * * * *&command=php -v&remark=&stop=0&start_time=0&end_time=0"
 http://localhost:9990/cron/stop/19
 curl http://localhost:9990/cron/delete/19

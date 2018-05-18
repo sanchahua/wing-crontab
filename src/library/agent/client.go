@@ -152,7 +152,7 @@ func (tcp *AgentClient) sendService() {
 			}
 			d.Time   = time.Now().Unix()
 			sd      := d.encode()
-			log.Infof("try to send %+v", sd)
+			//log.Infof("try to send %+v", sd)
 
 			data    := Pack(d.Cmd, sd)
 			dl      := len(data)
@@ -295,13 +295,13 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
 
 			for {
-				start := time.Now()
+				//start := time.Now()
 				if tcp.conn == nil {
 					log.Errorf("============================tcp conn nil")
 					break
 				}
 				size, err := tcp.conn.Read(readBuffer[0:])
-				log.Debugf("read message use time %v", time.Since(start))
+				//log.Debugf("read message use time %v", time.Since(start))
 				//log.Debugf("read buffer len: %d, cap:%d", len(readBuffer), cap(readBuffer))
 				if err != nil || size <= 0 {
 					log.Warnf("agent read with error: %+v", err)
@@ -311,9 +311,9 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					break
 				}
 				//log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
-				start = time.Now()
+				//start = time.Now()
 				tcp.onMessage(readBuffer[:size])
-				log.Debugf("#################################on message use time %+v", time.Since(start))
+				//log.Debugf("#################################on message use time %+v", time.Since(start))
 				select {
 				case <-tcp.ctx.Done():
 					return

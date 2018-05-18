@@ -58,7 +58,7 @@ func (hook ContextHook) Levels() []log.Level {
 
 func (hook ContextHook) getCallerInfo() (string, string, int) {
 	var (
-		shortPath string
+		//shortPath string
 	 	funcName string
 	 )
 	for i := 3; i < 15; i++ {
@@ -71,12 +71,13 @@ func (hook ContextHook) getCallerInfo() (string, string, int) {
 			if lastS < 0 {
 				lastS = strings.LastIndex(fullPath, "\\")
 			}
-			//if strings.HasPrefix(fullPath, workingDir) {
-			//	shortPath = fullPath[len(workingDir):]
+			//fmt.Println(fullPath, path.WorkingDir)
+			//if strings.HasPrefix(fullPath, path.WorkingDir) {
+			//	shortPath = fullPath[len(path.WorkingDir):]
 			//} else {
 			//	shortPath = fullPath
 			//}
-			shortPath = fullPath[lastS+1:]
+			//shortPath = fullPath[lastS+1:]
 			funcName = runtime.FuncForPC(pc).Name()
 			if strings.HasPrefix(funcName, path.WorkingDir) {
 				funcName = funcName[len(path.WorkingDir):]
@@ -86,7 +87,7 @@ func (hook ContextHook) getCallerInfo() (string, string, int) {
 				funcName = funcName[index+1:]
 			}
 			if !strings.Contains(strings.ToLower(fullPath), "github.com/sirupsen/logrus") {
-				return shortPath, funcName, line
+				return fullPath, funcName, line
 				break
 			}
 		}
