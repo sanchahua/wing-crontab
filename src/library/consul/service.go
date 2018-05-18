@@ -150,6 +150,7 @@ func (sev *Service) UpdateTtl() {
 	if sev.status & Registered <= 0 {
 		return
 	}
+	log.Debugf("current node %v:%v is leader=%v", sev.ServiceIp, sev.ServicePort, sev.leader)
 	err := sev.agent.UpdateTTL(sev.ServiceID, fmt.Sprintf("isleader:%v", sev.leader), "passing")
 	if err != nil {
 		log.Errorf("update ttl of service error: ", err.Error())

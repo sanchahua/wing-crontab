@@ -8,13 +8,14 @@ import (
 	"sync"
 	"time"
 	"runtime"
+	"sync/atomic"
 )
 
 type CrontabController struct {
 	handler *cronv2.Cron
 	crontabList map[int64] *CronEntity//cronv2.EntryID
 	lock *sync.Mutex
-	running bool
+	running int64
 	onwillrun OnWillRunFunc
 	onrun OnRunFunc
 	pullcommand PullCommandFunc
@@ -104,7 +105,7 @@ func (row *CronEntity) Run() {
 
 	//roundbin to target server and run command
 	row.onwillrun(row.Id, row.Command, row.IsMutex)
-	//log.Infof("will run: %+v", *row)
+	log.Infof("############################# (leader) will run: %+v", *row)
 }
 
 type OnWillRunFunc func(id int64, command string, isMutex bool)
@@ -142,7 +143,7 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 		handler: cronv2.New(),
 		crontabList:make(map[int64] *CronEntity),//cronv2.EntryID),
 		lock:new(sync.Mutex),
-		running:false,
+		running:0,
 		fixTime:0,
 		runList:make(chan *runItem, runListMaxLen),
 		pullc:make(chan struct{}, cpu * 2),
@@ -161,22 +162,22 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 }
 
 func (c *CrontabController) Start() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.running {
+	//c.lock.Lock()
+	//defer c.lock.Unlock()
+	if atomic.LoadInt64(&c.running) == 1 {
 		return
 	}
-	c.running = true
+	atomic.StoreInt64(&c.running, 1)// = true
 	c.handler.Start()
 }
 
 func (c *CrontabController) Stop() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if !c.running {
+	//c.lock.Lock()
+	//defer c.lock.Unlock()
+	if atomic.LoadInt64(&c.running) == 0 {
 		return
 	}
-	c.running = false
+	atomic.StoreInt64(&c.running, 0)
 	c.handler.Stop()
 }
 

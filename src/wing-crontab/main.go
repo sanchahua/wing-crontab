@@ -93,15 +93,17 @@ func main() {
 		if !isLeader {
 			return
 		}
-		list, err := cronController.GetList()
-		if err != nil {
-			log.Errorf("%+v", err)
-			return
-		}
-		log.Debugf("==============init crontab list==============")
-		for _, e := range list  {
-			crontabController.Add(cron.EVENT_ADD, e)
-		}
+		go func() {
+			list, err := cronController.GetList()
+			if err != nil {
+				log.Errorf("%+v", err)
+				return
+			}
+			log.Debugf("==============init crontab list==============")
+			for _, e := range list  {
+				crontabController.Add(cron.EVENT_ADD, e)
+			}
+		}()
 	})(consulControl)
 	consul.SetOnleader(func(isLeader bool) {
 		if !isLeader {

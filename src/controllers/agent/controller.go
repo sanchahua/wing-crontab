@@ -8,6 +8,7 @@ import (
 	"time"
 	"library/data"
 	"sync/atomic"
+	"github.com/sirupsen/logrus"
 )
 
 type AgentController struct {
@@ -137,7 +138,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 			return
 		}
 		item := itemI.(*runItem)
-		//log.Debugf("######## (onpull response) send %+v", *item)
+		logrus.Debugf("######## (onpull response) send %+v", *item)
 		sendData := make([]byte, 8)
 		binary.LittleEndian.PutUint64(sendData, uint64(item.id))
 
@@ -162,11 +163,12 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 }
 
 func (c *AgentController) Pull() {
+	logrus.Debugf("##############################push command")
 	c.client.Write(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
 }
 
 func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
-	//logrus.Debug("Dispatch %v, %v, %v", id, command, isMutex)
+	logrus.Debugf("Dispatch %v, %v, %v", id, command, isMutex)
 	if isMutex {
 		c.queueMutexLock.Lock()
 		queueMutex, ok := c.queueMutex[id]
