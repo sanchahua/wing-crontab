@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"strings"
 	"strconv"
+	"time"
 )
 
 type ConsulController struct {
@@ -55,6 +56,12 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 		c.service.SelectLeader()
 	}))
 	go watch.Start()
+	go func() {
+		for {
+			c.service.UpdateTtl()
+			time.Sleep(c.service.Interval)
+		}
+	}()
 	return c
 }
 

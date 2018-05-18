@@ -124,12 +124,6 @@ func NewService(
 	sev.ServiceID = fmt.Sprintf("%s-%s-%d", name, host, port)
 	sev.agent     = sev.client.Agent()
 	sev.health    = sev.client.Health()
-	go func() {
-		for {
-			sev.UpdateTtl()
-			time.Sleep(sev.Interval)
-		}
-	}()
 	return sev
 }
 
