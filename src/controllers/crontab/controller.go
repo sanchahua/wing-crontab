@@ -161,6 +161,8 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 }
 
 func (c *CrontabController) Start() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if c.running {
 		return
 	}
@@ -169,6 +171,8 @@ func (c *CrontabController) Start() {
 }
 
 func (c *CrontabController) Stop() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if !c.running {
 		return
 	}
@@ -177,10 +181,10 @@ func (c *CrontabController) Stop() {
 }
 
 func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
 	c.Stop()
 	defer c.Start()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	var err error
 	switch event {

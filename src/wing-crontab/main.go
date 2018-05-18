@@ -85,7 +85,8 @@ func main() {
 		logController.AsyncAdd(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchTime, dispatchServer, runServer, time.Now().Unix())
 		//log.Debugf("onrun use time %+v", time.Since(start))
 	})(crontabController)
-	defer crontabController.Stop()
+	//crontabController.Start()
+	//defer crontabController.Stop()
 
 	consul.SetOnleader(agentController.OnLeader)(consulControl)
 	consul.SetOnleader(func(isLeader bool) {

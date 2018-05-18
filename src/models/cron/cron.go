@@ -54,7 +54,7 @@ func NewCron(handler *sql.DB) ICron {
 	var db ICron
 	{
 		db = newDbCron(handler)
-		db = loggingMiddleware()(db)
+		//db = loggingMiddleware()(db)
 	}
 	return db
 }
