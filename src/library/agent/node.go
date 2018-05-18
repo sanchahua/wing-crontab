@@ -205,11 +205,13 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 			} else {
 				event := binary.LittleEndian.Uint32(data.Data[:4])
 				go node.eventFired(int(event), data.Data[4:])
-				log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
+				//log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
 				node.AsyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
 			}
 		case CMD_PULL_COMMAND:
+			//start := time.Now()
 			node.onPullCommand(node)
+			//log.Debugf("###############PullCommand use time %+v", time.Since(start))
 		default:
 			node.AsyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
 			node.recvBuf = make([]byte, 0)

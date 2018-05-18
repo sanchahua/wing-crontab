@@ -4,10 +4,10 @@ import (
 	"library/agent"
 	"app"
 	"encoding/binary"
-	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
 	"library/data"
+	"sync/atomic"
 )
 
 type AgentController struct {
@@ -82,7 +82,7 @@ func (c *AgentController) SendToLeader(data []byte) {
 }
 
 func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
-	log.Debugf("######### on pull")
+	//log.Debugf("######### on pull")
 
 	// todo
 	// 这里的派发
@@ -90,55 +90,66 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	// 优先派发需要互斥运行的
 	// 需要互斥运行的，每次会在收到上次的执行完成之后，才可以分发
 	// 分发需要做可靠性处理
-	start := time.Now()
-	var queueNormal *data.EsQueue
-	num := uint32(0)
-	for _, q := range c.queueNomal {
-		num = q.Quantity()
-		if num > 0 {
-			queueNormal = q
-			break
+	//start := time.Now()
+	//var queueNormal *data.EsQueue
+	//num := uint32(0)
+	//for _, q := range c.queueNomal {
+	//	num = q.Quantity()
+	//	if num > 0 {
+	//		queueNormal = q
+	//		break
+	//	}
+	//}
+	//
+	//if queueNormal == nil || num <= 0 {
+	//	return
+	//}
+	//
+	//for _, q := range c.queueNomal {
+	//	qn := q.Quantity()
+	//	if qn < num {
+	//		queueNormal = q
+	//		num = qn
+	//
+	//	}
+	//}
+	index := int64(-1)
+	if c.index >= int64(len(c.queueNomal) - 1) {
+		atomic.StoreInt64(&c.index, 0)
+	}
+	for _ , queueNormal := range c.queueNomal {
+		index++
+		if index != c.index {
+			continue
 		}
-	}
-
-	if queueNormal == nil || num <= 0 {
-		return
-	}
-
-	for _, q := range c.queueNomal {
-		qn := q.Quantity()
-		if qn < num {
-			queueNormal = q
-			num = qn
-
+		atomic.AddInt64(&c.index, 1)
+		itemI, ok, _ := queueNormal.Get()
+		if !ok || itemI == nil {
+			//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
+			return
 		}
+		item := itemI.(*runItem)
+		//log.Debugf("######## (onpull response) send %+v", *item)
+		sendData := make([]byte, 8)
+		binary.LittleEndian.PutUint64(sendData, uint64(item.id))
+
+		dataCommendLen := make([]byte, 8)
+		binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
+
+		currentTime := make([]byte, 8)
+		binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
+		sendData = append(sendData, currentTime...)
+
+		sendData = append(sendData, dataCommendLen...)
+		sendData = append(sendData, []byte(item.command)...)
+
+		sendData = append(sendData, []byte(c.ctx.Config.BindAddress)...)
+		//start2 := time.Now()
+		node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
+		//log.Debugf("AsyncSend use time %+v", time.Since(start2))
+		//log.Debugf("OnPullCommand use time %+v", time.Since(start))
+		break
 	}
-
-	itemI, ok, num := queueNormal.Get()
-	if !ok || itemI == nil {
-		//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
-		return
-	}
-	item := itemI.(*runItem)
-	log.Debugf("######## (onpull response) send %+v", *item)
-	sendData := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sendData, uint64(item.id))
-
-	dataCommendLen := make([]byte, 8)
-	binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
-
-	currentTime := make([]byte, 8)
-	binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
-	sendData = append(sendData, currentTime...)
-
-	sendData = append(sendData, dataCommendLen...)
-	sendData = append(sendData, []byte(item.command)...)
-
-	sendData = append(sendData, []byte(c.ctx.Config.BindAddress)...)
-	//start2 := time.Now()
-	node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
-	//log.Debugf("AsyncSend use time %+v", time.Since(start2))
-	log.Debugf("OnPullCommand use time %+v", time.Since(start))
 }
 
 func (c *AgentController) Pull() {

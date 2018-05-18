@@ -96,12 +96,12 @@ func (tcp *TcpService) Start() {
 					SetOnNodeEvent(tcp.onevents...),
 					SetonPullCommand(tcp.onpullcommand),
 				)
-			log.Infof("new connect %v", conn.RemoteAddr().String())
-			log.Infof("#####################nodes len before %v", len(tcp.agents))
+			//log.Infof("new connect %v", conn.RemoteAddr().String())
+			//log.Infof("#####################nodes len before %v", len(tcp.agents))
 			tcp.lock.Lock()
 			tcp.agents.append(node)
 			tcp.lock.Unlock()
-			log.Infof("#####################nodes len after %v", len(tcp.agents))
+			//log.Infof("#####################nodes len after %v", len(tcp.agents))
 			//tcp.Clients() // debug
 			go node.readMessage()
 		}
