@@ -22,7 +22,7 @@ type CrontabController struct {
 	fixTime int
 	runList chan *runItem
 	pullc chan struct{}
-	times int64
+	//times int64
 }
 const runListMaxLen = 10000
 type runItem struct {
@@ -147,7 +147,7 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 		fixTime:0,
 		runList:make(chan *runItem, runListMaxLen),
 		pullc:make(chan struct{}, cpu * 2),
-		times:0,
+		//times:0,
 	}
 	for _, f := range opts {
 		f(c)
@@ -162,106 +162,109 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 }
 
 func (c *CrontabController) Start() {
-	//c.lock.Lock()
-	//defer c.lock.Unlock()
+	c.lock.Lock()
 	if atomic.LoadInt64(&c.running) == 1 {
+		c.lock.Unlock()
 		return
 	}
 	atomic.StoreInt64(&c.running, 1)// = true
 	c.handler.Start()
+	c.lock.Unlock()
 }
 
 func (c *CrontabController) Stop() {
-	//c.lock.Lock()
-	//defer c.lock.Unlock()
+	c.lock.Lock()
 	if atomic.LoadInt64(&c.running) == 0 {
+		c.lock.Unlock()
 		return
 	}
 	atomic.StoreInt64(&c.running, 0)
 	c.handler.Stop()
+	c.lock.Unlock()
 }
 
 func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 	c.Stop()
-	defer c.Start()
 	c.lock.Lock()
-	defer c.lock.Unlock()
+	func() {
+		var err error
+		switch event {
+		case cron.EVENT_ADD:
+			log.Infof("add crontab: %+v", entity)
 
-	var err error
-	switch event {
-	case cron.EVENT_ADD:
-		log.Infof("add crontab: %+v", entity)
+			// check if exists
 
-		// check if exists
-
-		e, ok := c.crontabList[entity.Id]
-		if ok {
-			return
-		} else {
-			e = &CronEntity{
-				Id :entity.Id,//int64        `json:"id"`
-				CronSet:entity.CronSet,// string  `json:"cron_set"`
-				Command:entity.Command,// string  `json:"command"`
-				Remark :entity.Remark,//string   `json:"remark"`
-				Stop :entity.Stop,//bool       `json:"stop"`
-				CronId :0,//int64    `json:"cron_id"`
-				onwillrun:c.onwillrun,
-				StartTime:entity.StartTime,
-				EndTime:entity.EndTime,
-				IsMutex:entity.IsMutex,
+			e, ok := c.crontabList[entity.Id]
+			if ok {
+				return
+			} else {
+				e = &CronEntity{
+					Id:        entity.Id,      //int64        `json:"id"`
+					CronSet:   entity.CronSet, // string  `json:"cron_set"`
+					Command:   entity.Command, // string  `json:"command"`
+					Remark:    entity.Remark,  //string   `json:"remark"`
+					Stop:      entity.Stop,    //bool       `json:"stop"`
+					CronId:    0,              //int64    `json:"cron_id"`
+					onwillrun: c.onwillrun,
+					StartTime: entity.StartTime,
+					EndTime:   entity.EndTime,
+					IsMutex:   entity.IsMutex,
+				}
 			}
-		}
-
-		e.CronId, err = c.handler.AddJob(entity.CronSet, e)
-
-		if err != nil {
-			log.Errorf("%+v", err)
-		} else {
-			c.crontabList[e.Id] = e//.CronId
-		}
-	case cron.EVENT_DELETE:
-		log.Infof("delete crontab: %+v", entity)
-		e, ok := c.crontabList[entity.Id]
-		if ok {
-			delete(c.crontabList, entity.Id)
-			c.handler.Remove(e.CronId)
-		}
-	case cron.EVENT_START:
-		log.Infof("start crontab: %+v", entity)
-		e, ok := c.crontabList[entity.Id]
-		if ok {
-			e.Stop = false
-		}
-
-	case cron.EVENT_STOP:
-		log.Infof("stop crontab: %+v", entity)
-		e, ok := c.crontabList[entity.Id]
-		if ok {
-			e.Stop = true
-		}
-
-	case cron.EVENT_UPDATE:
-		log.Infof("update crontab: %+v", entity)
-		e, ok := c.crontabList[entity.Id]
-		if ok {
-
-			c.handler.Remove(e.CronId)
-
-			e.CronSet     = entity.CronSet
-			e.Command     = entity.Command
-			e.Stop        = entity.Stop
-			e.Remark      = entity.Remark
-			e.StartTime   = entity.StartTime
-			e.EndTime     = entity.EndTime
-			e.IsMutex = entity.IsMutex
 
 			e.CronId, err = c.handler.AddJob(entity.CronSet, e)
+
 			if err != nil {
 				log.Errorf("%+v", err)
+			} else {
+				c.crontabList[e.Id] = e //.CronId
 			}
-			c.crontabList[entity.Id] = e
+		case cron.EVENT_DELETE:
+			log.Infof("delete crontab: %+v", entity)
+			e, ok := c.crontabList[entity.Id]
+			if ok {
+				delete(c.crontabList, entity.Id)
+				c.handler.Remove(e.CronId)
+			}
+		case cron.EVENT_START:
+			log.Infof("start crontab: %+v", entity)
+			e, ok := c.crontabList[entity.Id]
+			if ok {
+				e.Stop = false
+			}
+
+		case cron.EVENT_STOP:
+			log.Infof("stop crontab: %+v", entity)
+			e, ok := c.crontabList[entity.Id]
+			if ok {
+				e.Stop = true
+			}
+
+		case cron.EVENT_UPDATE:
+			log.Infof("update crontab: %+v", entity)
+			e, ok := c.crontabList[entity.Id]
+			if ok {
+
+				c.handler.Remove(e.CronId)
+
+				e.CronSet = entity.CronSet
+				e.Command = entity.Command
+				e.Stop = entity.Stop
+				e.Remark = entity.Remark
+				e.StartTime = entity.StartTime
+				e.EndTime = entity.EndTime
+				e.IsMutex = entity.IsMutex
+
+				e.CronId, err = c.handler.AddJob(entity.CronSet, e)
+				if err != nil {
+					log.Errorf("%+v", err)
+				}
+				c.crontabList[entity.Id] = e
+			}
 		}
-	}
+	}()
+	c.lock.Unlock()
+	c.Start()
 }
 
 func (c *CrontabController) runCommand(data *runItem) {
@@ -284,9 +287,9 @@ func (c *CrontabController) runCommand(data *runItem) {
 	if err != nil {
 		log.Errorf("执行命令(%v)发生错误：%+v", data.command, err)
 	}
-	log.Debugf("#################################%+v:%v was run", data.id, data.command)
+	log.Infof("###################%+v:%v was run", data.id, data.command)
 	if c.onrun == nil {
-		log.Errorf("c.onrun is nil")
+		log.Warnf("c.onrun is nil")
 		return
 	}
 	c.onrun(data.id, data.dispatchTime, data.dispatchServer, data.runServer, res, time.Since(start))
