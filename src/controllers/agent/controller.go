@@ -31,7 +31,7 @@ type runItem struct {
 }
 
 type OnCommandFunc func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string)
-
+const maxQueueLen = 64
 func NewAgentController(
 	ctx *app.Context,
 	listLen uint32,
@@ -40,12 +40,12 @@ func NewAgentController(
 	onCommand OnCommandFunc,
 ) *AgentController {
 	if listLen < 1 {
-		listLen = 10
+		listLen = 1
 	}
 	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx,
 	lock:new(sync.Mutex), numsLock:new(sync.Mutex),
-	queueNomal:data.NewQueue(1024 * listLen),
-	queueMutex:data.NewQueue(1024 * listLen),
+	queueNomal:data.NewQueue(maxQueueLen * listLen),
+	queueMutex:data.NewQueue(maxQueueLen * listLen),
 	nums:make(map[int64] int64),
 	}
 	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent), agent.SetServerOnPullCommand(c.OnPullCommand))
@@ -118,12 +118,19 @@ func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
 	//	}
 	//}
 
+	// todo
+	// 这里的派发
+	// 优先派发c.nums[id]最少的，因为这个产生的周期比较长
+	// 优先派发需要互斥运行的
+	// 需要互斥运行的，每次会在收到上次的执行完成之后，才可以分发
+	// 分发需要做可靠性处理
+
 	c.numsLock.Lock()
 	num, _ := c.nums[id]
 	c.numsLock.Unlock()
 
-	if num >= 1000 {
-		log.Warnf("%v list is max then 1000", id)
+	if num >= maxQueueLen {
+		log.Warnf("%v list is max then %v", id, maxQueueLen)
 		return
 	}
 

@@ -394,10 +394,8 @@ func (c *CrontabController) pullCommand() {
 			if len(c.pullc) < cap(c.pullc) {
 				c.pullc <- struct{}{}
 			}
-			time.Sleep(time.Millisecond * 1)
-		} else {
-			time.Sleep(time.Millisecond * 10)
 		}
+		time.Sleep(time.Millisecond * 10)
 	}
 }
 
