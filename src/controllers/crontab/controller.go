@@ -349,7 +349,6 @@ func (c *CrontabController) run() {
 }
 
 func (c *CrontabController) asyncPullCommand() {
-	//cpu := int64(runtime.NumCPU()*2)
 	for {
 		select {
 			case _, ok := <- c.pullc:
@@ -357,12 +356,7 @@ func (c *CrontabController) asyncPullCommand() {
 					return
 				}
 				if c.pullcommand != nil {
-					// := atomic.AddInt64(&c.times, 1)
-					//log.Debugf("times = %v, cpu = %v", c.times, cpu)
-					//if c.times < cpu {
-						c.pullcommand()
-						//c.times++
-					//}
+					c.pullcommand()
 				}
 		}
 	}
@@ -384,7 +378,7 @@ func (c *CrontabController) pullCommand() {
 		if len(c.runList) >= cpu * 2 {
 			break
 		}
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 100)
 	}
 
 	// just for check error
@@ -395,7 +389,7 @@ func (c *CrontabController) pullCommand() {
 				c.pullc <- struct{}{}
 			}
 		}
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 100)
 	}
 }
 

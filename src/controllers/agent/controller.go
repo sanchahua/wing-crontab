@@ -18,10 +18,14 @@ type AgentController struct {
 	ctx *app.Context
 	lock *sync.Mutex
 
-	nums map[int64] int64
-	numsLock *sync.Mutex
-	queueNomal *data.EsQueue
-	queueMutex *data.EsQueue
+	//nums map[int64] int64
+	//numsLock *sync.Mutex
+
+	queueNomalLock *sync.Mutex
+	queueNomal map[int64]*data.EsQueue
+
+	queueMutexLock *sync.Mutex
+	queueMutex map[int64]*data.EsQueue
 }
 
 type runItem struct {
@@ -39,16 +43,15 @@ func NewAgentController(
 	onEvent agent.OnNodeEventFunc,
 	onCommand OnCommandFunc,
 ) *AgentController {
-	//listLen := uint32(len(list))
-	//if listLen < 1 {
-	//	listLen = 1
-	//}
-	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx,
-	lock:new(sync.Mutex), numsLock:new(sync.Mutex),
-	queueNomal:data.NewQueue(maxQueueLen * listLen),
-	queueMutex:data.NewQueue(maxQueueLen * listLen),
-	nums:make(map[int64] int64),
-	}
+	c      := &AgentController{
+				index:0, dispatch:make(chan *runItem, 10000), ctx:ctx,
+				lock:new(sync.Mutex), //numsLock:new(sync.Mutex),
+				queueNomal:make(map[int64]*data.EsQueue),
+				queueMutex:make(map[int64]*data.EsQueue),
+				queueNomalLock:new(sync.Mutex),
+				queueMutexLock:new(sync.Mutex),
+				//nums:make(map[int64] int64),
+			}
 
 	//for _, v := range list {
 	//	c.nums[v.Id] = 0
@@ -80,9 +83,40 @@ func (c *AgentController) SendToLeader(data []byte) {
 
 func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	log.Debugf("######### on pull")
-	itemI, ok, num := c.queueNomal.Get()
+
+	// todo
+	// 这里的派发
+	// 优先派发queue num min 最少的，因为这个产生的周期比较长
+	// 优先派发需要互斥运行的
+	// 需要互斥运行的，每次会在收到上次的执行完成之后，才可以分发
+	// 分发需要做可靠性处理
+	start := time.Now()
+	var queueNormal *data.EsQueue
+	num := uint32(0)
+	for _, q := range c.queueNomal {
+		num = q.Quantity()
+		if num > 0 {
+			queueNormal = q
+			break
+		}
+	}
+
+	if queueNormal == nil || num <= 0 {
+		return
+	}
+
+	for _, q := range c.queueNomal {
+		qn := q.Quantity()
+		if qn < num {
+			queueNormal = q
+			num = qn
+
+		}
+	}
+
+	itemI, ok, num := queueNormal.Get()
 	if !ok || itemI == nil {
-		log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
+		//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
 		return
 	}
 	item := itemI.(*runItem)
@@ -101,9 +135,10 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	sendData = append(sendData, []byte(item.command)...)
 
 	sendData = append(sendData, []byte(c.ctx.Config.BindAddress)...)
-	start := time.Now()
+	//start2 := time.Now()
 	node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
-	log.Debugf("AsyncSend use time %+v", time.Since(start))
+	//log.Debugf("AsyncSend use time %+v", time.Since(start2))
+	log.Debugf("OnPullCommand use time %+v", time.Since(start))
 }
 
 func (c *AgentController) Pull() {
@@ -111,157 +146,29 @@ func (c *AgentController) Pull() {
 }
 
 func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
-	//start := time.Now().Unix()
-	//for {
-	//	if len(c.dispatch) < cap(c.dispatch) {
-	//		break
-	//	} else {
-	//		log.Errorf("dispatch cache full")
-	//	}
-	//	// only wait 6 seconds, if timeout, just return
-	//	if time.Now().Unix() - start >= 6 {
-	//		log.Errorf("Dispatch wait timeout: %v, %v", id, command)
-	//		return
-	//	}
-	//}
 
-	// todo
-	// 这里的派发
-	// 优先派发c.nums[id]最少的，因为这个产生的周期比较长
-	// 优先派发需要互斥运行的
-	// 需要互斥运行的，每次会在收到上次的执行完成之后，才可以分发
-	// 分发需要做可靠性处理
-
-	//c.numsLock.Lock()
-	//num, _ := c.nums[id]
-	//c.numsLock.Unlock()
-	//
-	//if num >= maxQueueLen {
-	//	log.Warnf("%v list is max then %v", id, maxQueueLen)
-	//	return
-	//}
-
-
-	var ok = false
 	if isMutex {
-		if c.queueMutex.Quantity() < maxQueueLen {
-			item := &runItem{id: id, command: command, isMutex: isMutex}
-			ok, _ = c.queueMutex.Put(item)
-			if !ok {
-				log.Errorf("put queue failure")
-			}
-		} else {
-			log.Warnf("%v list is max then %v", id, maxQueueLen)
+		c.queueMutexLock.Lock()
+		queueMutex, ok := c.queueMutex[id]
+		if !ok {
+			queueMutex = data.NewQueue(maxQueueLen)
+			c.queueMutex[id] = queueMutex
 		}
-	} else {
-		if c.queueMutex.Quantity() < maxQueueLen {
-			item := &runItem{id: id, command: command, isMutex: isMutex}
-			ok, _ = c.queueNomal.Put(item)
-			if !ok {
-				log.Errorf("put queue failure")
-			}
-		} else {
-			log.Warnf("%v list is max then %v", id, maxQueueLen)
-		}
+		c.queueMutexLock.Unlock()
+		item := &runItem{id: id, command: command, isMutex: isMutex}
+		queueMutex.Put(item)
+		return
 	}
 
-
-
-	//c.numsLock.Lock()
-	//a, ok := c.nums[id]
-	//if !ok {
-	//	a = 0
-	//}
-	//a++
-	//c.nums[id] = a
-	//c.numsLock.Unlock()
-
-	//start := time.Now()
-	//c.dispatchProcess(id, command)
-	//log.Debugf("dispatch use time %v", time.Since(start))
-}
-
-func (c *AgentController) dispatchProcess() {
-	//need to add wait for dispatch complete if exit
-	// roundbin dispatch to all clients
-
-	//dataDispatchServerLen := make([]byte, 8)
-	//binary.LittleEndian.PutUint64(dataDispatchServerLen, uint64(len(c.ctx.Config.BindAddress)))
-
-	//var dis = func(item *runItem) {
-	//	start := time.Now()
-	//	start1 := time.Now()
-	//	clients := c.server.Clients()
-	//	log.Debugf("c.server.Clients use time: %+v", time.Since(start1))
-	//
-	//	start2 := time.Now()
-	//	l := int64(len(clients))
-	//	if l <= 0 {
-	//		log.Debugf("clients empty")
-	//		return
-	//	}
-	//	if c.index >= l {
-	//		atomic.StoreInt64(&c.index, 0)
-	//	}
-	//	log.Infof("clients %+v", l)
-	//	log.Debugf("c.server.Clients use time => 2 : %+v", time.Since(start2))
-	//
-	//	for key, client := range clients {
-	//		if key != int(c.index) {
-	//			continue
-	//		}
-	//		start3 := time.Now()
-	//		log.Infof("dispatch %v=>%v to client[%v]", item.id, item.command, c.index)
-	//		//client := clients[c.index]
-	//		atomic.AddInt64(&c.index, 1)
-	//		data := make([]byte, 8)
-	//		binary.LittleEndian.PutUint64(data, uint64(item.id))
-	//
-	//		dataCommendLen := make([]byte, 8)
-	//		binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
-	//
-	//		data = append(data, dataCommendLen...)
-	//		data = append(data, []byte(item.command)...)
-	//
-	//		//data = append(data, dataDispatchServerLen...)
-	//		data = append(data, []byte(c.ctx.Config.BindAddress)...)
-	//		log.Debugf("c.server.Clients use time => 3 : %+v", time.Since(start3))
-	//
-	//		start5 := time.Now()
-	//		client.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, data))
-	//		log.Debugf("c.server.Clients use time => 5 : %+v", time.Since(start5))
-	//
-	//	}
-	//	log.Debugf("dispatch use time %+v", time.Since(start))
-	//}
-	//for {
-	//	select {
-	//		case item, ok := <- c.dispatch:
-	//			if !ok {
-	//				return
-	//			}
-	//			//c.lock.Lock()
-	//			data := make([]byte, 8)
-	//			binary.LittleEndian.PutUint64(data, uint64(item.id))
-	//
-	//			dataCommendLen := make([]byte, 8)
-	//			binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
-	//
-	//			currentTime := make([]byte, 8)
-	//			binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
-	//			data = append(data, currentTime...)
-	//
-	//			data = append(data, dataCommendLen...)
-	//			data = append(data, []byte(item.command)...)
-	//
-	//			data = append(data, []byte(c.ctx.Config.BindAddress)...)
-	//			start := time.Now()
-	//			c.server.RandSend(data)
-	//			log.Debugf("dispatch use time %+v", time.Since(start))
-	//
-	//			//c.lock.Unlock()
-	//	}
-	//}
+	c.queueNomalLock.Lock()
+	queueNormal, ok := c.queueNomal[id]
+	if !ok {
+		queueNormal = data.NewQueue(maxQueueLen)
+		c.queueNomal[id] = queueNormal
+	}
+	c.queueNomalLock.Unlock()
+	item := &runItem{id: id, command: command, isMutex: isMutex}
+	queueNormal.Put(item)
 }
 
 // set on leader select callback
