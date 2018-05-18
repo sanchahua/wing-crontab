@@ -144,7 +144,7 @@ func (sev *Service) UpdateTtl() {
 	if sev.status & Registered <= 0 {
 		return
 	}
-	log.Debugf("current node %v:%v is leader=%v", sev.ServiceIp, sev.ServicePort, sev.leader)
+	//log.Debugf("current node %v:%v is leader=%v", sev.ServiceIp, sev.ServicePort, sev.leader)
 	err := sev.agent.UpdateTTL(sev.ServiceID, fmt.Sprintf("isleader:%v", sev.leader), "passing")
 	if err != nil {
 		log.Errorf("update ttl of service error: ", err.Error())
@@ -165,7 +165,7 @@ func (sev *Service) Register() error {
 		Port:    sev.ServicePort,
 		Tags:    []string{fmt.Sprintf("isleader:%v", sev.leader)},
 	}
-	log.Debugf("service register")
+	//log.Debugf("service register")
 	err := sev.agent.ServiceRegister(regis)
 	if err != nil {
 		return fmt.Errorf("initial register service '%s' host to consul error: %s", sev.ServiceName, err.Error())
@@ -202,7 +202,7 @@ func (sev *Service) GetServices() ([]*ServiceMember, error) {
 	//return members, err
 	data := make([]*ServiceMember, 0)
 	for _, v := range members {
-		log.Debugf("GetServices： %+v", *v.Service)
+		//log.Debugf("GetServices： %+v", *v.Service)
 		m := &ServiceMember{}
 		if v.Checks.AggregatedStatus() == "passing" {
 			m.Status = statusOnline

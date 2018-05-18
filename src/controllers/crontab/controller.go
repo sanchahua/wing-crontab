@@ -105,7 +105,7 @@ func (row *CronEntity) Run() {
 
 	//roundbin to target server and run command
 	row.onwillrun(row.Id, row.Command, row.IsMutex)
-	log.Infof("############################# (leader) will run: %+v", *row)
+	//log.Infof("############################# (leader) will run: %+v", *row)
 }
 
 type OnWillRunFunc func(id int64, command string, isMutex bool)
@@ -339,7 +339,7 @@ func (c *CrontabController) pullCommand() {
 		if len(c.runList) >= cpu * 2 {
 			break
 		}
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 10)
 	}
 
 	// just for check error
@@ -350,7 +350,7 @@ func (c *CrontabController) pullCommand() {
 				c.pullc <- struct{}{}
 			}
 		}
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 10)
 	}
 }
 
@@ -367,7 +367,7 @@ func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTim
 		runServer:runServer,
 	}
 	//c.times--
-	log.Debugf("ReceiveCommand (%v) %v, %v, %v, %v, %v ", len(c.runList), id, command, dispatchTime, dispatchServer, runServer)
+	//log.Debugf("ReceiveCommand (%v) %v, %v, %v, %v, %v ", len(c.runList), id, command, dispatchTime, dispatchServer, runServer)
 
 
 	//return

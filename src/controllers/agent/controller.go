@@ -8,7 +8,7 @@ import (
 	"time"
 	"library/data"
 	"sync/atomic"
-	"github.com/sirupsen/logrus"
+	//"github.com/sirupsen/logrus"
 )
 
 type AgentController struct {
@@ -123,7 +123,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	if c.index >= int64(len(c.queueNomal) - 1) {
 		atomic.StoreInt64(&c.index, 0)
 	}
-	//c.queueNomalLock.Lock()
+	c.queueNomalLock.Lock()
 
 	for _ , queueNormal := range c.queueNomal {
 		index++
@@ -133,11 +133,12 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 		atomic.AddInt64(&c.index, 1)
 		itemI, ok, _ := queueNormal.Get()
 		if !ok || itemI == nil {
+			c.queueNomalLock.Unlock()
 			//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
 			return
 		}
 		item := itemI.(*runItem)
-		logrus.Debugf("######## (onpull response) send %+v", *item)
+		//logrus.Debugf("######## (onpull response) send %+v", *item)
 		sendData := make([]byte, 8)
 		binary.LittleEndian.PutUint64(sendData, uint64(item.id))
 
@@ -158,16 +159,17 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 		//log.Debugf("OnPullCommand use time %+v", time.Since(start))
 		break
 	}
+	c.queueNomalLock.Unlock()
 	//
 }
 
 func (c *AgentController) Pull() {
-	logrus.Debugf("##############################push command")
+	//logrus.Debugf("##############################push command")
 	c.client.Write(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
 }
 
 func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
-	logrus.Debugf("Dispatch %v, %v, %v", id, command, isMutex)
+	//logrus.Debugf("Dispatch %v, %v, %v", id, command, isMutex)
 	if isMutex {
 		c.queueMutexLock.Lock()
 		queueMutex, ok := c.queueMutex[id]
