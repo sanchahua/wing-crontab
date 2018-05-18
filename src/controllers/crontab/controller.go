@@ -92,7 +92,7 @@ func (f *TimeFilter) Check() bool {
 
 
 func (row *CronEntity) Run() {
-	start := time.Now()
+	//start := time.Now()
 
 	m := StopMiddleware()(row)
 	m  = TimeMiddleware(m)(row)
@@ -104,7 +104,7 @@ func (row *CronEntity) Run() {
 
 	//roundbin to target server and run command
 	row.onwillrun(row.Id, row.Command, row.IsMutex)
-	log.Infof("will run (use time %+v): %+v", time.Since(start), *row)
+	//log.Infof("will run (use time %+v): %+v", time.Since(start), *row)
 }
 
 type OnWillRunFunc func(id int64, command string, isMutex bool)
@@ -124,7 +124,7 @@ func SetPullCommand(f PullCommandFunc) CrontabControllerOption {
 
 func SetOnRun(f OnRunFunc) CrontabControllerOption {
 	return func(c *CrontabController) {
-		log.Debugf("set c.onrun")
+		//log.Debugf("set c.onrun")
 		c.onrun = f
 	}
 }
@@ -323,7 +323,7 @@ func (c *CrontabController) runCommand(data *runItem) {
 	if err != nil {
 		log.Errorf("执行命令(%v)发生错误：%+v", data.command, err)
 	}
-	log.Debugf("%+v:%v was run", data.id, data.command)
+	log.Debugf("#################################%+v:%v was run", data.id, data.command)
 	if c.onrun == nil {
 		log.Errorf("c.onrun is nil")
 		return
