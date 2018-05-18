@@ -123,7 +123,8 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	if c.index >= int64(len(c.queueNomal) - 1) {
 		atomic.StoreInt64(&c.index, 0)
 	}
-	c.queueNomalLock.Lock()
+	//c.queueNomalLock.Lock()
+
 	for _ , queueNormal := range c.queueNomal {
 		index++
 		if index != c.index {
@@ -132,7 +133,6 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 		atomic.AddInt64(&c.index, 1)
 		itemI, ok, _ := queueNormal.Get()
 		if !ok || itemI == nil {
-			c.queueNomalLock.Unlock()
 			//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
 			return
 		}
@@ -158,7 +158,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 		//log.Debugf("OnPullCommand use time %+v", time.Since(start))
 		break
 	}
-	c.queueNomalLock.Unlock()
+	//
 }
 
 func (c *AgentController) Pull() {

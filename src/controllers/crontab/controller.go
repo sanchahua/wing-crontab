@@ -161,41 +161,38 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 }
 
 func (c *CrontabController) Start() {
-	c.lock.Lock()
 	if c.running {
-		c.lock.Unlock()
 		return
 	}
 	c.running = true
-	c.lock.Unlock()
 	c.handler.Start()
 }
 
 func (c *CrontabController) Stop() {
-	c.lock.Lock()
 	if !c.running {
-		c.lock.Unlock()
 		return
 	}
 	c.running = false
-	c.lock.Unlock()
 	c.handler.Stop()
 }
 
 func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.Stop()
+	defer c.Start()
+
 	var err error
 	switch event {
 	case cron.EVENT_ADD:
 		log.Infof("add crontab: %+v", entity)
 
 		// check if exists
-		c.lock.Lock()
+
 		e, ok := c.crontabList[entity.Id]
 		if ok {
-			c.lock.Unlock()
 			return
 		} else {
-			c.lock.Unlock()
 			e = &CronEntity{
 				Id :entity.Id,//int64        `json:"id"`
 				CronSet:entity.CronSet,// string  `json:"cron_set"`
@@ -210,72 +207,38 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 			}
 		}
 
-		c.lock.Lock()
-		if c.running {
-			c.lock.Unlock()
-			c.Stop()
-		} else {
-			c.lock.Unlock()
-		}
-
 		e.CronId, err = c.handler.AddJob(entity.CronSet, e)
-
-		c.lock.Lock()
-		if !c.running {
-			c.lock.Unlock()
-			c.Start()
-		} else {
-			c.lock.Unlock()
-		}
 
 		if err != nil {
 			log.Errorf("%+v", err)
 		} else {
-			c.lock.Lock()
 			c.crontabList[e.Id] = e//.CronId
-			c.lock.Unlock()
 		}
 	case cron.EVENT_DELETE:
 		log.Infof("delete crontab: %+v", entity)
-		c.lock.Lock()
 		e, ok := c.crontabList[entity.Id]
 		if ok {
 			delete(c.crontabList, entity.Id)
 			c.handler.Remove(e.CronId)
 		}
-		c.lock.Unlock()
 	case cron.EVENT_START:
 		log.Infof("start crontab: %+v", entity)
-		c.lock.Lock()
 		e, ok := c.crontabList[entity.Id]
 		if ok {
 			e.Stop = false
 		}
-		c.lock.Unlock()
 
 	case cron.EVENT_STOP:
 		log.Infof("stop crontab: %+v", entity)
-		c.lock.Lock()
 		e, ok := c.crontabList[entity.Id]
 		if ok {
 			e.Stop = true
 		}
-		c.lock.Unlock()
 
 	case cron.EVENT_UPDATE:
 		log.Infof("update crontab: %+v", entity)
-		c.lock.Lock()
 		e, ok := c.crontabList[entity.Id]
-		c.lock.Unlock()
 		if ok {
-
-			c.lock.Lock()
-			if c.running {
-				c.lock.Unlock()
-				c.Stop()
-			} else {
-				c.lock.Unlock()
-			}
 
 			c.handler.Remove(e.CronId)
 
@@ -291,14 +254,7 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 			if err != nil {
 				log.Errorf("%+v", err)
 			}
-			c.lock.Lock()
 			c.crontabList[entity.Id] = e
-			if !c.running {
-				c.lock.Unlock()
-				c.Start()
-			} else {
-				c.lock.Unlock()
-			}
 		}
 	}
 }
