@@ -34,20 +34,26 @@ type OnCommandFunc func(id int64, command string, dispatchTime int64, dispatchSe
 const maxQueueLen = 64
 func NewAgentController(
 	ctx *app.Context,
-	listLen uint32,
+	listLen uint32,//[]*cron.CronEntity,
 	getLeader agent.GetLeaderFunc,
 	onEvent agent.OnNodeEventFunc,
 	onCommand OnCommandFunc,
 ) *AgentController {
-	if listLen < 1 {
-		listLen = 1
-	}
+	//listLen := uint32(len(list))
+	//if listLen < 1 {
+	//	listLen = 1
+	//}
 	c      := &AgentController{index:0, dispatch:make(chan *runItem, 10000), ctx:ctx,
 	lock:new(sync.Mutex), numsLock:new(sync.Mutex),
 	queueNomal:data.NewQueue(maxQueueLen * listLen),
 	queueMutex:data.NewQueue(maxQueueLen * listLen),
 	nums:make(map[int64] int64),
 	}
+
+	//for _, v := range list {
+	//	c.nums[v.Id] = 0
+	//}
+
 	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent), agent.SetServerOnPullCommand(c.OnPullCommand))
 	client := agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader),
 				agent.SetOnCommand(func(content []byte) {
@@ -74,12 +80,13 @@ func (c *AgentController) SendToLeader(data []byte) {
 
 func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	log.Debugf("######### on pull")
-	itemI, ok, _ := c.queueNomal.Get()
+	itemI, ok, num := c.queueNomal.Get()
 	if !ok || itemI == nil {
+		log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
 		return
 	}
 	item := itemI.(*runItem)
-	log.Debugf("(onpull response) send %+v", *item)
+	log.Debugf("######## (onpull response) send %+v", *item)
 	sendData := make([]byte, 8)
 	binary.LittleEndian.PutUint64(sendData, uint64(item.id))
 
@@ -125,36 +132,49 @@ func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
 	// 需要互斥运行的，每次会在收到上次的执行完成之后，才可以分发
 	// 分发需要做可靠性处理
 
-	c.numsLock.Lock()
-	num, _ := c.nums[id]
-	c.numsLock.Unlock()
+	//c.numsLock.Lock()
+	//num, _ := c.nums[id]
+	//c.numsLock.Unlock()
+	//
+	//if num >= maxQueueLen {
+	//	log.Warnf("%v list is max then %v", id, maxQueueLen)
+	//	return
+	//}
 
-	if num >= maxQueueLen {
-		log.Warnf("%v list is max then %v", id, maxQueueLen)
-		return
-	}
-
-	item := &runItem{id: id, command: command, isMutex: isMutex}
 
 	var ok = false
 	if isMutex {
-		ok, _ = c.queueMutex.Put(item)
+		if c.queueMutex.Quantity() < maxQueueLen {
+			item := &runItem{id: id, command: command, isMutex: isMutex}
+			ok, _ = c.queueMutex.Put(item)
+			if !ok {
+				log.Errorf("put queue failure")
+			}
+		} else {
+			log.Warnf("%v list is max then %v", id, maxQueueLen)
+		}
 	} else {
-		ok, _ = c.queueNomal.Put(item)
+		if c.queueMutex.Quantity() < maxQueueLen {
+			item := &runItem{id: id, command: command, isMutex: isMutex}
+			ok, _ = c.queueNomal.Put(item)
+			if !ok {
+				log.Errorf("put queue failure")
+			}
+		} else {
+			log.Warnf("%v list is max then %v", id, maxQueueLen)
+		}
 	}
 
-	if !ok {
-		log.Errorf("put queue failure")
-	}
 
-	c.numsLock.Lock()
-	a, ok := c.nums[id]
-	if !ok {
-		a = 0
-	}
-	a++
-	c.nums[id] = a
-	c.numsLock.Unlock()
+
+	//c.numsLock.Lock()
+	//a, ok := c.nums[id]
+	//if !ok {
+	//	a = 0
+	//}
+	//a++
+	//c.nums[id] = a
+	//c.numsLock.Unlock()
 
 	//start := time.Now()
 	//c.dispatchProcess(id, command)
