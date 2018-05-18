@@ -104,7 +104,7 @@ func (row *CronEntity) Run() {
 
 	//roundbin to target server and run command
 	row.onwillrun(row.Id, row.Command, row.IsMutex)
-	//log.Infof("will run (use time %+v): %+v", time.Since(start), *row)
+	//log.Infof("will run: %+v", *row)
 }
 
 type OnWillRunFunc func(id int64, command string, isMutex bool)

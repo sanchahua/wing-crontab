@@ -157,7 +157,7 @@ func (c *AgentController) Pull() {
 }
 
 func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
-
+	//logrus.Debug("Dispatch %v, %v, %v", id, command, isMutex)
 	if isMutex {
 		c.queueMutexLock.Lock()
 		queueMutex, ok := c.queueMutex[id]

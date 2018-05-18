@@ -156,7 +156,11 @@ func (tcp *AgentClient) sendService() {
 
 			data    := Pack(d.Cmd, sd)
 			dl      := len(data)
-			n, err  := tcp.conn.Write(data)
+			var n int
+			var err error
+			if tcp.conn != nil {
+				n, err = tcp.conn.Write(data)
+			}
 
 			if err != nil {
 				log.Errorf("[agent - client] agent keepalive error: %d, %v", n, err)

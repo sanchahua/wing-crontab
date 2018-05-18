@@ -85,7 +85,7 @@ func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTi
 	if isMutex {
 		iIsMutex = 1
 	}
-	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `isMutex`) VALUES (?,?,?,?,?,?,?)"
+	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `is_mutex`) VALUES (?,?,?,?,?,?,?)"
 	res, err := db.handler.Exec(sqlStr, cronSet, command, iStop, remark, startTime, endTime, iIsMutex)
 	if err != nil {
 		log.Errorf("新增定时任务错误：%+v", err)
