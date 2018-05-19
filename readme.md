@@ -109,13 +109,13 @@ message 具体的错误信息
 ````
 http://localhost:9990/log/list
 协议  GET
-参数                      类型     是否必须    说明
-cron_id                 int        否         指定定时任务id
-search                  string   否         模糊查询定时任务指定返回值
+参数               类型     是否必须    说明
+cron_id           int      否         指定定时任务id
+search            string   否         模糊查询定时任务指定返回值
 dispatch_server   string   否         指定调度服务器，如 127.0.0.1:9991
-run_server           string   否         指定运行服务器，如 127.0.0.1:9991
-page                     int        否         指定第几页，用于分页查询支持，默认为1，总页数=总条数/limit参数 向上取整
-limit                      int        否         指定每页返回的条数，用于分页查询支持
+run_server        string   否         指定运行服务器，如 127.0.0.1:9991
+page              int      否         指定第几页，用于分页查询支持，默认为1，总页数=总条数/limit参数 向上取整
+limit             int      否         指定每页返回的条数，用于分页查询支持
 
 demo http://localhost:9990/log/list?limit=1 返回值如下
 {
