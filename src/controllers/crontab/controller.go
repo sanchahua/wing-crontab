@@ -89,7 +89,7 @@ func (c *CrontabController) Start() {
 		c.lock.Unlock()
 		return
 	}
-	atomic.StoreInt64(&c.running, 1)// = true
+	atomic.StoreInt64(&c.running, 1)
 	c.handler.Start()
 	c.lock.Unlock()
 }
@@ -113,25 +113,22 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 		switch event {
 		case cron.EVENT_ADD:
 			log.Infof("add crontab: %+v", entity)
-
 			// check if exists
-
 			e, ok := c.crontabList[entity.Id]
 			if ok {
 				return
-			} else {
-				e = &CronEntity{
-					Id:        entity.Id,      //int64        `json:"id"`
-					CronSet:   entity.CronSet, // string  `json:"cron_set"`
-					Command:   entity.Command, // string  `json:"command"`
-					Remark:    entity.Remark,  //string   `json:"remark"`
-					Stop:      entity.Stop,    //bool       `json:"stop"`
-					CronId:    0,              //int64    `json:"cron_id"`
-					onwillrun: c.onwillrun,
-					StartTime: entity.StartTime,
-					EndTime:   entity.EndTime,
-					IsMutex:   entity.IsMutex,
-				}
+			}
+			e = &CronEntity{
+				Id:        entity.Id,      //int64        `json:"id"`
+				CronSet:   entity.CronSet, // string  `json:"cron_set"`
+				Command:   entity.Command, // string  `json:"command"`
+				Remark:    entity.Remark,  //string   `json:"remark"`
+				Stop:      entity.Stop,    //bool       `json:"stop"`
+				CronId:    0,              //int64    `json:"cron_id"`
+				onwillrun: c.onwillrun,
+				StartTime: entity.StartTime,
+				EndTime:   entity.EndTime,
+				IsMutex:   entity.IsMutex,
 			}
 
 			e.CronId, err = c.handler.AddJob(entity.CronSet, e)
