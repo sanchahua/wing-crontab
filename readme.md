@@ -1,20 +1,54 @@
-install consul
+如何安装wing-crontab
+--
+1、安装 consul
 --------------
-download
+下载
 https://www.consul.io/downloads.html
-run
+如下运行dev调试版本，单机模式下使用，非常简单，consul的监听端口一般为8500，即127.0.0.1:8500
 ````
 ./consul agent --dev
 ````
-build
+编译wing-crontab，需要提前安装go环境
 -----
 ````
 ./bin/build.sh
 ````
-config
+修改配置文件
 ------
 ````
 vim ./config/app.toml
+
+配置文件说明
+##这个就是consul的服务地址了，本地调试模式使用127.0.0.1:8500即可
+consul_address = "127.0.0.1:8500"
+##服务名称，用于consul的服务注册
+service_name = "wing-crontab-service"
+##用来选leader时的竞争锁的key值
+##集群内所有的节点的key要保持一致
+lock_key = "wing-crontab-lock"
+##tcp服务的监听地址
+##不允许使用"0.0.0.0:9991"这种模式，必须要指定具体的ip和端口
+##原因是这个监听的地址要用于服务发现
+bind_address = "127.0.0.1:9991"
+##http接口的服务监听端口，这个可以使用"0.0.0.0:9990"这种模式
+http_bind_address = "127.0.0.1:9990"
+##这个用于性能监控调优，如果不想打开，去掉留空就可以了
+pprof_listen = "127.0.0.1:8880"
+##日志级别
+# 0 =	PanicLevel Level = iota
+# 1 =	FatalLevel
+# 2 =	ErrorLevel
+# 3 =	WarnLevel
+# 4 =	InfoLevel
+# 5 =	DebugLevel
+log_level=5
+##如下几个字段是mysql相关的连接配置
+mysql_user = "root"
+mysql_password = "123456"
+mysql_host = "127.0.0.1"
+mysql_port = 3306
+mysql_database = "cron"
+mysql_charset = "utf8"
 ````
 run
 ----
