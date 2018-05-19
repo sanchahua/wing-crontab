@@ -16,36 +16,34 @@ import (
 	"os"
 )
 
-type AgentController struct {
-	client *agent.AgentClient
-	server *agent.TcpService
-	indexNormal int64
-	indexMutex int64
-	dispatch chan *runItem
-	ctx *app.Context
-	lock *sync.Mutex
+type Controller struct {
+	client         *agent.AgentClient
+	server         *agent.TcpService
+	indexNormal    int64
+	indexMutex     int64
+	dispatch       chan *runItem
+	ctx            *app.Context
+	lock           *sync.Mutex
 	queueNomalLock *sync.Mutex
-	queueNomal map[int64]*data.EsQueue
+	queueNomal     map[int64]*data.EsQueue
 	queueMutexLock *sync.Mutex
-	queueMutex map[int64]*Mutex
-	keep map[string] []byte
-	keepLock *sync.Mutex
-	sendQueue map[string]*SendData
-	sendQueueLock *sync.Mutex
-	onCronChange OnCronChangeEventFunc
-	onCommand OnCommandFunc
+	queueMutex     map[int64]*Mutex
+	sendQueue      map[string]*SendData
+	sendQueueLock  *sync.Mutex
+	onCronChange   OnCronChangeEventFunc
+	onCommand      OnCommandFunc
 }
 
 const (
-	maxQueueLen = 64
+	maxQueueLen     = 64
 	dispatchChanLen = 10000
 )
 
-type sendFunc func(data []byte)
-type OnCommandFunc func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func())
+type sendFunc              func(data []byte)
+type OnCommandFunc         func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
 
-func NewAgentController(
+func NewController(
 	ctx *app.Context,
 	//这个参数提供了查询leader的服务ip和端口
 	//最终用于agent client连接leader时使用
@@ -57,8 +55,8 @@ func NewAgentController(
 	//这个事件由leader分发定时任务到节点，节点收到定时任务时触发
 	//最终接收的api是crontabController.ReceiveCommand
 	onCommand OnCommandFunc,
-) *AgentController {
-	c      := &AgentController{
+) *Controller {
+	c      := &Controller{
 				indexNormal:    0,
 				indexMutex:     0,
 				dispatch:       make(chan *runItem, dispatchChanLen),
@@ -68,8 +66,6 @@ func NewAgentController(
 				queueMutex:     make(map[int64]*Mutex),
 				queueNomalLock: new(sync.Mutex),
 				queueMutexLock: new(sync.Mutex),
-				keep:           make(map[string] []byte),
-				keepLock:       new(sync.Mutex),
 				sendQueue:      make(map[string]*SendData),
 				sendQueueLock:  new(sync.Mutex),
 				onCronChange:   onCronChange,
@@ -84,7 +80,7 @@ func NewAgentController(
 	return c
 }
 
-func (c *AgentController) onClientEvent(tcp *agent.AgentClient, cmd int , content []byte) {
+func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []byte) {
 	//log.Debugf("#############client receive: cmd=%d, content=%v", cmd, string(content))
 	switch cmd {
 	case agent.CMD_RUN_COMMAND:
@@ -141,7 +137,7 @@ func (c *AgentController) onClientEvent(tcp *agent.AgentClient, cmd int , conten
 	}
 }
 
-func (c *AgentController) onServerEvent(node *agent.TcpClientNode, event int, content []byte) {
+func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content []byte) {
 	//log.Debugf("server receive:, %v, %v", event, content )
 	switch event {
 	case agent.CMD_PULL_COMMAND:
@@ -193,26 +189,16 @@ func (c *AgentController) onServerEvent(node *agent.TcpClientNode, event int, co
 }
 
 // send data to leader
-func (c *AgentController) SendToLeader(data []byte) {
-	//
+func (c *Controller) SendToLeader(data []byte) {
 	//c.client.Send(agent.CMD_CRONTAB_CHANGE, data)
-
 	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, c.client.Write)
 	c.sendQueueLock.Lock()
 	c.sendQueue[d.Unique] = d
 	c.sendQueueLock.Unlock()
 }
 
-func (c *AgentController) sendService() {
+func (c *Controller) sendService() {
 	for {
-		//select {
-		//case <-tcp.ctx.Done():
-		//	log.Debugf("keepalive exit 1")
-		//	return
-		//default:
-		//}
-
-
 		c.sendQueueLock.Lock()
 		if len(c.sendQueue) <= 0 {
 			c.sendQueueLock.Unlock()
@@ -221,8 +207,7 @@ func (c *AgentController) sendService() {
 		}
 
 		//log.Debugf("send queue len: %v", len(c.sendQueue))
-
-		times3 := 0
+		//times3 := 0
 		for _, d := range c.sendQueue {
 			start := time.Now()
 			// status > 0 is sending
@@ -232,7 +217,7 @@ func (c *AgentController) sendService() {
 			// 即t+3模式
 			// 默认60秒超时重试
 			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 60 {
-				times3++
+				//times3++
 				continue
 			}
 			//log.Infof("try to send %+v", *d)
@@ -261,13 +246,13 @@ func (c *AgentController) sendService() {
 		c.sendQueueLock.Unlock()
 		// 如果都是发送中，这里尝试等待10毫秒，让出cpu
 		//if times3 >= len(c.sendQueue) {
-			time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 10)
 		//}
 	}
 }
 
 var commandLenError = errors.New("command len error")
-func (c *AgentController) unpack(data []byte) (id int64, dispatchTime int64, isMutex byte, command string, dispatchServer string, err error) {
+func (c *Controller) unpack(data []byte) (id int64, dispatchTime int64, isMutex byte, command string, dispatchServer string, err error) {
 	if len(data) < 25 {
 		err = commandLenError
 		return
@@ -291,7 +276,7 @@ func (c *AgentController) unpack(data []byte) (id int64, dispatchTime int64, isM
 	return
 }
 
-func (c *AgentController) pack(item *runItem) []byte {
+func (c *Controller) pack(item *runItem) []byte {
 	json.Marshal(item)
 	sendData := make([]byte, 8)
 	binary.LittleEndian.PutUint64(sendData, uint64(item.id))
@@ -320,7 +305,7 @@ func (c *AgentController) pack(item *runItem) []byte {
 // pull请求到达，说明客户端有能力执行当前的定时任务
 // 这个时候可以继续分配定时任务给客户端
 // 整个系统才去主动拉取的模式，只有客户端空闲达到一定程度，或者说足以负载当前的任务才会发起pull请求
-func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
+func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 	go func() {
 		//start := time.Now()
 		c.queueMutexLock.Lock()
@@ -425,17 +410,17 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	}()
 }
 
-func (c *AgentController) Pull() {
+func (c *Controller) Pull() {
 	//log.Debugf("##############################pull command(%v)", agent.CMD_PULL_COMMAND)
 	c.client.Write(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
 }
 
-func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
+func (c *Controller) Dispatch(id int64, command string, isMutex bool) {
 	//logrus.Debugf("Dispatch %v, %v, %v", id, command, isMutex)
 	if isMutex {
 		c.queueMutexLock.Lock()
 		var queueMutex *Mutex = nil
-		var ok bool = false
+		var ok = false
 		queueMutex, ok = c.queueMutex[id]
 		if !ok {
 			queueMutex = &Mutex{
@@ -468,16 +453,16 @@ func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
 }
 
 // set on leader select callback
-func (c *AgentController) OnLeader(isLeader bool) {
+func (c *Controller) OnLeader(isLeader bool) {
 	c.client.OnLeader(isLeader)
 }
 
 // start agent
-func (c *AgentController) Start() {
+func (c *Controller) Start() {
 	c.server.Start()
 }
 
 // close agent
-func (c *AgentController) Close() {
+func (c *Controller) Close() {
 	c.server.Close()
 }

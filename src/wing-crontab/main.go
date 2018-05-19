@@ -60,7 +60,7 @@ func main() {
 
 	crontabController := crontab.NewCrontabController()
 
-	agentController := agent.NewAgentController(ctx, consulControl.GetLeader,  func(event int, data []byte) {
+	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, data []byte) {
 		//log.Infof("===========%+v", data)
 		var e cron.CronEntity
 		err := json.Unmarshal(data, &e)
