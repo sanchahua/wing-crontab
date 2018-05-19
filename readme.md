@@ -1,3 +1,44 @@
+wing-crontab功能说明
+----------------
+1、支持定时任务的实时增删改查、暂停、开始和指定运行时间范围
+2、支持定时任务执行日志
+3、过载保护
+4、支持指定严格互斥的运行模式，即同一时间内只能用一个在运行
+
+数据库相关
+-----
+所有的操作，如需立即生效，不可以直接修改数据库，请使用api
+直接手动修改数据库的操作如需生效，请重启wing-crontab
+````
+CREATE DATABASE `cron` /*!40100 DEFAULT CHARACTER SET utf8 */
+````
+````
+CREATE TABLE `cron` (
+ `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '自增id',
+ `cron_set` varchar(128) NOT NULL DEFAULT '' COMMENT '定时任务配置，如：* * * * * *，这里精确到秒，前面的意思是每秒执行一次，分别对应，秒分时日月周',
+ `start_time` int(11) NOT NULL DEFAULT '0' COMMENT '大于等于此时间才执行，默认0',
+ `end_time` int(11) NOT NULL DEFAULT '0' COMMENT '小于此时间才执行，默认0不限',
+ `command` varchar(2048) NOT NULL DEFAULT '' COMMENT '定时任务执行的命令',
+ `stop` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1停止执行，0非，0为默认值',
+ `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '定时任务的备注信息',
+ PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1184 DEFAULT CHARSET=utf8
+````
+
+````
+CREATE TABLE `cron` (
+ `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '自增id',
+ `cron_set` varchar(128) NOT NULL DEFAULT '' COMMENT '定时任务配置，如：* * * * * *，这里精确到秒，前面的意思是每秒执行一次，分别对应，秒分时日月周',
+ `start_time` int(11) NOT NULL DEFAULT '0' COMMENT '大于等于此时间才执行，默认0',
+ `end_time` int(11) NOT NULL DEFAULT '0' COMMENT '小于此时间才执行，默认0不限',
+ `command` varchar(2048) NOT NULL DEFAULT '' COMMENT '定时任务执行的命令',
+ `stop` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1停止执行，0非，0为默认值',
+ `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '定时任务的备注信息',
+ `is_mutex` int(11) NOT NULL DEFAULT '0' COMMENT '0可以并发执行 1严格互斥执行',
+ PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1538 DEFAULT CHARSET=utf8
+````
+
 如何安装wing-crontab
 --
 1、安装 consul
@@ -50,12 +91,12 @@ mysql_port = 3306
 mysql_database = "cron"
 mysql_charset = "utf8"
 ````
-run
+运行
 ----
 ````
 ./bin/wing-crontab
 ````
-http api
+http接口
 ----
 全局说明
 ````
