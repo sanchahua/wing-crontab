@@ -331,7 +331,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 					itemI, ok, _ := queueMutex.queue.Get()
 					if !ok || itemI == nil {
 						//log.Warnf("queue get empty, %+v, %+v, %+v", ok, itemI)
-						return
+						continue
 					}
 					queueMutex.isRuning = true
 					queueMutex.start = time.Now().Unix()
@@ -370,7 +370,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 				itemI, ok, _ := queueNormal.Get()
 				if !ok || itemI == nil {
 					//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
-					return
+					continue
 				}
 				item := itemI.(*runItem)
 				sendData := c.pack(item)
