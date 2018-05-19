@@ -150,7 +150,9 @@ func (tcp *AgentClient) asyncWrite() {
 			if !ok {
 				return
 			}
-			tcp.conn.Write(data)
+			if tcp.conn != nil {
+				tcp.conn.Write(data)
+			}
 		}
 	}
 }

@@ -350,10 +350,12 @@ func (c *CrontabController) pullCommand() {
 	// just for check error
 	for {
 		if len(c.runList) < cpu {
-			log.Warnf("runlist len is min then %v < %v", len(c.runList), cpu)
+			//log.Warnf("runlist len is min then %v < %v", len(c.runList), cpu)
 			if len(c.pullc) < cap(c.pullc) {
 				c.pullc <- struct{}{}
 			}
+			time.Sleep(time.Millisecond * 10)
+			continue
 		}
 		time.Sleep(time.Millisecond * 100)
 	}

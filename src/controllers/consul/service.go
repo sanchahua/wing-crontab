@@ -8,6 +8,7 @@ import (
 	"strings"
 	"strconv"
 	"time"
+	"math/rand"
 )
 
 type ConsulController struct {
@@ -53,6 +54,23 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 		log.Infof("#################### reselect a new leader #######################")
 		lock.Unlock()
 		lock.Delete()
+
+		se := rand.NewSource(time.Now().UnixNano())
+		r := rand.New(se)
+		r1 := r.Intn(1000)
+
+		se = rand.NewSource(time.Now().UnixNano())
+		r  = rand.New(se)
+		r2 := r.Intn(2000)
+
+		se = rand.NewSource(time.Now().UnixNano())
+		r  = rand.New(se)
+		r3 := r.Intn(3000)
+
+		rn := r1 + r2 + r3
+
+		time.Sleep(time.Microsecond * time.Duration(rn))
+
 		c.service.SelectLeader()
 	}))
 	go watch.Start()
