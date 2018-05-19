@@ -42,6 +42,7 @@ type AgentController struct {
 type Mutex struct {
 	isRuning bool
 	queue *data.EsQueue
+	start int64
 }
 
 type SendData struct {
@@ -258,7 +259,7 @@ func (c *AgentController) sendService() {
 			continue
 		}
 
-		log.Debugf("send queue len: %v", len(c.sendQueue))
+		//log.Debugf("send queue len: %v", len(c.sendQueue))
 
 		times3 := 0
 		for _, d := range c.sendQueue {
@@ -267,7 +268,8 @@ func (c *AgentController) sendService() {
 			// todo ？？这里的3秒设置的是否合理，这里最好的方式应该有一个实时发送时间反馈
 			// 比如完成一次发送需要100ms，超时时间设置为 100ms + 3s 这样应该更合理
 			// 即t+3模式
-			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 3 {
+			// 默认60秒超时重试
+			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 60 {
 				times3++
 				continue
 			}
@@ -294,10 +296,10 @@ func (c *AgentController) sendService() {
 			d.send(sendData)
 		}
 		c.sendQueueLock.Unlock()
+		// 如果都是发送中，这里尝试等待10毫秒，让出cpu
 		if times3 >= len(c.sendQueue) {
 			time.Sleep(time.Millisecond * 10)
 		}
-		//
 	}
 }
 
@@ -356,139 +358,105 @@ func (c *AgentController) pack(item *runItem) []byte {
 // 这个时候可以继续分配定时任务给客户端
 // 整个系统才去主动拉取的模式，只有客户端空闲达到一定程度，或者说足以负载当前的任务才会发起pull请求
 func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
-	//log.Debugf("######### on pull")
-
-	// todo
-	// 这里的派发
-	// 优先派发queue num min 最少的，因为这个产生的周期比较长
-	// 优先派发需要互斥运行的
-	// 需要互斥运行的，每次会在收到上次的执行完成之后，才可以分发
-	// 分发需要做可靠性处理
-	//start := time.Now()
-	//var queueNormal *data.EsQueue
-	//num := uint32(0)
-	//for _, q := range c.queueNomal {
-	//	num = q.Quantity()
-	//	if num > 0 {
-	//		queueNormal = q
-	//		break
-	//	}
-	//}
-	//
-	//if queueNormal == nil || num <= 0 {
-	//	return
-	//}
-	//
-	//for _, q := range c.queueNomal {
-	//	qn := q.Quantity()
-	//	if qn < num {
-	//		queueNormal = q
-	//		num = qn
-	//
-	//	}
-	//}
-
-	{
-		c.queueMutexLock.Lock()
-		func() {
-			indexMutex := int64(-1)
-			if c.indexMutex >= int64(len(c.queueMutex)-1) {
-				atomic.StoreInt64(&c.indexMutex, 0)
+	c.queueMutexLock.Lock()
+	func() {
+		indexMutex := int64(-1)
+		if c.indexMutex >= int64(len(c.queueMutex)-1) {
+			atomic.StoreInt64(&c.indexMutex, 0)
+		}
+		log.Debugf("c.queueMutex len: %v", len(c.queueMutex))
+		for id, queueMutex := range c.queueMutex {
+			// 如果有未完成的任务，跳过
+			// 这里的正在运行应该有一个超时时间
+			// 一般情况下用不着，仅仅为了预防，提高可靠性
+			// 最多锁定60秒
+			if queueMutex.isRuning && (time.Now().Unix() - queueMutex.start) < 60 {
+				log.Debugf("================%v still running", id)
+				continue
 			}
-			log.Debugf("c.queueMutex len: %v", len(c.queueMutex))
-			for id, queueMutex := range c.queueMutex {
-				//如果有未完成的任务，跳过
-				if queueMutex.isRuning {
-					log.Debugf("================%v still running", id)
-					continue
+			indexMutex++
+			if indexMutex >= atomic.LoadInt64(&c.indexMutex) {
+
+				atomic.AddInt64(&c.indexMutex, 1)
+				itemI, ok, _ := queueMutex.queue.Get()
+				if !ok || itemI == nil {
+					//log.Warnf("queue get empty, %+v, %+v, %+v", ok, itemI)
+					return
 				}
-				indexMutex++
-				if indexMutex >= atomic.LoadInt64(&c.indexMutex) {
+				queueMutex.isRuning = true
+				queueMutex.start = time.Now().Unix()
+				item := itemI.(*runItem)
+				//分发互斥定时任务
+				sendData := c.pack(item)
 
-					atomic.AddInt64(&c.indexMutex, 1)
-					itemI, ok, _ := queueMutex.queue.Get()
-					if !ok || itemI == nil {
-						//log.Warnf("queue get empty, %+v, %+v, %+v", ok, itemI)
-						return
-					}
-					queueMutex.isRuning = true
-					item := itemI.(*runItem)
-					//分发互斥定时任务
-					sendData := c.pack(item)
-
-					d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend)
-					log.Debugf("###########dispatch mutex : %+v", *d)
-					c.sendQueueLock.Lock()
-					c.sendQueue[d.Unique] = d
-					c.sendQueueLock.Unlock()
-					break
-				} else {
-					log.Debugf("================continue")
-					//每次只选后面的分发
-					continue
-				}
-
+				d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend)
+				log.Debugf("###########dispatch mutex : %+v", *d)
+				c.sendQueueLock.Lock()
+				c.sendQueue[d.Unique] = d
+				c.sendQueueLock.Unlock()
+				break
+			} else {
+				log.Debugf("================continue")
+				//每次只选后面的分发
+				continue
 			}
-		}()
-		c.queueMutexLock.Unlock()
 
-	}
-
+		}
+	}()
+	c.queueMutexLock.Unlock()
 
 	c.queueNomalLock.Lock()
-
-	index := int64(-1)
-	if c.indexNormal >= int64(len(c.queueNomal) - 1) {
-		atomic.StoreInt64(&c.indexNormal, 0)
-	}
-
-	for _ , queueNormal := range c.queueNomal {
-		index++
-		if index != c.indexNormal {
-			continue
+	func() {
+		index := int64(-1)
+		if c.indexNormal >= int64(len(c.queueNomal)-1) {
+			atomic.StoreInt64(&c.indexNormal, 0)
 		}
-		atomic.AddInt64(&c.indexNormal, 1)
-		itemI, ok, _ := queueNormal.Get()
-		if !ok || itemI == nil {
-			c.queueNomalLock.Unlock()
-			//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
-			return
+
+		for _, queueNormal := range c.queueNomal {
+			index++
+			if index != c.indexNormal {
+				continue
+			}
+			atomic.AddInt64(&c.indexNormal, 1)
+			itemI, ok, _ := queueNormal.Get()
+			if !ok || itemI == nil {
+				//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
+				return
+			}
+			item := itemI.(*runItem)
+
+			////////////////////////
+
+			//sendData := make([]byte, 8)
+			//binary.LittleEndian.PutUint64(sendData, uint64(item.id))
+			//
+			//dataCommendLen := make([]byte, 8)
+			//binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
+			//
+			//currentTime := make([]byte, 8)
+			//binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
+			//sendData = append(sendData, currentTime...)
+			//
+			//sendData = append(sendData, dataCommendLen...)
+			//sendData = append(sendData, []byte(item.command)...)
+
+			sendData := c.pack(item) //append(sendData, []byte(c.ctx.Config.BindAddress)...)
+			//start2 := time.Now()
+			//node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
+
+			d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend)
+			c.sendQueueLock.Lock()
+			c.sendQueue[d.Unique] = d
+			c.sendQueueLock.Unlock()
+
+			//log.Debugf("######## (onpull response) send %+v", *d)
+
+			//log.Debugf("AsyncSend use time %+v", time.Since(start2))
+			//log.Debugf("OnPullCommand use time %+v", time.Since(start))
+			break
 		}
-		item := itemI.(*runItem)
-
-		////////////////////////
-
-		//sendData := make([]byte, 8)
-		//binary.LittleEndian.PutUint64(sendData, uint64(item.id))
-		//
-		//dataCommendLen := make([]byte, 8)
-		//binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
-		//
-		//currentTime := make([]byte, 8)
-		//binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
-		//sendData = append(sendData, currentTime...)
-		//
-		//sendData = append(sendData, dataCommendLen...)
-		//sendData = append(sendData, []byte(item.command)...)
-
-		sendData := c.pack(item)//append(sendData, []byte(c.ctx.Config.BindAddress)...)
-		//start2 := time.Now()
-		//node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
-
-		d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend)
-		c.sendQueueLock.Lock()
-		c.sendQueue[d.Unique] = d
-		c.sendQueueLock.Unlock()
-
-		//log.Debugf("######## (onpull response) send %+v", *d)
-
-
-		//log.Debugf("AsyncSend use time %+v", time.Since(start2))
-		//log.Debugf("OnPullCommand use time %+v", time.Since(start))
-		break
-	}
+	}()
 	c.queueNomalLock.Unlock()
-	//
 }
 
 func (c *AgentController) Pull() {
@@ -507,6 +475,7 @@ func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
 			queueMutex = &Mutex{
 				isRuning:false,
 				queue:data.NewQueue(maxQueueLen),
+				start:0,
 			}
 			c.queueMutex[id] = queueMutex
 		}
