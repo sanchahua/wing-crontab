@@ -23,23 +23,31 @@ type TcpService struct {
 	conn *net.TCPConn
 	buffer []byte
 	ctx context.Context
-	onevents []OnNodeEventFunc
+	//onevents []OnNodeEventFunc
 	index int64
-	onpullcommand OnPullCommandFunc
+	//onpullcommand OnPullCommandFunc
+	onServerEvents []OnServerEventFunc
 }
+type OnServerEventFunc func(node *TcpClientNode, event int, data []byte)
 type AgentServerOption func(s *TcpService)
 
-func SetEventCallback(f ...OnNodeEventFunc) AgentServerOption {
+func SetOnServerEvents(f ...OnServerEventFunc) AgentServerOption {
 	return func(s *TcpService) {
-		s.onevents = append(s.onevents, f...)
+		s.onServerEvents = append(s.onServerEvents, f...)
 	}
 }
 
-func SetServerOnPullCommand(f OnPullCommandFunc) AgentServerOption {
-	return func(s *TcpService) {
-		s.onpullcommand = f//append(s.onevents, f...)
-	}
-}
+//func SetEventCallback(f ...OnNodeEventFunc) AgentServerOption {
+//	return func(s *TcpService) {
+//		s.onevents = append(s.onevents, f...)
+//	}
+//}
+
+//func SetServerOnPullCommand(f OnPullCommandFunc) AgentServerOption {
+//	return func(s *TcpService) {
+//		s.onpullcommand = f
+//	}
+//}
 
 
 func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOption) *TcpService {
@@ -55,8 +63,9 @@ func NewAgentServer(ctx context.Context, address string, opts ...AgentServerOpti
 		agents:           nil,
 		status:           0,
 		buffer:           make([]byte, 0),
-		onevents:         make([]OnNodeEventFunc, 0),
+		//onevents:         make([]OnNodeEventFunc, 0),
 		index:            0,
+		onServerEvents:   make([]OnServerEventFunc, 0),
 	}
 	go tcp.keepalive()
 	for _, f := range opts {
@@ -93,8 +102,9 @@ func (tcp *TcpService) Start() {
 						tcp.agents.remove(n)
 						tcp.lock.Unlock()
 					}),
-					SetOnNodeEvent(tcp.onevents...),
-					SetonPullCommand(tcp.onpullcommand),
+					//SetOnNodeEvent(tcp.onevents...),
+					//SetonPullCommand(tcp.onpullcommand),
+				    setOnServerEvents(tcp.onServerEvents...),
 				)
 			//log.Infof("new connect %v", conn.RemoteAddr().String())
 			//log.Infof("#####################nodes len before %v", len(tcp.agents))

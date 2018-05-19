@@ -5,10 +5,8 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"time"
-	"encoding/json"
 	"sync"
 	"context"
-	wstring "library/string"
 )
 
 type dataItem struct {
@@ -24,8 +22,8 @@ type AgentClient struct {
 	statusLock *sync.Mutex
 	status int
 	getLeader GetLeaderFunc
-	sendQueue map[string]*SendData
-	sendQueueLock *sync.Mutex
+	//sendQueue map[string]*SendData
+	//sendQueueLock *sync.Mutex
 	dataChannel chan *dataItem
 	onEvents []OnClientEventFunc
 	asyncWriteChan chan []byte
@@ -54,34 +52,34 @@ func SetOnClientEvent(f ...OnClientEventFunc) ClientOption {
 	}
 }
 
-type SendData struct {
-	Unique string `json:"unique"`
-	Data []byte `json:"data"`
-	Status int `json:"status"`
-	Time int64 `json:"time"`
-	SendTimes int `json:"send_times"`
-	Cmd int
-}
-
-func newSendData(cmd int, data []byte) *SendData {
-	return &SendData{
-		Unique:    wstring.RandString(128),
-		Data:      data,
-		Status:    0,
-		Time:      0,
-		SendTimes: 0,
-		Cmd:       cmd,
-	}
-
-}
-
-func (d *SendData) encode() []byte {
-	b, e := json.Marshal(d)
-	if e != nil {
-		return nil
-	}
-	return b
-}
+//type SendData struct {
+//	Unique string `json:"unique"`
+//	Data []byte `json:"data"`
+//	Status int `json:"status"`
+//	Time int64 `json:"time"`
+//	SendTimes int `json:"send_times"`
+//	Cmd int
+//}
+//
+//func newSendData(cmd int, data []byte) *SendData {
+//	return &SendData{
+//		Unique:    wstring.RandString(128),
+//		Data:      data,
+//		Status:    0,
+//		Time:      0,
+//		SendTimes: 0,
+//		Cmd:       cmd,
+//	}
+//
+//}
+//
+//func (d *SendData) encode() []byte {
+//	b, e := json.Marshal(d)
+//	if e != nil {
+//		return nil
+//	}
+//	return b
+//}
 
 const asyncWriteChanLen = 10000
 
@@ -96,8 +94,8 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		conn:          nil,
 		statusLock:    new(sync.Mutex),
 		status:        0,
-		sendQueue:     make(map[string]*SendData),
-		sendQueueLock: new(sync.Mutex),
+		//sendQueue:     make(map[string]*SendData),
+		//sendQueueLock: new(sync.Mutex),
 		bufferLock:    new(sync.Mutex),
 		dataChannel:   make(chan *dataItem, dataChannelLen),
 		onEvents:      make([]OnClientEventFunc, 0),
@@ -107,7 +105,7 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		f(c)
 	}
 	go c.keepalive()
-	go c.sendService()
+	//go c.sendService()
 	go c.asyncWrite()
 	return c
 }
@@ -116,12 +114,12 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 // will retry until timeout or receive unique id
 // 异步发送
 // 需要回复unique id 或者重试 36次之后超时
-func (tcp *AgentClient) Send(cmd int, data []byte) {
-	d := newSendData(cmd, data)
-	tcp.sendQueueLock.Lock()
-	tcp.sendQueue[d.Unique] = d
-	tcp.sendQueueLock.Unlock()
-}
+//func (tcp *AgentClient) Send(cmd int, data []byte) {
+//	d := newSendData(cmd, data)
+//	tcp.sendQueueLock.Lock()
+//	tcp.sendQueue[d.Unique] = d
+//	tcp.sendQueueLock.Unlock()
+//}
 
 // 直接发送
 func (tcp *AgentClient) Write(data []byte) {
@@ -158,63 +156,63 @@ func (tcp *AgentClient) asyncWrite() {
 }
 
 
-func (tcp *AgentClient) sendService() {
-	for {
-		select {
-			case <-tcp.ctx.Done():
-				log.Debugf("keepalive exit 1")
-				return
-			default:
-		}
-		tcp.statusLock.Lock()
-		if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
-			tcp.statusLock.Unlock()
-			//log.Infof("keepalive continue")
-			time.Sleep(3 * time.Second)
-			continue
-		}
-		tcp.statusLock.Unlock()
-
-		tcp.sendQueueLock.Lock()
-		for _, d := range tcp.sendQueue {
-			// status > 0 is sending
-			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 3 {
-				continue
-			}
-			log.Infof("try to send %+v", *d)
-			d.Status = 1
-			d.SendTimes++
-
-			if d.SendTimes >= 36 {
-				delete(tcp.sendQueue, d.Unique)
-				log.Warnf("send timeout(36s), delete %+v", *d)
-				continue
-			}
-			d.Time   = time.Now().Unix()
-			sd      := d.encode()
-			//log.Infof("try to send %+v", sd)
-
-			data    := Pack(d.Cmd, sd)
-			dl      := len(data)
-			var n int
-			var err error
-			if tcp.conn != nil {
-				n, err = tcp.conn.Write(data)
-			}
-
-			if err != nil {
-				log.Errorf("[agent - client] agent keepalive error: %d, %v", n, err)
-				tcp.statusLock.Lock()
-				tcp.disconnect()
-				tcp.statusLock.Unlock()
-			} else if n != dl {
-				log.Errorf("[agent - client] %s send not complete", tcp.conn.RemoteAddr().String())
-			}
-		}
-		tcp.sendQueueLock.Unlock()
-		time.Sleep(time.Second * 1)
-	}
-}
+//func (tcp *AgentClient) sendService() {
+//	for {
+//		select {
+//			case <-tcp.ctx.Done():
+//				log.Debugf("keepalive exit 1")
+//				return
+//			default:
+//		}
+//		tcp.statusLock.Lock()
+//		if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
+//			tcp.statusLock.Unlock()
+//			//log.Infof("keepalive continue")
+//			time.Sleep(3 * time.Second)
+//			continue
+//		}
+//		tcp.statusLock.Unlock()
+//
+//		tcp.sendQueueLock.Lock()
+//		for _, d := range tcp.sendQueue {
+//			// status > 0 is sending
+//			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 3 {
+//				continue
+//			}
+//			log.Infof("try to send %+v", *d)
+//			d.Status = 1
+//			d.SendTimes++
+//
+//			if d.SendTimes >= 36 {
+//				delete(tcp.sendQueue, d.Unique)
+//				log.Warnf("send timeout(36s), delete %+v", *d)
+//				continue
+//			}
+//			d.Time   = time.Now().Unix()
+//			sd      := d.encode()
+//			//log.Infof("try to send %+v", sd)
+//
+//			data    := Pack(d.Cmd, sd)
+//			dl      := len(data)
+//			var n int
+//			var err error
+//			if tcp.conn != nil {
+//				n, err = tcp.conn.Write(data)
+//			}
+//
+//			if err != nil {
+//				log.Errorf("[agent - client] agent keepalive error: %d, %v", n, err)
+//				tcp.statusLock.Lock()
+//				tcp.disconnect()
+//				tcp.statusLock.Unlock()
+//			} else if n != dl {
+//				log.Errorf("[agent - client] %s send not complete", tcp.conn.RemoteAddr().String())
+//			}
+//		}
+//		tcp.sendQueueLock.Unlock()
+//		time.Sleep(time.Second * 1)
+//	}
+//}
 
 func (tcp *AgentClient) keepalive() {
 	data := Pack(CMD_TICK, []byte(""))
@@ -350,7 +348,7 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					tcp.statusLock.Unlock()
 					break
 				}
-				//log.Debugf("agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
+				log.Debugf("######################agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
 				//start = time.Now()
 				tcp.onMessage(readBuffer[:size])
 				//log.Debugf("#################################on message use time %+v", time.Since(start))
@@ -442,28 +440,30 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		//}
 		//start = time.Now()
 
+		log.Debugf("%+v, %+v",content, string(content))
+
 		for _, f := range tcp.onEvents {
 			f(tcp, cmd, content)
 		}
-		switch cmd {
-		case CMD_TICK:
-			//keepalive
-			//log.Info("keepalive")
-		case CMD_CRONTAB_CHANGE:
-			unique := string(content)
-			//log.Infof("%v send ok, delete from send queue", unique)
-			//tcp.sendQueueLock.Lock()
-			delete(tcp.sendQueue, unique)
-			//tcp.sendQueueLock.Unlock()
-		case CMD_RUN_COMMAND:
-			//id := binary.LittleEndian.Uint64(content[:8])
-			//log.Debugf("id == (%v) === (%v) ", id, content[:8])
-			//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
-			//start2 := time.Now()
-			//tcp.onCommand(content)//int64(id), string(content[8:]))
-			//log.Debugf("#################onCommand use time %v", time.Since(start2))
-		default:
-		}
+		//switch cmd {
+		//case CMD_TICK:
+		//	//keepalive
+		//	//log.Info("keepalive")
+		//case CMD_CRONTAB_CHANGE:
+		//	//unique := string(content)
+		//	//log.Infof("%v send ok, delete from send queue", unique)
+		//	//tcp.sendQueueLock.Lock()
+		//	//delete(tcp.sendQueue, unique)
+		//	//tcp.sendQueueLock.Unlock()
+		//case CMD_RUN_COMMAND:
+		//	//id := binary.LittleEndian.Uint64(content[:8])
+		//	//log.Debugf("id == (%v) === (%v) ", id, content[:8])
+		//	//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
+		//	//start2 := time.Now()
+		//	//tcp.onCommand(content)//int64(id), string(content[8:]))
+		//	//log.Debugf("#################onCommand use time %v", time.Since(start2))
+		//default:
+		//}
 		//log.Debugf("#################switch use time %v", time.Since(start))
 
 	}
