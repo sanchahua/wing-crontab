@@ -26,13 +26,15 @@ type AgentClient struct {
 	getLeader GetLeaderFunc
 	sendQueue map[string]*SendData
 	sendQueueLock *sync.Mutex
-	onCommand OnCommandFunc
 	dataChannel chan *dataItem
+	onEvents []OnClientEventFunc
+	asyncWriteChan chan []byte
 }
 
 type GetLeaderFunc     func()(string, int, error)
 type ClientOption      func(tcp *AgentClient)
 type OnCommandFunc     func(content []byte)
+type OnClientEventFunc func(tcp *AgentClient, event int, content []byte)
 
 func SetGetLeader(f GetLeaderFunc) ClientOption {
 	return func(tcp *AgentClient) {
@@ -40,9 +42,15 @@ func SetGetLeader(f GetLeaderFunc) ClientOption {
 	}
 }
 
-func SetOnCommand(f OnCommandFunc) ClientOption {
+//func SetOnCommand(f OnCommandFunc) ClientOption {
+//	return func(tcp *AgentClient) {
+//		tcp.onCommand = f
+//	}
+//}
+
+func SetOnClientEvent(f ...OnClientEventFunc) ClientOption {
 	return func(tcp *AgentClient) {
-		tcp.onCommand = f
+		tcp.onEvents = append(tcp.onEvents, f...)
 	}
 }
 
@@ -57,12 +65,12 @@ type SendData struct {
 
 func newSendData(cmd int, data []byte) *SendData {
 	return &SendData{
-		Unique:wstring.RandString(128),
-		Data: data,
-		Status: 0,
-		Time: 0,
-		SendTimes:0,
-		Cmd:cmd,
+		Unique:    wstring.RandString(128),
+		Data:      data,
+		Status:    0,
+		Time:      0,
+		SendTimes: 0,
+		Cmd:       cmd,
 	}
 
 }
@@ -74,6 +82,8 @@ func (d *SendData) encode() []byte {
 	}
 	return b
 }
+
+const asyncWriteChanLen = 10000
 
 // client 用来接收 agent server 分发的定时任务事件
 // 接收到事件后执行指定的定时任务
@@ -90,31 +100,59 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		sendQueueLock: new(sync.Mutex),
 		bufferLock:    new(sync.Mutex),
 		dataChannel:   make(chan *dataItem, dataChannelLen),
+		onEvents:      make([]OnClientEventFunc, 0),
+		asyncWriteChan:make(chan []byte, asyncWriteChanLen),
 	}
 	for _, f := range opts {
 		f(c)
 	}
 	go c.keepalive()
 	go c.sendService()
-	//cpu := runtime.NumCPU()
-	//for i := 0;i<cpu;i++ {
-	//	go c.onData()
-	//}
+	go c.asyncWrite()
 	return c
 }
 
-// must send success
+// async send, must send success
+// will retry until timeout or receive unique id
+// 异步发送
+// 需要回复unique id 或者重试 36次之后超时
 func (tcp *AgentClient) Send(cmd int, data []byte) {
 	d := newSendData(cmd, data)
 	tcp.sendQueueLock.Lock()
 	tcp.sendQueue[d.Unique] = d
 	tcp.sendQueueLock.Unlock()
 }
-func (tcp *AgentClient) Write(data []byte) (int, error) {
-	if tcp.conn == nil {
-		return 0, nil
+
+// 直接发送
+func (tcp *AgentClient) Write(data []byte) {
+	//if tcp.conn == nil {
+	//	return 0, nil
+	//}
+	start := time.Now().Unix()
+	for {
+		if (time.Now().Unix() - start) > 3 {
+			log.Errorf("asyncWriteChan full, wait timeout")
+			return
+		}
+		if len(tcp.asyncWriteChan) < cap(tcp.asyncWriteChan) {
+			break
+		}
+		log.Warnf("asyncWriteChan full")
 	}
-	return tcp.conn.Write(data)
+	tcp.asyncWriteChan <- data
+	//return tcp.conn.Write(data)
+}
+
+func (tcp *AgentClient) asyncWrite() {
+	for {
+		select {
+		case data, ok := <- tcp.asyncWriteChan:
+			if !ok {
+				return
+			}
+			tcp.conn.Write(data)
+		}
+	}
 }
 
 
@@ -402,6 +440,9 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		//}
 		//start = time.Now()
 
+		for _, f := range tcp.onEvents {
+			f(tcp, cmd, content)
+		}
 		switch cmd {
 		case CMD_TICK:
 			//keepalive
@@ -417,7 +458,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			//log.Debugf("id == (%v) === (%v) ", id, content[:8])
 			//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
 			//start2 := time.Now()
-			tcp.onCommand(content)//int64(id), string(content[8:]))
+			//tcp.onCommand(content)//int64(id), string(content[8:]))
 			//log.Debugf("#################onCommand use time %v", time.Since(start2))
 		default:
 		}

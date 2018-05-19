@@ -25,6 +25,8 @@ type TcpClientNode struct {
 	ctx context.Context
 	onevents []OnNodeEventFunc
 	onPullCommand OnPullCommandFunc
+	//keep map[string] []byte
+	//keepLock *sync.Mutex
 }
 
 type OnPullCommandFunc func(node *TcpClientNode)
@@ -38,7 +40,7 @@ func SetOnNodeEvent(f ...OnNodeEventFunc) NodeOption {
 
 func SetonPullCommand(f OnPullCommandFunc) NodeOption {
 	return func(n *TcpClientNode) {
-		n.onPullCommand = f//append(n.onevents, f...)
+		n.onPullCommand = f
 	}
 }
 
@@ -56,6 +58,8 @@ func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *TcpClient
 		onclose:          make([]NodeFunc, 0),
 		wg:               new(sync.WaitGroup),
 		onevents:         make([]OnNodeEventFunc, 0),
+		//keep:             make(map[string] []byte),
+		//keepLock:         new(sync.Mutex),
 	}
 	for _, f := range opts {
 		f(node)
@@ -104,6 +108,12 @@ func (node *TcpClientNode) AsyncSend(data []byte) {
 	node.sendQueue <- data
 	//log.Debugf("############AsyncSend use time========= %+v", time.Since(start1))
 }
+
+//func (node *TcpClientNode) SendKeep(data []byte) {
+//	node.keepLock.Lock()
+//	node.keep[]
+//	node.keepLock.Unlock()
+//}
 
 func (node *TcpClientNode) setReadDeadline(t time.Time) {
 	(*node.conn).SetReadDeadline(t)
@@ -194,6 +204,9 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 			log.Errorf("cmd（%v）does not exists", cmd)
 			return
 		}
+
+		//go node.eventFired(cmd, content)
+
 		switch cmd {
 		case CMD_TICK:
 			node.AsyncSend(packDataTickOk)
@@ -212,6 +225,8 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 			//start := time.Now()
 			node.onPullCommand(node)
 			//log.Debugf("###############PullCommand use time %+v", time.Since(start))
+		case CMD_RUN_COMMAND:
+			log.Debugf("command is run: %v", string(content))
 		default:
 			node.AsyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
 			node.recvBuf = make([]byte, 0)

@@ -8,6 +8,7 @@ import (
 	"time"
 	"library/data"
 	"sync/atomic"
+	wstring "library/string"
 	//"github.com/sirupsen/logrus"
 )
 
@@ -27,12 +28,15 @@ type AgentController struct {
 
 	queueMutexLock *sync.Mutex
 	queueMutex map[int64]*data.EsQueue
+	keep map[string] []byte
+	keepLock *sync.Mutex
 }
 
 type runItem struct {
 	id int64
 	command string
 	isMutex bool
+	unique string
 }
 
 type OnCommandFunc func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string)
@@ -50,6 +54,8 @@ func NewAgentController(
 				queueMutex:make(map[int64]*data.EsQueue),
 				queueNomalLock:new(sync.Mutex),
 				queueMutexLock:new(sync.Mutex),
+				keep: make(map[string] []byte),
+				keepLock:new(sync.Mutex),
 				//nums:make(map[int64] int64),
 			}
 
@@ -57,21 +63,37 @@ func NewAgentController(
 	//	c.nums[v.Id] = 0
 	//}
 
-	server := agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetEventCallback(onEvent), agent.SetServerOnPullCommand(c.OnPullCommand))
+	server := agent.NewAgentServer(
+			ctx.Context(),
+			ctx.Config.BindAddress,
+			agent.SetEventCallback(onEvent),
+			agent.SetServerOnPullCommand(c.OnPullCommand),
+		)
 	client := agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader),
-				agent.SetOnCommand(func(content []byte) {
-					if len(content) < 24 {
-						return
+				agent.SetOnClientEvent(func(tcp *agent.AgentClient, cmd int , content []byte) {
+					switch cmd {
+					case agent.CMD_RUN_COMMAND:
+						func() {
+							if len(content) < 24 {
+								return
+							}
+							id := binary.LittleEndian.Uint64(content[:8])
+							dispatchTime := binary.LittleEndian.Uint64(content[8:16])
+							commandLen := binary.LittleEndian.Uint64(content[16:24])
+							if len(content) < int(24+commandLen) {
+								return
+							}
+							command := content[24:24+commandLen]
+
+							uniqueLen := binary.LittleEndian.Uint64(content[24+commandLen:32+commandLen])
+							unique    := content[32+commandLen: 32+commandLen+uniqueLen]
+
+							tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, unique))
+
+							dispatchServer := content[32+commandLen+uniqueLen:]
+							onCommand(int64(id), string(command), int64(dispatchTime), string(dispatchServer), ctx.Config.BindAddress)
+						}()
 					}
-					id             := binary.LittleEndian.Uint64(content[:8])
-					dispatchTime   := binary.LittleEndian.Uint64(content[8:16])
-					commandLen     := binary.LittleEndian.Uint64(content[16:24])
-					if len(content) < int(24 + commandLen) {
-						return
-					}
-					command        := content[24:24 + commandLen]
-					dispatchServer := content[24 + commandLen:]
-					onCommand(int64(id), string(command), int64(dispatchTime), string(dispatchServer), ctx.Config.BindAddress)
 				}), )
 	c.server = server
 	c.client = client
@@ -138,6 +160,9 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 			return
 		}
 		item := itemI.(*runItem)
+
+		////////////////////////
+
 		//logrus.Debugf("######## (onpull response) send %+v", *item)
 		sendData := make([]byte, 8)
 		binary.LittleEndian.PutUint64(sendData, uint64(item.id))
@@ -151,6 +176,11 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 
 		sendData = append(sendData, dataCommendLen...)
 		sendData = append(sendData, []byte(item.command)...)
+
+		uniqueLen := make([]byte, 8)
+		binary.LittleEndian.PutUint64(uniqueLen, uint64(len(item.unique)))
+		sendData = append(sendData, uniqueLen...)
+		sendData = append(sendData, []byte(item.unique)...)
 
 		sendData = append(sendData, []byte(c.ctx.Config.BindAddress)...)
 		//start2 := time.Now()
@@ -178,7 +208,12 @@ func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
 			c.queueMutex[id] = queueMutex
 		}
 		c.queueMutexLock.Unlock()
-		item := &runItem{id: id, command: command, isMutex: isMutex}
+		item := &runItem{
+				id: id,
+				command: command,
+				isMutex: isMutex,
+				unique: wstring.RandString(128),
+			}
 		queueMutex.Put(item)
 		return
 	}
@@ -190,7 +225,9 @@ func (c *AgentController) Dispatch(id int64, command string, isMutex bool) {
 		c.queueNomal[id] = queueNormal
 	}
 	c.queueNomalLock.Unlock()
-	item := &runItem{id: id, command: command, isMutex: isMutex}
+	item := &runItem{id: id, command: command, isMutex: isMutex,
+		unique: wstring.RandString(128),
+	}
 	queueNormal.Put(item)
 }
 

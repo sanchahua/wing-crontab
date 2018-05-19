@@ -9,6 +9,8 @@ import (
 	"time"
 	"runtime"
 	"sync/atomic"
+	"fmt"
+	"os"
 )
 
 type CrontabController struct {
@@ -105,7 +107,7 @@ func (row *CronEntity) Run() {
 
 	//roundbin to target server and run command
 	row.onwillrun(row.Id, row.Command, row.IsMutex)
-	//log.Infof("############################# (leader) will run: %+v", *row)
+	fmt.Fprintf(os.Stderr, "\r\n########## only leader do this %+v ##########\r\n\r\n", *row)
 }
 
 type OnWillRunFunc func(id int64, command string, isMutex bool)
@@ -342,7 +344,7 @@ func (c *CrontabController) pullCommand() {
 		if len(c.runList) >= cpu * 2 {
 			break
 		}
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 100)
 	}
 
 	// just for check error
@@ -353,7 +355,7 @@ func (c *CrontabController) pullCommand() {
 				c.pullc <- struct{}{}
 			}
 		}
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 100)
 	}
 }
 

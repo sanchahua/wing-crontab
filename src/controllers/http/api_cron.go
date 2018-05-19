@@ -151,7 +151,7 @@ func (server *CronApi) update(request *restful.Request, w *restful.Response) {
 	startTime, _ := strconv.ParseInt(strStartTime, 10, 64)
 	endTime, _   := strconv.ParseInt(strEndTime, 10, 64)
 	isMutex      := false
-	if strIsMutex != "0" {
+	if strIsMutex != "0" && strIsMutex != "" {
 		isMutex = true
 	}
 	row, err     := server.cron.Update(id, cronSet, command, remark, stop == "1", startTime, endTime, isMutex)
@@ -190,7 +190,7 @@ func (server *CronApi) add(request *restful.Request, w *restful.Response) {
 		return
 	}
 	isMutex      := false
-	if strIsMutex != "0" {
+	if strIsMutex != "0" && strIsMutex != "" {
 		isMutex = true
 	}
 	startTime, _ := strconv.ParseInt(strStartTime, 10, 64)
