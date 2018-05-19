@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"runtime"
 	"errors"
+	"fmt"
+	"os"
 )
 
 type AgentController struct {
@@ -222,6 +224,7 @@ func (c *AgentController) sendService() {
 
 		times3 := 0
 		for _, d := range c.sendQueue {
+			start := time.Now()
 			// status > 0 is sending
 			// 发送中的数据，3秒之内不会在发送，超过3秒会进行2次重试
 			// todo ？？这里的3秒设置的是否合理，这里最好的方式应该有一个实时发送时间反馈
@@ -253,12 +256,13 @@ func (c *AgentController) sendService() {
 			//log.Debugf("%+v", *d)
 			//log.Debugf("****************************command is begin to run 1 => %v, send time is %v", d.Unique, time.Now().UnixNano())
 			d.send(sendData)
+			fmt.Fprintf(os.Stderr, "send data use time %v\n", time.Since(start))
 		}
 		c.sendQueueLock.Unlock()
 		// 如果都是发送中，这里尝试等待10毫秒，让出cpu
-		if times3 >= len(c.sendQueue) {
+		//if times3 >= len(c.sendQueue) {
 			time.Sleep(time.Millisecond * 10)
-		}
+		//}
 	}
 }
 
@@ -318,6 +322,7 @@ func (c *AgentController) pack(item *runItem) []byte {
 // 整个系统才去主动拉取的模式，只有客户端空闲达到一定程度，或者说足以负载当前的任务才会发起pull请求
 func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 	go func() {
+		//start := time.Now()
 		c.queueMutexLock.Lock()
 		func() {
 			indexMutex := int64(-1)
@@ -360,8 +365,10 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 			}
 		}()
 		c.queueMutexLock.Unlock()
+		//fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
 	}()
 	go func() {
+		//start := time.Now()
 		c.queueNomalLock.Lock()
 		func() {
 			index := int64(-1)
@@ -401,7 +408,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 				//start2 := time.Now()
 				//node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
 
-				d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend)
+				d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend) //c.server.Broadcast)//
 				c.sendQueueLock.Lock()
 				c.sendQueue[d.Unique] = d
 				c.sendQueueLock.Unlock()
@@ -414,6 +421,7 @@ func (c *AgentController) OnPullCommand(node *agent.TcpClientNode) {
 			}
 		}()
 		c.queueNomalLock.Unlock()
+		//fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
 	}()
 }
 

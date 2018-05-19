@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 	"context"
-	"sync/atomic"
 )
 
 type TcpService struct {
@@ -118,7 +117,7 @@ func (tcp *TcpService) Start() {
 	}()
 }
 
-func (tcp *TcpService) RandSend(data []byte) {
+func (tcp *TcpService) Broadcast(data []byte) {
 	//tcp.debuglock.Lock()
 	//defer tcp.debuglock.Unlock()
 	//start := time.Now()
@@ -129,29 +128,29 @@ func (tcp *TcpService) RandSend(data []byte) {
 	//log.Debugf("RandSend 1 use time : %+v", time.Since(start))
 	//start2 := time.Now()
 
-	if tcp.index >= l {
-		atomic.StoreInt64(&tcp.index, 0)
-	}
+	//if tcp.index >= l {
+	//	atomic.StoreInt64(&tcp.index, 0)
+	//}
 	//log.Debugf("RandSend 2 use time : %+v", time.Since(start2))
 
 	//start3 := time.Now()
-	iindex := int(tcp.index)
-	for key, client := range tcp.agents {
-		if key != iindex {
-			continue
-		}
+	//iindex := int(tcp.index)
+	for _, client := range tcp.agents {
+		//if key != iindex {
+		//	continue
+		//}
 		//startp := time.Now()
-		sendData := Pack(CMD_RUN_COMMAND, data)
+		//sendData := Pack(CMD_RUN_COMMAND, data)
 		//log.Debugf("pack use time: %+v", time.Since(startp))
 
 		//start5   := time.Now()
-		client.AsyncSend(sendData)
+		client.AsyncSend(data)
 		//log.Debugf("AsyncSend send use time: %+v", time.Since(start5))
 
 		//start4 := time.Now()
-		atomic.AddInt64(&tcp.index, 1)
+		//atomic.AddInt64(&tcp.index, 1)
 		//log.Debugf("RandSend 4 use time : %+v", time.Since(start4))
-		break
+		//break
 
 	}
 	//log.Debugf("RandSend 3 use time : %+v", time.Since(start3))

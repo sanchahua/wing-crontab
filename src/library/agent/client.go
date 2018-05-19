@@ -7,6 +7,7 @@ import (
 	"time"
 	"sync"
 	"context"
+	"os"
 )
 
 type dataItem struct {
@@ -333,12 +334,15 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
 
 			for {
-				//start := time.Now()
+				start := time.Now()
 				if tcp.conn == nil {
 					log.Errorf("============================tcp conn nil")
 					break
 				}
+				start3 := time.Now()
 				size, err := tcp.conn.Read(readBuffer[0:])
+				fmt.Fprintf(os.Stderr, "read use time %v\n", time.Since(start3))
+
 				//log.Debugf("read message use time %v", time.Since(start))
 				//log.Debugf("read buffer len: %d, cap:%d", len(readBuffer), cap(readBuffer))
 				if err != nil || size <= 0 {
@@ -349,14 +353,17 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					break
 				}
 				//log.Debugf("######################agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
-				//start = time.Now()
+				start2 := time.Now()
 				tcp.onMessage(readBuffer[:size])
+				fmt.Fprintf(os.Stderr, "on message use time %v\n", time.Since(start2))
+
 				//log.Debugf("#################################on message use time %+v", time.Since(start))
 				select {
 				case <-tcp.ctx.Done():
 					return
 				default:
 				}
+				fmt.Fprintf(os.Stderr, "read message use time %v\n", time.Since(start))
 			}
 		}
 	}()
