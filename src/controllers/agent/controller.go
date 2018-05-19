@@ -316,15 +316,15 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 			}
 			//log.Debugf("c.queueMutex len: %v", len(c.queueMutex))
 			for _, queueMutex := range c.queueMutex {
+				indexMutex++
 				// 如果有未完成的任务，跳过
 				// 这里的正在运行应该有一个超时时间
 				// 一般情况下用不着，仅仅为了预防，提高可靠性
 				// 最多锁定60秒
-				if queueMutex.isRuning && (time.Now().Unix()-queueMutex.start) < 60 {
+				if queueMutex.isRuning && (time.Now().Unix() - queueMutex.start) < 60 {
 					//log.Debugf("================%v still running", id)
 					continue
 				}
-				indexMutex++
 				if indexMutex >= atomic.LoadInt64(&c.indexMutex) {
 
 					atomic.AddInt64(&c.indexMutex, 1)
@@ -373,35 +373,12 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 					return
 				}
 				item := itemI.(*runItem)
-
-				////////////////////////
-
-				//sendData := make([]byte, 8)
-				//binary.LittleEndian.PutUint64(sendData, uint64(item.id))
-				//
-				//dataCommendLen := make([]byte, 8)
-				//binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
-				//
-				//currentTime := make([]byte, 8)
-				//binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
-				//sendData = append(sendData, currentTime...)
-				//
-				//sendData = append(sendData, dataCommendLen...)
-				//sendData = append(sendData, []byte(item.command)...)
-
-				sendData := c.pack(item) //append(sendData, []byte(c.ctx.Config.BindAddress)...)
-				//start2 := time.Now()
-				//node.AsyncSend(agent.Pack(agent.CMD_RUN_COMMAND, sendData))
+				sendData := c.pack(item)
 
 				d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend) //c.server.Broadcast)//
 				c.sendQueueLock.Lock()
 				c.sendQueue[d.Unique] = d
 				c.sendQueueLock.Unlock()
-
-				//log.Debugf("######## (onpull response) send %+v", *d)
-
-				//log.Debugf("AsyncSend use time %+v", time.Since(start2))
-				//log.Debugf("OnPullCommand use time %+v", time.Since(start))
 				break
 			}
 		}()
