@@ -348,7 +348,7 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					tcp.statusLock.Unlock()
 					break
 				}
-				log.Debugf("######################agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
+				//log.Debugf("######################agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
 				//start = time.Now()
 				tcp.onMessage(readBuffer[:size])
 				//log.Debugf("#################################on message use time %+v", time.Since(start))
@@ -440,7 +440,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		//}
 		//start = time.Now()
 
-		log.Debugf("%+v, %+v",content, string(content))
+		//log.Debugf("%+v, %+v",content, string(content))
 
 		for _, f := range tcp.onEvents {
 			f(tcp, cmd, content)

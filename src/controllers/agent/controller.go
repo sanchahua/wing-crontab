@@ -109,7 +109,7 @@ func NewAgentController(
 			ctx.Context(),
 			ctx.Config.BindAddress,
 			agent.SetOnServerEvents(func(node *agent.TcpClientNode, event int, content []byte) {
-				log.Debugf("server receive:, %v, %v", event, content )
+				//log.Debugf("server receive:, %v, %v", event, content )
 				switch event {
 				case agent.CMD_PULL_COMMAND:
 					c.OnPullCommand(node)
@@ -137,7 +137,7 @@ func NewAgentController(
 	client := agent.NewAgentClient(ctx.Context(),
 				agent.SetGetLeader(getLeader),
 				agent.SetOnClientEvent(func(tcp *agent.AgentClient, cmd int , content []byte) {
-					log.Debugf("#############client receive: cmd=%d, content=%v", cmd, string(content))
+					//log.Debugf("#############client receive: cmd=%d, content=%v", cmd, string(content))
 					switch cmd {
 					case agent.CMD_RUN_COMMAND:
 						func() {
@@ -148,7 +148,7 @@ func NewAgentController(
 								return
 							}
 
-							log.Debugf("#############receive command: %+v", sendData)
+							//log.Debugf("#############receive command: %+v", sendData)
 							if len(sendData.Data) < 24 {
 								return
 							}
@@ -160,7 +160,7 @@ func NewAgentController(
 							}
 							command := sendData.Data[24:24+commandLen]
 
-							log.Debugf("##############send: %v", sendData.Unique)
+							//log.Debugf("##############send: %v", sendData.Unique)
 							tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, []byte(sendData.Unique)))
 
 							dispatchServer := sendData.Data[24+commandLen:]
@@ -207,12 +207,13 @@ func (c *AgentController) sendService() {
 		c.sendQueueLock.Lock()
 		if len(c.sendQueue) <= 0 {
 			c.sendQueueLock.Unlock()
-			time.Sleep(time.Microsecond*10)
+			time.Sleep(time.Millisecond * 10)
 			continue
 		}
 
 		log.Debugf("send queue len: %v", len(c.sendQueue))
 
+		times3 := 0
 		for _, d := range c.sendQueue {
 			// status > 0 is sending
 			// 发送中的数据，3秒之内不会在发送，超过3秒会进行2次重试
@@ -220,6 +221,7 @@ func (c *AgentController) sendService() {
 			// 比如完成一次发送需要100ms，超时时间设置为 100ms + 3s 这样应该更合理
 			// 即t+3模式
 			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 3 {
+				times3++
 				continue
 			}
 			//log.Infof("try to send %+v", *d)
@@ -243,7 +245,10 @@ func (c *AgentController) sendService() {
 			d.send(sendData)
 		}
 		c.sendQueueLock.Unlock()
-		//time.Sleep(time.Second * 10)
+		if times3 >= len(c.sendQueue) {
+			time.Sleep(time.Millisecond * 10)
+		}
+		//
 	}
 }
 

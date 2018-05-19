@@ -91,13 +91,13 @@ func (node *TcpClientNode) close() {
 	if node.status & tcpNodeOnline > 0{
 		node.status ^= tcpNodeOnline
 		(*node.conn).Close()
-		node.sendQueue <- []byte{byte(0)}//close(node.sendQueue)
-	}
-	for _, f := range node.onclose {
-		f(node)
+		close(node.sendQueue)
 	}
 	log.Warnf("node close")
 	node.lock.Unlock()
+	for _, f := range node.onclose {
+		f(node)
+	}
 }
 
 func (node *TcpClientNode) send(data []byte) (int, error) {
@@ -106,6 +106,12 @@ func (node *TcpClientNode) send(data []byte) (int, error) {
 }
 
 func (node *TcpClientNode) AsyncSend(data []byte) {
+	node.lock.Lock()
+	if node.status & tcpNodeOnline <= 0 {
+		node.lock.Unlock()
+		return
+	}
+
 	//start1 := time.Now()
 	for {
 		if len(node.sendQueue) < cap(node.sendQueue) {
@@ -114,6 +120,7 @@ func (node *TcpClientNode) AsyncSend(data []byte) {
 		log.Warnf("cache full, try wait, %v, %v", len(node.sendQueue) , cap(node.sendQueue))
 	}
 	node.sendQueue <- data
+	node.lock.Unlock()
 	//log.Debugf("############AsyncSend use time========= %+v", time.Since(start1))
 }
 
@@ -141,11 +148,11 @@ func (node *TcpClientNode) asyncSendService() {
 				log.Info("tcp node sendQueue is closed, sendQueue channel closed.")
 				return
 			}
-			if len(msg) == 1 && msg[0] == byte(0) {
-				close(node.sendQueue)
-				log.Warnf("close sendQueue")
-				return
-			}
+			//if len(msg) == 1 && msg[0] == byte(0) {
+			//	close(node.sendQueue)
+			//	log.Warnf("close sendQueue")
+			//	return
+			//}
 			(*node.conn).SetWriteDeadline(time.Now().Add(time.Second * 30))
 			size, err := (*node.conn).Write(msg)
 			//log.Debugf("send: %+v, to %+v", msg, (*node.conn).RemoteAddr().String())
