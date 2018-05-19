@@ -269,8 +269,12 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 	c.Start()
 }
 
-func (c *CrontabController) runCommand(data *runItem) {
-	f := int(time.Now().Unix() - data.dispatchTime)
+func (c *CrontabController) runCommand(id int64,
+command string,
+dispatchTime int64,
+dispatchServer string,
+runServer string) {
+	f := int(time.Now().Unix() - dispatchTime)
 	//if f > minFixTime && f <= maxFixTime && f > c.fixTime {
 	//	c.fixTime = f
 	//}
@@ -284,17 +288,17 @@ func (c *CrontabController) runCommand(data *runItem) {
 	var cmd *exec.Cmd
 	var err error
 	start := time.Now()
-	cmd = exec.Command("bash", "-c", data.command)
+	cmd = exec.Command("bash", "-c", command)
 	res, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Errorf("执行命令(%v)发生错误：%+v", data.command, err)
+		log.Errorf("执行命令(%v)发生错误：%+v", command, err)
 	}
-	log.Infof("###################%+v:%v was run", data.id, data.command)
+	log.Infof("###################%+v:%v was run", id, command)
 	if c.onrun == nil {
 		log.Warnf("c.onrun is nil")
 		return
 	}
-	c.onrun(data.id, data.dispatchTime, data.dispatchServer, data.runServer, res, time.Since(start))
+	c.onrun(id, dispatchTime, dispatchServer, runServer, res, time.Since(start))
 }
 
 func (c *CrontabController) run() {
@@ -309,7 +313,11 @@ func (c *CrontabController) run() {
 				if len(c.pullc) < cap(c.pullc) && len(c.runList) < cpu {
 					c.pullc <- struct{}{}
 				}
-				c.runCommand(data)
+				c.runCommand(data.id,
+					data.command ,
+				data.dispatchTime ,
+				data.dispatchServer ,
+				data.runServer)
 		}
 	}
 }
@@ -361,17 +369,30 @@ func (c *CrontabController) pullCommand() {
 	}
 }
 
-func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
+func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func()) {
 	if len(c.runList) >= runListMaxLen {
 		log.Errorf("runlist len is max then %v", runListMaxLen)
 		return
 	}
-	c.runList <- &runItem{
-		id:id,
-		command:command,
-		dispatchTime:dispatchTime,
-		dispatchServer:dispatchServer,
-		runServer:runServer,
+
+	// 如果指定异步执行
+	if isMutex != 1 {
+		after()
+		c.runList <- &runItem{
+			id:             id,
+			command:        command,
+			dispatchTime:   dispatchTime,
+			dispatchServer: dispatchServer,
+			runServer:      runServer,
+		}
+	} else {
+		//同步执行
+		c.runCommand(id,
+			command ,
+			dispatchTime ,
+			dispatchServer ,
+			runServer)
+		after()
 	}
 	//c.times--
 	//log.Debugf("ReceiveCommand (%v) %v, %v, %v, %v, %v ", len(c.runList), id, command, dispatchTime, dispatchServer, runServer)
