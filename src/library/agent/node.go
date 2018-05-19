@@ -23,27 +23,10 @@ type TcpClientNode struct {
 	lock *sync.Mutex          // 互斥锁，修改资源时锁定
 	onclose []NodeFunc
 	ctx context.Context
-	//onevents []OnNodeEventFunc
-	//onPullCommand OnPullCommandFunc
-	//keep map[string] []byte
-	//keepLock *sync.Mutex
 	onServerEvents []OnServerEventFunc
 }
 
 type OnPullCommandFunc func(node *TcpClientNode)
-type OnNodeEventFunc func(event int, data []byte)
-
-//func SetOnNodeEvent(f ...OnNodeEventFunc) NodeOption {
-//	return func(n *TcpClientNode) {
-//		n.onevents = append(n.onevents, f...)
-//	}
-//}
-
-//func SetonPullCommand(f OnPullCommandFunc) NodeOption {
-//	return func(n *TcpClientNode) {
-//		n.onPullCommand = f
-//	}
-//}
 
 func setOnServerEvents(f ...OnServerEventFunc) NodeOption {
 	return func(n *TcpClientNode) {
@@ -59,14 +42,10 @@ func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *TcpClient
 		connectTime:      time.Now().Unix(),
 		recvBuf:          make([]byte, 0),
 		status:           tcpNodeOnline,
-		//group:            "",
 		ctx:              ctx,
 		lock:             new(sync.Mutex),
 		onclose:          make([]NodeFunc, 0),
 		wg:               new(sync.WaitGroup),
-		//onevents:         make([]OnNodeEventFunc, 0),
-		//keep:             make(map[string] []byte),
-		//keepLock:         new(sync.Mutex),
 		onServerEvents:   make([]OnServerEventFunc, 0),
 	}
 	for _, f := range opts {
