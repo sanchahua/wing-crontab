@@ -105,7 +105,16 @@ code 错误码 200为正常
 data 具体的业务数据
 message 具体的错误信息
 ````
-1、查询定时任务执行日志
+
+````
+GET  /cron/list
+GET  /cron/stop/{id}
+GET  /cron/start/{id}
+GET  /cron/delete/{id}
+POST /cron/update
+POST /cron/add
+````
+查询定时任务执行日志
 ````
 http://localhost:9990/log/list
 协议  GET
