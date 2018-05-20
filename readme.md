@@ -26,17 +26,17 @@ CREATE TABLE `cron` (
 ````
 
 ````
-CREATE TABLE `cron` (
- `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '自增id',
- `cron_set` varchar(128) NOT NULL DEFAULT '' COMMENT '定时任务配置，如：* * * * * *，这里精确到秒，前面的意思是每秒执行一次，分别对应，秒分时日月周',
- `start_time` int(11) NOT NULL DEFAULT '0' COMMENT '大于等于此时间才执行，默认0',
- `end_time` int(11) NOT NULL DEFAULT '0' COMMENT '小于此时间才执行，默认0不限',
- `command` varchar(2048) NOT NULL DEFAULT '' COMMENT '定时任务执行的命令',
- `stop` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1停止执行，0非，0为默认值',
- `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '定时任务的备注信息',
- `is_mutex` int(11) NOT NULL DEFAULT '0' COMMENT '0可以并发执行 1严格互斥执行',
+CREATE TABLE `log` (
+ `id` int(11) NOT NULL AUTO_INCREMENT,
+ `cron_id` int(11) NOT NULL DEFAULT '0',
+ `time` bigint(20) NOT NULL COMMENT '命令运行的时间',
+ `output` longtext NOT NULL COMMENT '执行命令输出',
+ `use_time` bigint(20) NOT NULL COMMENT '执行命令耗时，单位为毫秒',
+ `dispatch_time` int(11) NOT NULL DEFAULT '0' COMMENT '分发时间',
+ `dispatch_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '调度server',
+ `run_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '该命令在那个节点上被执行（服务器）',
  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1538 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=6649189 DEFAULT CHARSET=utf8
 ````
 
 如何安装wing-crontab
@@ -317,12 +317,275 @@ use_time 为定时任务执行耗时时长，单位为毫秒
 dispatch_server 为调度服务器
 run_server 为最终运行定时任务的服务器
 ````
-集群配置
+集群配置参考
 ----
-1、consul >= 3个节点
+#### 机器准备
+nginx  1台
 
-2、nginx一个节点，用来配置wing-crontab的http接口负载
+mysql 1台
 
-3、配置2个节点以上的wing-crontab
+consul 3台
+
+cron 节点 3台
+
+以上最少3台服务器， 最多8台
+
+
+#### consul 集群部署 (3台)
+1、10.10.62.27
+
+2、10.10.62.28
+
+3、10.10.62.29
+
+
+#### 部署目录
+/usr/local/consul
+````
+mkdir /usr/local/consul
+mkdir mkdir /usr/local/consul/conf
+mkdir /usr/local/consul/data
+mkdir  /usr/local/consul/logs
+cd /usr/local/consul
+wget https://releases.hashicorp.com/consul/1.0.7/consul_1.0.7_linux_amd64.zip
+unzip consul_1.0.7_linux_amd64.zip && rm -rf consul_1.0.7_linux_amd64.zip
+````
+
+10.10.62.27 配置 conf/config.json 如下
+````
+{
+    "datacenter": "dc1",
+    "data_dir": "/usr/local/consul/data",
+    "log_level": "INFO",
+    "node_name": "consul.node.1",
+    "server": true,
+    "ui": true,
+    "bootstrap_expect": 1,
+    "bind_addr": "10.10.62.27",
+    "client_addr": "10.10.62.27",
+    "retry_join": ["10.10.62.28","10.10.62.29"],
+    "retry_interval": "3s",
+    "raft_protocol": 3,
+    "enable_debug": false,
+    "rejoin_after_leave": true,
+    "enable_syslog": false
+}
+````
+启动命令
+````
+nohup ./consul agent -config-dir /usr/local/consul/conf -pid-file=/usr/local/consul/consul.pid 2>&1 3>&1 >/usr/local/consul/logs/consul.log &
+````
+
+10.10.62.28 配置 conf/config.json 如下
+````
+{
+    "datacenter": "dc1",
+    "data_dir": "/usr/local/consul/data",
+    "log_level": "INFO",
+    "node_name": "consul.node.2",
+    "server": true,
+    "ui": true,
+    "bind_addr": "10.10.62.28",
+    "client_addr": "10.10.62.28",
+    "retry_join": ["10.10.62.27","10.10.62.29"],
+    "retry_interval": "3s",
+    "raft_protocol": 2,
+    "enable_debug": false,
+    "rejoin_after_leave": true,
+    "enable_syslog": false
+}
+````
+启动命令
+````
+nohup ./consul agent -config-dir /usr/local/consul/conf -pid-file=/usr/local/consul/consul.pid 2>&1 3>&1 >/usr/local/consul/logs/consul.log &
+````
+
+
+10.10.62.29 配置 conf/config.json 如下
+````
+{
+    "datacenter": "dc1",
+    "data_dir": "/usr/local/consul/data",
+    "log_level": "INFO",
+    "node_name": "consul.node.3",
+    "server": true,
+    "ui": true,
+    "bind_addr": "10.10.62.29",
+    "client_addr": "10.10.62.29",
+    "retry_join": ["10.10.62.27","10.10.62.28"],
+    "retry_interval": "3s",
+    "raft_protocol": 3,
+    "enable_debug": false,
+    "rejoin_after_leave": true,
+    "enable_syslog": false
+}
+````
+启动命令
+````
+nohup ./consul agent -config-dir /usr/local/consul/conf -pid-file=/usr/local/consul/consul.pid 2>&1 3>&1 >/usr/local/consul/logs/consul.log &
+````
+
+#### consul client节点部署
+1、10.10.62.33
+
+1、10.10.62.35
+
+
+每台服务器目录结构如下
+````
+mkdir /usr/local/consul
+cd /usr/local/consul
+mkdir /usr/local/consul/data
+mkdir /usr/local/consul/logs
+mkdir /usr/local/consul/conf
+wget https://releases.hashicorp.com/consul/1.0.7/consul_1.0.7_linux_amd64.zip
+unzip consul_1.0.7_linux_amd64.zip && rm -rf consul_1.0.7_linux_amd64.zip
+````
+10.10.62.33 配置
+````
+vim conf/config.json
+
+{
+    "datacenter": "dc1",
+    "data_dir": "/usr/local/consul/data",
+    "log_level": "INFO",
+    "node_name": "consul.client.1",
+    "server": false,
+    "ui": true,
+    "bootstrap_expect": 0,
+    "bind_addr": "10.10.62.33",
+    "client_addr": "10.10.62.33",
+    "retry_join": ["10.10.62.27","10.10.62.28","10.10.62.29"],
+    "retry_interval": "3s",
+    "raft_protocol": 3,
+    "enable_debug": false,
+    "rejoin_after_leave": true,
+    "enable_syslog": false
+}
+````
+
+启动
+````
+nohup ./consul agent -config-dir /usr/local/consul/conf -pid-file=/usr/local/consul/consul.pid 2>&1 3>&1 >/usr/local/consul/logs/consul.log &
+````
+查看集群内的节点
+````
+./consul members -http-addr=10.10.62.27:8500
+````
+
+10.10.62.35 配置
+````
+vim conf/config.json
+
+
+{
+    "datacenter": "dc1",
+    "data_dir": "/usr/local/consul/data",
+    "log_level": "INFO",
+    "node_name": "consul.client.2",
+    "server": false,
+    "ui": true,
+    "bootstrap_expect": 0,
+    "bind_addr": "10.10.62.35",
+    "client_addr": "10.10.62.35",
+    "retry_join": ["10.10.62.27","10.10.62.28","10.10.62.29"],
+    "retry_interval": "3s",
+    "raft_protocol": 3,
+    "enable_debug": false,
+    "rejoin_after_leave": true,
+    "enable_syslog": false
+}
+````
+启动
+````
+nohup ./consul agent -config-dir /usr/local/consul/conf -pid-file=/usr/local/consul/consul.pid 2>&1 3>&1 >/usr/local/consul/logs/consul.log &
+````
+查看集群内的节点
+````
+./consul members -http-addr=10.10.62.33:8500
+````
+
+#### 数据库部署
+10.10.62.29
+````
+mysql -uroot -p****** -h10.10.62.29
+create database cron;
+use cron;
+set names utf8;
+
+CREATE TABLE `cron` (
+ `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '自增id',
+ `cron_set` varchar(128) NOT NULL DEFAULT '' COMMENT '定时任务配置，如：* * * * * *，这里精确到秒，前面的意思是每秒执行一次，分别对应，秒分时日月周',
+ `command` varchar(2048) NOT NULL DEFAULT '' COMMENT '定时任务执行的命令',
+ `is_mutex` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否需要互斥运行，1互斥，0非互斥，默认为0，非互斥，即可并发运行',
+ `stop` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1停止执行，0非，0为默认值',
+ `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '定时任务的备注信息',
+ `lock_limit` int(11) NOT NULL DEFAULT '0' COMMENT '最长锁定时长，单位为秒',
+ PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8
+
+CREATE TABLE `log` (
+ `id` int(11) NOT NULL AUTO_INCREMENT,
+ `cron_id` int(11) NOT NULL DEFAULT '0',
+ `time` bigint(20) NOT NULL COMMENT '命令运行的时间',
+ `output` longtext NOT NULL COMMENT '执行命令输出',
+ `use_time` bigint(20) NOT NULL COMMENT '执行命令耗时，单位为毫秒',
+ `dispatch_time` int(11) NOT NULL DEFAULT '0' COMMENT '分发时间',
+ `dispatch_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '调度server',
+ `run_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '该命令在那个节点上被执行（服务器）',
+ PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6649189 DEFAULT CHARSET=utf8
+````
+
+#### wing-crontab 部署
+机器 10.10.62.33
+````
+mkdir /usr/local/cron && cd /usr/local/cron
+````
+同步本地可执行文件到10.10.62.33或者直接在宿主机器上直接编译， （这一步视不同的服务器有所差别）
+
+如下命令仅供参考
+````
+rsync -avz /root/work/go/jilieryuyi/wing-crontab/bin/wing-crontab root1@10.10.62.33:/usr/local/cron
+rsync -avz /root/work/go/jilieryuyi/wing-crontab/bin/wing-crontab root1@10.10.62.35:/usr/local/cron
+````
+
+修改配置
+````
+vim config/app.toml
+````
+启动服务
+````
+./wing-crontab
+````
+守护模式
+````
+nohup ./cron 2>&1 >/tmp/null &
+````
+
+#### nginx 配置
+````
+upstream wing.crontab.com {
+    server 10.10.62.33:9990;
+    server 10.10.62.35:9990;
+}
+server {
+    listen       80;
+    server_name  wing.crontab.com;
+
+    access_log  logs/wing.crontab.com.log;
+    error_log logs/wing.crontab.com.log;
+    location / {
+        proxy_pass         http://wing.crontab.com;
+        proxy_set_header   Host             $host;
+        proxy_set_header   X-Real-IP        $remote_addr;
+        proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+    }
+}
+````
+后面crontab相关的操作就可以直接使用域名wing.crontab.com进行操作了
+
+
+
 
 
