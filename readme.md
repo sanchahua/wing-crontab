@@ -317,3 +317,9 @@ use_time 为定时任务执行耗时时长，单位为毫秒
 dispatch_server 为调度服务器
 run_server 为最终运行定时任务的服务器
 ````
+集群配置
+----
+1、consul >= 3个节点
+2、nginx一个节点，用来配置wing-crontab的http接口负载
+3、配置2个节点以上的wing-crontab
+
