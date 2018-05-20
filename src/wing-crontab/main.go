@@ -16,7 +16,6 @@ import (
 	"database/sql"
 	"fmt"
 	mlog "models/log"
-	"os"
 )
 
 func main() {
@@ -79,9 +78,7 @@ func main() {
 
 	crontab.SetOnWillRun(func(id int64, command string, isMutex bool) {
 		logController.AsyncAdd(id, "", 0, ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1")
-		start := time.Now()
 		agentController.Dispatch(id, command, isMutex)
-		fmt.Fprintf(os.Stderr, "dispatch use time %v", time.Since(start))
 	})(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 
