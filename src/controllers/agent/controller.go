@@ -12,8 +12,6 @@ import (
 	"encoding/json"
 	"runtime"
 	mlog "models/log"
-	"fmt"
-	"os"
 )
 
 type Controller struct {
@@ -124,9 +122,9 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 	//log.Debugf("server receive:, %v, %v", event, content )
 	switch event {
 	case agent.CMD_PULL_COMMAND:
-		start := time.Now()
+		//start := time.Now()
 		c.OnPullCommand(node)
-		fmt.Fprintf(os.Stderr, "OnPullCommand use time %v\n", time.Since(start))
+		//fmt.Fprintf(os.Stderr, "OnPullCommand use time %v\n", time.Since(start))
 	case agent.CMD_CRONTAB_CHANGE:
 		var sdata SendData
 		err := json.Unmarshal(content, &sdata)
@@ -242,7 +240,7 @@ func (c *Controller) sendService() {
 // 整个系统才去主动拉取的模式，只有客户端空闲达到一定程度，或者说足以负载当前的任务才会发起pull请求
 func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 	go func() {
-		start := time.Now()
+		//start := time.Now()
 		c.queueMutexLock.Lock()
 		func() {
 			indexMutex := int64(-1)
@@ -285,10 +283,10 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 			}
 		}()
 		c.queueMutexLock.Unlock()
-		fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
+		//fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
 	}()
 	go func() {
-		start := time.Now()
+		//start := time.Now()
 		c.queueNomalLock.Lock()
 		func() {
 			index := int64(-1)
@@ -318,7 +316,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 			}
 		}()
 		c.queueNomalLock.Unlock()
-		fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
+		//fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
 	}()
 }
 
