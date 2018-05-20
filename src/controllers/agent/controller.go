@@ -192,7 +192,7 @@ func (c *Controller) sendService() {
 		}
 
 		//log.Debugf("send queue len: %v", len(c.sendQueue))
-		//times3 := 0
+		times3 := 0
 		for _, d := range c.sendQueue {
 			// status > 0 is sending
 			// 发送中的数据，3秒之内不会在发送，超过3秒会进行2次重试
@@ -201,7 +201,7 @@ func (c *Controller) sendService() {
 			// 即t+3模式
 			// 默认60秒超时重试
 			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 60 {
-				//times3++
+				times3++
 				continue
 			}
 			d.Status = 1
@@ -228,11 +228,11 @@ func (c *Controller) sendService() {
 			d.send(sendData)
 
 		}
-		c.sendQueueLock.Unlock()
 		// 如果都是发送中，这里尝试等待10毫秒，让出cpu
-		//if times3 >= len(c.sendQueue) {
-		time.Sleep(time.Millisecond * 10)
-		//}
+		if times3 >= len(c.sendQueue) {
+			time.Sleep(time.Millisecond * 10)
+		}
+		c.sendQueueLock.Unlock()
 	}
 }
 
@@ -242,7 +242,7 @@ func (c *Controller) sendService() {
 // 整个系统才去主动拉取的模式，只有客户端空闲达到一定程度，或者说足以负载当前的任务才会发起pull请求
 func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 	go func() {
-		//start := time.Now()
+		start := time.Now()
 		c.queueMutexLock.Lock()
 		func() {
 			indexMutex := int64(-1)
@@ -285,10 +285,10 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 			}
 		}()
 		c.queueMutexLock.Unlock()
-		//fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
+		fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
 	}()
 	go func() {
-		//start := time.Now()
+		start := time.Now()
 		c.queueNomalLock.Lock()
 		func() {
 			index := int64(-1)
@@ -318,7 +318,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 			}
 		}()
 		c.queueNomalLock.Unlock()
-		//fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
+		fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
 	}()
 }
 
