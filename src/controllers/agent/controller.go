@@ -214,12 +214,12 @@ func (c *Controller) sendService() {
 			sd       := d.encode()
 			sendData := agent.Pack(d.Cmd, sd)
 
-			d.send(sendData)
-
 			//todo 添加关键日志
 			if d.CronId > 0 {
 				c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATH, "定时任务分发 - 2")
 			}
+			d.send(sendData)
+
 		}
 		c.sendQueueLock.Unlock()
 		// 如果都是发送中，这里尝试等待10毫秒，让出cpu
