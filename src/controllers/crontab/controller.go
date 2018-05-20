@@ -31,6 +31,8 @@ type runItem struct {
 	dispatchTime int64
 	dispatchServer string
 	runServer string
+	after func()
+	isMutex bool
 }
 
 const (
@@ -223,7 +225,16 @@ func (c *CrontabController) run() {
 				if len(c.pullc) < cap(c.pullc) && len(c.runList) < cpu {
 					c.pullc <- struct{}{}
 				}
+				// 如果非互斥模式
+				// 尽快响应
+				if !data.isMutex {
+					data.after()
+				}
 				c.runCommand(data.id, data.command , data.dispatchTime , data.dispatchServer , data.runServer)
+				// 严格互斥模式下，必须运行完才能响应
+				if data.isMutex {
+					data.after()
+				}
 		}
 	}
 }
@@ -283,18 +294,20 @@ func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTim
 		return
 	}
 	// 如果指定异步执行
-	if isMutex != 1 {
-		after()
+	//if isMutex != 1 {
+		//after()
 		c.runList <- &runItem{
 			id:             id,
 			command:        command,
 			dispatchTime:   dispatchTime,
 			dispatchServer: dispatchServer,
 			runServer:      runServer,
+			after:          after,
+			isMutex:        isMutex == 1,
 		}
-	} else {
-		//同步执行
-		c.runCommand(id, command , dispatchTime , dispatchServer , runServer)
-		after()
-	}
+	//} else {
+	//	//同步执行
+	//	c.runCommand(id, command , dispatchTime , dispatchServer , runServer)
+	//	after()
+	//}
 }
