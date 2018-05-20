@@ -326,9 +326,9 @@ mysql 1台
 
 consul 3台
 
-wing-crontab 节点 3台
+wing-crontab 节点 2台
 
-以上最少3台服务器， 最多8台
+以上最少3台服务器， 最多7台
 
 
 #### consul 集群部署 (3台)
