@@ -11,8 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"encoding/json"
 	"runtime"
-	"fmt"
-	"os"
 )
 
 type Controller struct {
@@ -184,7 +182,6 @@ func (c *Controller) sendService() {
 		//log.Debugf("send queue len: %v", len(c.sendQueue))
 		//times3 := 0
 		for _, d := range c.sendQueue {
-			start := time.Now()
 			// status > 0 is sending
 			// 发送中的数据，3秒之内不会在发送，超过3秒会进行2次重试
 			// todo ？？这里的3秒设置的是否合理，这里最好的方式应该有一个实时发送时间反馈
@@ -195,7 +192,6 @@ func (c *Controller) sendService() {
 				//times3++
 				continue
 			}
-			//log.Infof("try to send %+v", *d)
 			d.Status = 1
 			d.SendTimes++
 
@@ -213,10 +209,7 @@ func (c *Controller) sendService() {
 			sd       := d.encode()
 			sendData := agent.Pack(d.Cmd, sd)
 
-			//log.Debugf("%+v", *d)
-			//log.Debugf("****************************command is begin to run 1 => %v, send time is %v", d.Unique, time.Now().UnixNano())
 			d.send(sendData)
-			fmt.Fprintf(os.Stderr, "send data use time %v\n", time.Since(start))
 		}
 		c.sendQueueLock.Unlock()
 		// 如果都是发送中，这里尝试等待10毫秒，让出cpu

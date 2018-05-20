@@ -7,8 +7,6 @@ import (
 	"sync"
 	"io"
 	"context"
-	//"encoding/json"
-	//"encoding/binary"
 	"fmt"
 )
 
@@ -123,6 +121,7 @@ func (node *TcpClientNode) asyncSendService() {
 		}
 		select {
 		case msg, ok := <-node.sendQueue:
+			//start := time.Now()
 			if !ok {
 				log.Info("tcp node sendQueue is closed, sendQueue channel closed.")
 				return
@@ -143,6 +142,7 @@ func (node *TcpClientNode) asyncSendService() {
 			if size != len(msg) {
 				log.Errorf("%s send not complete: %v", (*node.conn).RemoteAddr().String(), msg)
 			}
+			//fmt.Fprintf(os.Stderr, "write use time %v\r\n", time.Since(start))
 		case <-node.ctx.Done():
 			log.Debugf("context is closed, wait for exit, left: %d", len(node.sendQueue))
 			if len(node.sendQueue) <= 0 {
