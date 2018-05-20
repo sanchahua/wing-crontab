@@ -7,7 +7,6 @@ import (
 	"time"
 	"sync"
 	"context"
-	"os"
 )
 
 type dataItem struct {
@@ -334,14 +333,14 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
 
 			for {
-				start := time.Now()
+				//start := time.Now()
 				if tcp.conn == nil {
 					log.Errorf("============================tcp conn nil")
 					break
 				}
-				start3 := time.Now()
+				//start3 := time.Now()
 				size, err := tcp.conn.Read(readBuffer[0:])
-				fmt.Fprintf(os.Stderr, "read use time %v\n", time.Since(start3))
+				//fmt.Fprintf(os.Stderr, "read use time %v\n", time.Since(start3))
 
 				if err != nil || size <= 0 {
 					log.Warnf("agent read with error: %+v", err)
@@ -357,7 +356,7 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					return
 				default:
 				}
-				fmt.Fprintf(os.Stderr, "read message use time %v\n", time.Since(start))
+				//fmt.Fprintf(os.Stderr, "read message use time %v\n", time.Since(start))
 			}
 		}
 	}()
