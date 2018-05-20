@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"runtime"
 	mlog "models/log"
+	"fmt"
+	"os"
 )
 
 type Controller struct {
@@ -97,7 +99,10 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				return
 			}
 
-			sdata := make([]byte, 0)
+		c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3")
+
+
+		sdata := make([]byte, 0)
 			sid   := make([]byte, 8)
 			binary.LittleEndian.PutUint64(sid, uint64(id))
 			sdata = append(sdata, sid...)
@@ -119,7 +124,9 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 	//log.Debugf("server receive:, %v, %v", event, content )
 	switch event {
 	case agent.CMD_PULL_COMMAND:
+		start := time.Now()
 		c.OnPullCommand(node)
+		fmt.Fprintf(os.Stderr, "OnPullCommand use time %v\n", time.Since(start))
 	case agent.CMD_CRONTAB_CHANGE:
 		var sdata SendData
 		err := json.Unmarshal(content, &sdata)
@@ -139,9 +146,9 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		//sdata = append(sdata, sid...)
 		//sdata = append(sdata, isMutex)
 		//sdata = append(sdata, []byte(sendData.Unique)...)
-		id := int64(binary.LittleEndian.Uint64(content[:8]))
+		id      := int64(binary.LittleEndian.Uint64(content[:8]))
 		isMutex := content[8]
-		unique := string(content[9:])
+		unique  := string(content[9:])
 
 		if isMutex == 1 {
 			//log.Debugf("set is running false")
@@ -160,7 +167,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		delete(c.sendQueue, unique)
 		//log.Debugf("send queue len: %v", len(c.sendQueue))
 		c.sendQueueLock.Unlock()
-
+		c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务结束 - 5")
 		//log.Debugf("****************************command run back 4 => %v, command back time is %v", unique, time.Now().UnixNano())
 
 	}
