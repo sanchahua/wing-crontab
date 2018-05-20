@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+const (
+	EVENT_CRON_GEGIN   = "cron_start"     //定时任务到点开始执行事件
+	EVENT_CRON_DISPATH = "cron_dispatch"  //定时任务开始分发事件
+	EVENT_CRON_RUN     = "cron_run_start" //定时任务开始运行事件
+	EVENT_CRON_RUN_END = "cron_run_end"   //定时任务运行结束事件
+	EVENT_CRON_END     = "cron_end"       //定时任务结束
+)
+
 type DbLog struct {
 	handler *sql.DB
 }
@@ -154,9 +162,9 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, output string, useTime int64, dispatchTime int64, dispatchServer, runServer string, rtime int64) (*LogEntity, error) {
-	sqlStr := "INSERT INTO `log`(`cron_id`, `time`, `output`, `use_time`, `dispatch_time`, `dispatch_server`, `run_server`) VALUES (?,?,?,?,?,?,?)"
-	res, err := db.handler.Exec(sqlStr, cronId, rtime, output, useTime, dispatchTime, dispatchServer, runServer)
+func (db *DbLog) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) (*LogEntity, error) {
+	sqlStr := "INSERT INTO `log`(`cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server`, `event`, `remark`) VALUES (?,?,?,?,?,?,?,?)"
+	res, err := db.handler.Exec(sqlStr, cronId, rtime, output, useTime, dispatchServer, runServer, event, remark)
 	if err != nil {
 		log.Errorf("新增log错误：%+v", err)
 		return nil, err
@@ -167,13 +175,15 @@ func (db *DbLog) Add(cronId int64, output string, useTime int64, dispatchTime in
 		return nil, err
 	}
 	return &LogEntity{
-		Id:id,
-		CronId:    cronId,
-		Time:      time.Now().Unix(),
-		Output:    output,
-		UseTime:   useTime,
-		RunServer: runServer,
+		Id:             id,
+		CronId:         cronId,
+		Time:           time.Now().Unix(),
+		Output:         output,
+		UseTime:        useTime,
+		RunServer:      runServer,
 		DispatchServer: dispatchServer,
+		Event:          event,
+		Remark:         remark,
 	}, nil
 }
 

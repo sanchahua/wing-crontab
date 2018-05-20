@@ -81,14 +81,15 @@ CREATE TABLE `cron` (
 CREATE TABLE `log` (
  `id` int(11) NOT NULL AUTO_INCREMENT,
  `cron_id` int(11) NOT NULL DEFAULT '0',
+ `event` varchar(32) NOT NULL DEFAULT '' COMMENT '事件',
  `time` bigint(20) NOT NULL COMMENT '命令运行的时间',
  `output` longtext NOT NULL COMMENT '执行命令输出',
  `use_time` bigint(20) NOT NULL COMMENT '执行命令耗时，单位为毫秒',
- `dispatch_time` int(11) NOT NULL DEFAULT '0' COMMENT '分发时间',
  `dispatch_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '调度server',
  `run_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '该命令在那个节点上被执行（服务器）',
+ `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '备注',
  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6649189 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=6699263 DEFAULT CHARSET=utf8
 ````
 
 如何安装wing-crontab
@@ -579,14 +580,15 @@ CREATE TABLE `cron` (
 CREATE TABLE `log` (
  `id` int(11) NOT NULL AUTO_INCREMENT,
  `cron_id` int(11) NOT NULL DEFAULT '0',
+ `event` varchar(32) NOT NULL DEFAULT '' COMMENT '事件',
  `time` bigint(20) NOT NULL COMMENT '命令运行的时间',
  `output` longtext NOT NULL COMMENT '执行命令输出',
  `use_time` bigint(20) NOT NULL COMMENT '执行命令耗时，单位为毫秒',
- `dispatch_time` int(11) NOT NULL DEFAULT '0' COMMENT '分发时间',
  `dispatch_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '调度server',
  `run_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '该命令在那个节点上被执行（服务器）',
+ `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '备注',
  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6649189 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=6699263 DEFAULT CHARSET=utf8
 ````
 
 #### wing-crontab 部署
