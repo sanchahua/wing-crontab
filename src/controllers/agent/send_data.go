@@ -6,6 +6,7 @@ import (
 )
 
 type SendData struct {
+	CronId int64  `json:"cron_id"`
 	Unique string `json:"unique"`
 	Data []byte `json:"data"`
 	Status int `json:"status"`
@@ -15,7 +16,7 @@ type SendData struct {
 	send sendFunc `json:"-"`
 }
 
-func newSendData(cmd int, data []byte, send sendFunc) *SendData {
+func newSendData(cmd int, data []byte, send sendFunc, id int64) *SendData {
 	return &SendData{
 		Unique:    wstring.RandString(128),
 		Data:      data,
@@ -24,6 +25,7 @@ func newSendData(cmd int, data []byte, send sendFunc) *SendData {
 		SendTimes: 0,
 		Cmd:       cmd,
 		send:      send,
+		CronId:    id,
 	}
 
 }

@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"encoding/json"
 	"runtime"
+	mlog "models/log"
 )
 
 type Controller struct {
@@ -29,6 +30,7 @@ type Controller struct {
 	sendQueueLock  *sync.Mutex
 	onCronChange   OnCronChangeEventFunc
 	onCommand      OnCommandFunc
+	addlog         AddLogFunc
 }
 
 const (
@@ -39,6 +41,7 @@ const (
 type sendFunc              func(data []byte)
 type OnCommandFunc         func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
+type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string)
 
 func NewController(
 	ctx *app.Context,
@@ -52,6 +55,7 @@ func NewController(
 	//这个事件由leader分发定时任务到节点，节点收到定时任务时触发
 	//最终接收的api是crontabController.ReceiveCommand
 	onCommand OnCommandFunc,
+	addlog AddLogFunc,
 ) *Controller {
 	c      := &Controller{
 				indexNormal:    0,
@@ -67,6 +71,7 @@ func NewController(
 				sendQueueLock:  new(sync.Mutex),
 				onCronChange:   onCronChange,
 				onCommand:      onCommand,
+				addlog:         addlog,
 			}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
@@ -164,7 +169,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 // send data to leader
 func (c *Controller) SendToLeader(data []byte) {
 	//c.client.Send(agent.CMD_CRONTAB_CHANGE, data)
-	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, c.client.Write)
+	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, c.client.Write, 0)
 	c.sendQueueLock.Lock()
 	c.sendQueue[d.Unique] = d
 	c.sendQueueLock.Unlock()
@@ -210,6 +215,11 @@ func (c *Controller) sendService() {
 			sendData := agent.Pack(d.Cmd, sd)
 
 			d.send(sendData)
+
+			//todo 添加关键日志
+			if d.CronId > 0 {
+				c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATH, "定时任务分发 - 2")
+			}
 		}
 		c.sendQueueLock.Unlock()
 		// 如果都是发送中，这里尝试等待10毫秒，让出cpu
@@ -257,7 +267,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 					//分发互斥定时任务
 					sendData := pack(item, c.ctx.Config.BindAddress)
 
-					d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend)
+					d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend, item.id)
 					//log.Debugf("###########dispatch mutex : %+v", *d)
 					c.sendQueueLock.Lock()
 					c.sendQueue[d.Unique] = d
@@ -293,7 +303,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 				item := itemI.(*runItem)
 				sendData := pack(item, c.ctx.Config.BindAddress)
 
-				d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend) //c.server.Broadcast)//
+				d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend, item.id) //c.server.Broadcast)//
 				c.sendQueueLock.Lock()
 				c.sendQueue[d.Unique] = d
 				c.sendQueueLock.Unlock()

@@ -60,6 +60,7 @@ func main() {
 	defer cronController.Close()
 
 	crontabController := crontab.NewCrontabController()
+	logController     := models.NewLogController(ctx, handler)
 
 	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, data []byte) {
 		//log.Infof("===========%+v", data)
@@ -70,11 +71,10 @@ func main() {
 			return
 		}
 		crontabController.Add(event, &e)
-	}, crontabController.ReceiveCommand)
+	}, crontabController.ReceiveCommand, logController.AsyncAdd)
 	agentController.Start()
 	defer agentController.Close()
 
-	logController := models.NewLogController(ctx, handler)
 
 	crontab.SetOnWillRun(func(id int64, command string, isMutex bool) {
 		logController.AsyncAdd(id, "", 0, ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1")
