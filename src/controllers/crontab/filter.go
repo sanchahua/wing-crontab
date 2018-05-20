@@ -1,5 +1,5 @@
 package crontab
 
 type IFilter interface {
-	Check() bool
+	Stop() bool
 }

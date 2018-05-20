@@ -118,18 +118,19 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 			if ok {
 				return
 			}
-			e = &CronEntity{
-				Id:        entity.Id,      //int64        `json:"id"`
-				CronSet:   entity.CronSet, // string  `json:"cron_set"`
-				Command:   entity.Command, // string  `json:"command"`
-				Remark:    entity.Remark,  //string   `json:"remark"`
-				Stop:      entity.Stop,    //bool       `json:"stop"`
-				CronId:    0,              //int64    `json:"cron_id"`
-				onwillrun: c.onwillrun,
-				StartTime: entity.StartTime,
-				EndTime:   entity.EndTime,
-				IsMutex:   entity.IsMutex,
-			}
+			e = newCronEntity(entity, c.onwillrun)
+			//&CronEntity{
+			//	Id:        entity.Id,      //int64        `json:"id"`
+			//	CronSet:   entity.CronSet, // string  `json:"cron_set"`
+			//	Command:   entity.Command, // string  `json:"command"`
+			//	Remark:    entity.Remark,  //string   `json:"remark"`
+			//	Stop:      entity.Stop,    //bool       `json:"stop"`
+			//	CronId:    0,              //int64    `json:"cron_id"`
+			//	onwillrun: c.onwillrun,
+			//	StartTime: entity.StartTime,
+			//	EndTime:   entity.EndTime,
+			//	IsMutex:   entity.IsMutex,
+			//}
 
 			e.CronId, err = c.handler.AddJob(entity.CronSet, e)
 
@@ -166,13 +167,13 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 
 				c.handler.Remove(e.CronId)
 
-				e.CronSet = entity.CronSet
-				e.Command = entity.Command
-				e.Stop = entity.Stop
-				e.Remark = entity.Remark
+				e.CronSet   = entity.CronSet
+				e.Command   = entity.Command
+				e.Stop      = entity.Stop
+				e.Remark    = entity.Remark
 				e.StartTime = entity.StartTime
-				e.EndTime = entity.EndTime
-				e.IsMutex = entity.IsMutex
+				e.EndTime   = entity.EndTime
+				e.IsMutex   = entity.IsMutex
 
 				e.CronId, err = c.handler.AddJob(entity.CronSet, e)
 				if err != nil {

@@ -13,8 +13,8 @@ func TimeMiddleware(next IFilter) CronEntityMiddleWare {
 	}
 }
 
-func (f *TimeFilter) Check() bool {
-	if f.next.Check() {
+func (f *TimeFilter) Stop() bool {
+	if f.next.Stop() {
 		return true
 	}
 

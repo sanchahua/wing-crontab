@@ -9,6 +9,6 @@ func StopMiddleware() CronEntityMiddleWare {
 	}
 }
 
-func (f *StopFilter) Check() bool {
+func (f *StopFilter) Stop() bool {
 	return f.row.Stop
 }
