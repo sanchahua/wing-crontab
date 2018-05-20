@@ -216,7 +216,7 @@ func (c *Controller) sendService() {
 
 			// 这里获取运行的平均时间，假设为t， 然后 t+60*1000 毫秒为超时时间
 			c.statisticsLock.Lock()
-			var timeout int64 = 0
+			var timeout int64 = 60 * 1000
 			sta, ok := c.statistics[d.CronId]
 			if ok {
 				timeout = sta.getAvg() + 60 * 1000
@@ -299,7 +299,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 
 				// 获取平均原型周期 + 60s最为超时标准
 				c.statisticsLock.Lock()
-				var timeout int64 = 0
+				var timeout int64 = 60 * 1000
 				sta, ok := c.statistics[id]
 				if ok {
 					timeout = sta.getAvg() + 60 * 1000
