@@ -9,7 +9,7 @@ import (
 
 const (
 	EVENT_CRON_GEGIN   = "cron_start"     //定时任务到点开始执行事件
-	EVENT_CRON_DISPATH = "cron_dispatch"  //定时任务开始分发事件
+	EVENT_CRON_DISPATCH = "cron_dispatch"  //定时任务开始分发事件
 	EVENT_CRON_RUN     = "cron_run_start" //定时任务开始运行事件
 	EVENT_CRON_RUN_END = "cron_run_end"   //定时任务运行结束事件
 	EVENT_CRON_END     = "cron_end"       //定时任务结束
