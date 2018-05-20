@@ -11,7 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"encoding/json"
 	"runtime"
-	"errors"
 	"fmt"
 	"os"
 )
@@ -84,55 +83,31 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 	//log.Debugf("#############client receive: cmd=%d, content=%v", cmd, string(content))
 	switch cmd {
 	case agent.CMD_RUN_COMMAND:
-		func() {
 			var sendData SendData
 			err := json.Unmarshal(content, &sendData)
 			if err != nil {
-				log.Errorf("%#############v", err)
+				log.Errorf("json.Unmarshal with %v", err)
 				return
 			}
-			//log.Debugf("****************************command is begin to run 2 => %v, command start run time is %v", sendData.Unique, time.Now().UnixNano())
-
-			//log.Debugf("#############receive command: %+v", sendData)
-			//if len(sendData.Data) < 25 {
-			//	return
-			//}
-
-			id, dispatchTime, isMutex, command, dispatchServer, err := c.unpack(sendData.Data)
+			id, dispatchTime, isMutex, command, dispatchServer, err := unpack(sendData.Data)
 			if err != nil {
 				return
 			}
 
-			//id := binary.LittleEndian.Uint64(sendData.Data[:8])
-			//dispatchTime := binary.LittleEndian.Uint64(sendData.Data[8:16])
-			//// binary.LittleEndian.Uint64(sendData.Data[16:17]) == 1
-			//
-			//commandLen := binary.LittleEndian.Uint64(sendData.Data[16:24])
-			//if len(sendData.Data) < int(24+commandLen) {
-			//	return
-			//}
-			//command := sendData.Data[24:24+commandLen]
-			//
-			////log.Debugf("##############send: %v", sendData.Unique)
 			sdata := make([]byte, 0)
-			sid := make([]byte, 8)
+			sid   := make([]byte, 8)
 			binary.LittleEndian.PutUint64(sid, uint64(id))
 			sdata = append(sdata, sid...)
 			sdata = append(sdata, isMutex)
 			sdata = append(sdata, []byte(sendData.Unique)...)
 
-			//
-			//dispatchServer := sendData.Data[24+commandLen:]
 			c.onCommand(id, command, dispatchTime, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
-				//log.Debugf("****************************command is run end 3 => %v, command run end time is %v", sendData.Unique, time.Now().UnixNano())
 				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
 			})
-		}()
 	case agent.CMD_CRONTAB_CHANGE:
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
 		c.sendQueueLock.Lock()
 		delete(c.sendQueue, string(content))
-		//log.Debugf("send queue len: %v", len(c.sendQueue))
 		c.sendQueueLock.Unlock()
 	}
 }
@@ -251,56 +226,6 @@ func (c *Controller) sendService() {
 	}
 }
 
-var commandLenError = errors.New("command len error")
-func (c *Controller) unpack(data []byte) (id int64, dispatchTime int64, isMutex byte, command string, dispatchServer string, err error) {
-	if len(data) < 25 {
-		err = commandLenError
-		return
-	}
-	err = nil
-	id = int64(binary.LittleEndian.Uint64(data[:8]))
-	dispatchTime = int64(binary.LittleEndian.Uint64(data[8:16]))
-	isMutex = data[16]
-
-	commandLen := binary.LittleEndian.Uint64(data[17:25])
-	if len(data) < int(25 + commandLen) {
-		err = commandLenError//errors.New("command len error")
-		return
-	}
-	command = string(data[25:25+commandLen])
-
-	//log.Debugf("##############send: %v", sendData.Unique)
-	//tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, []byte(sendData.Unique)))
-
-	dispatchServer = string(data[25+commandLen:])
-	return
-}
-
-func (c *Controller) pack(item *runItem) []byte {
-	json.Marshal(item)
-	sendData := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sendData, uint64(item.id))
-
-	dataCommendLen := make([]byte, 8)
-	binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
-
-	currentTime := make([]byte, 8)
-	binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
-	sendData = append(sendData, currentTime...)
-
-	if item.isMutex {
-		sendData = append(sendData, byte(1))
-	} else {
-		sendData = append(sendData, byte(0))
-	}
-
-	sendData = append(sendData, dataCommendLen...)
-	sendData = append(sendData, []byte(item.command)...)
-
-	sendData = append(sendData, []byte(c.ctx.Config.BindAddress)...)
-	return sendData
-}
-
 // 客户端主动发送pull请求到server端
 // pull请求到达，说明客户端有能力执行当前的定时任务
 // 这个时候可以继续分配定时任务给客户端
@@ -337,7 +262,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 					queueMutex.start = time.Now().Unix()
 					item := itemI.(*runItem)
 					//分发互斥定时任务
-					sendData := c.pack(item)
+					sendData := pack(item, c.ctx.Config.BindAddress)
 
 					d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend)
 					//log.Debugf("###########dispatch mutex : %+v", *d)
@@ -373,7 +298,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 					continue
 				}
 				item := itemI.(*runItem)
-				sendData := c.pack(item)
+				sendData := pack(item, c.ctx.Config.BindAddress)
 
 				d := newSendData(agent.CMD_RUN_COMMAND, sendData, node.AsyncSend) //c.server.Broadcast)//
 				c.sendQueueLock.Lock()

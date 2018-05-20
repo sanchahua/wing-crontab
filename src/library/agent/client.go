@@ -343,8 +343,6 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 				size, err := tcp.conn.Read(readBuffer[0:])
 				fmt.Fprintf(os.Stderr, "read use time %v\n", time.Since(start3))
 
-				//log.Debugf("read message use time %v", time.Since(start))
-				//log.Debugf("read buffer len: %d, cap:%d", len(readBuffer), cap(readBuffer))
 				if err != nil || size <= 0 {
 					log.Warnf("agent read with error: %+v", err)
 					tcp.statusLock.Lock()
@@ -352,12 +350,8 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					tcp.statusLock.Unlock()
 					break
 				}
-				//log.Debugf("######################agent receive %d bytes: %+v, %s", size, readBuffer[:size], string(readBuffer[:size]))
-				start2 := time.Now()
 				tcp.onMessage(readBuffer[:size])
-				fmt.Fprintf(os.Stderr, "on message use time %v\n", time.Since(start2))
 
-				//log.Debugf("#################################on message use time %+v", time.Since(start))
 				select {
 				case <-tcp.ctx.Done():
 					return
@@ -369,46 +363,12 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 	}()
 }
 
-//func (tcp *AgentClient) onData() {
-//	for {
-//		select {
-//		case data, ok := <- tcp.dataChannel:
-//			if !ok {
-//				return
-//			}
-//
-//			switch data.cmd {
-//			case CMD_TICK:
-//				//keepalive
-//				//log.Info("keepalive")
-//			case CMD_CRONTAB_CHANGE:
-//				unique := string(data.content)
-//				log.Infof("%v send ok, delete from send queue", unique)
-//				//tcp.sendQueueLock.Lock()
-//				delete(tcp.sendQueue, unique)
-//				//tcp.sendQueueLock.Unlock()
-//			case CMD_RUN_COMMAND:
-//				//id := binary.LittleEndian.Uint64(content[:8])
-//				//log.Debugf("id == (%v) === (%v) ", id, content[:8])
-//				//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
-//				start := time.Now()
-//				tcp.onCommand(data.content)//int64(id), string(content[8:]))
-//				log.Debugf("onCommand use time %v", time.Since(start))
-//			default:
-//			}
-//		}
-//	}
-//}
-
 func (tcp *AgentClient) onMessage(msg []byte) {
-	//start := time.Now()
 	tcp.bufferLock.Lock()
 	tcp.buffer = append(tcp.buffer, msg...)
 	tcp.bufferLock.Unlock()
-	//log.Debugf("#################append use time %v", time.Since(start))
 
 	for {
-		//start = time.Now()
 		bufferLen := len(tcp.buffer)
 		if bufferLen < 6 {
 			return
@@ -420,17 +380,12 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			tcp.bufferLock.Unlock()
 			return
 		}
-		//log.Debugf("#################check use time %v", time.Since(start))
-
-		//start = time.Now()
 		tcp.bufferLock.Lock()
 		cmd, content, err := Unpack(&tcp.buffer)
 		tcp.bufferLock.Unlock()
 		if err != nil {
 			return
 		}
-		//log.Debugf("#################Unpack use time %v", time.Since(start))
-		//start = time.Now()
 
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)
@@ -439,40 +394,10 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 			tcp.bufferLock.Unlock()
 			return
 		}
-		//log.Debugf("#################hasCmd use time %v", time.Since(start))
-
-		//tcp.dataChannel <- &dataItem{
-		//	cmd : cmd,
-		//	content:content,
-		//}
-		//start = time.Now()
-
-		//log.Debugf("%+v, %+v",content, string(content))
 
 		for _, f := range tcp.onEvents {
-			f(tcp, cmd, content)
+			go f(tcp, cmd, content)
 		}
-		//switch cmd {
-		//case CMD_TICK:
-		//	//keepalive
-		//	//log.Info("keepalive")
-		//case CMD_CRONTAB_CHANGE:
-		//	//unique := string(content)
-		//	//log.Infof("%v send ok, delete from send queue", unique)
-		//	//tcp.sendQueueLock.Lock()
-		//	//delete(tcp.sendQueue, unique)
-		//	//tcp.sendQueueLock.Unlock()
-		//case CMD_RUN_COMMAND:
-		//	//id := binary.LittleEndian.Uint64(content[:8])
-		//	//log.Debugf("id == (%v) === (%v) ", id, content[:8])
-		//	//log.Debugf("content == (%v) === (%v) ", string(content[8:]), content[:8])
-		//	//start2 := time.Now()
-		//	//tcp.onCommand(content)//int64(id), string(content[8:]))
-		//	//log.Debugf("#################onCommand use time %v", time.Since(start2))
-		//default:
-		//}
-		//log.Debugf("#################switch use time %v", time.Since(start))
-
 	}
 }
 
