@@ -106,14 +106,176 @@ data 具体的业务数据
 message 具体的错误信息
 ````
 
+查询定时任务列表（返回当前数据库配置的所有定时任务）
 ````
-GET  /cron/list
-GET  /cron/stop/{id}
-GET  /cron/start/{id}
-GET  /cron/delete/{id}
-POST /cron/update
-POST /cron/add
+http://localhost:9990/cron/list
+协议 GET
+参数 无
+返回值字段与db保持一致
+{
+    "code": 200,
+    "data": [
+        {
+            "id": 1538,
+            "cron_set": "*/1 * * * * *",
+            "command": "curl http://local.db.com/sql.php?db=cron&table=cron&sql_query=SELECT+%2A+FROM+%60cron%60++%0AORDER+BY+%60cron%60.%60id%60+ASC&session_max_rows=25&is_browse_distinct=0&token=82d50ae5395ef75cd4cee90898e71202",
+            "remark": "",
+            "stop": false,
+            "start_time": 0,
+            "end_time": 0,
+            "is_mutex": true
+        },
+        {
+            "id": 1632,
+            "cron_set": "*/1 * * * * *",
+            "command": "php -v",
+            "remark": "",
+            "stop": false,
+            "start_time": 0,
+            "end_time": 0,
+            "is_mutex": true
+        },
+        {
+            "id": 1633,
+            "cron_set": "*/1 * * * * *",
+            "command": "curl http://test.com/index.php",
+            "remark": "",
+            "stop": false,
+            "start_time": 0,
+            "end_time": 0,
+            "is_mutex": false
+        }
+    ],
+    "message": "ok"
+}
+
 ````
+停止正在运行的定时任务
+````
+GET
+这里的{id}对应cron表的id
+http://localhost:9990/cron/stop/{id}
+如：http://localhost:9990/cron/stop/1538
+返回值，注意stop值会变成true
+{
+    "code": 200,
+    "data": {
+        "id": 1538,
+        "cron_set": "*/1 * * * * *",
+        "command": "curl http://local.db.com/sql.php?db=cron&table=cron&sql_query=SELECT+%2A+FROM+%60cron%60++%0AORDER+BY+%60cron%60.%60id%60+ASC&session_max_rows=25&is_browse_distinct=0&token=82d50ae5395ef75cd4cee90898e71202",
+        "remark": "",
+        "stop": true,
+        "start_time": 0,
+        "end_time": 0,
+        "is_mutex": true
+    },
+    "message": "ok"
+}
+这时的运行时debug日志
+DEBU[2018-05-20 09:06:34] 1538 was stop                                 caller="[/Users/yuyi/Code/go/wing-crontab/src/controllers/crontab/entity.go(Run):52]"
+````
+重新开始已经停止了的定时任务
+````
+GET
+这里的{id}对应cron表的id
+http://localhost:9990/cron/start/{id}
+如：http://localhost:9990/cron/start/1538
+返回值，注意这时的stop值为false
+{
+    "code": 200,
+    "data": {
+        "id": 1538,
+        "cron_set": "*/1 * * * * *",
+        "command": "curl http://local.db.com/sql.php?db=cron&table=cron&sql_query=SELECT+%2A+FROM+%60cron%60++%0AORDER+BY+%60cron%60.%60id%60+ASC&session_max_rows=25&is_browse_distinct=0&token=82d50ae5395ef75cd4cee90898e71202",
+        "remark": "",
+        "stop": false,
+        "start_time": 0,
+        "end_time": 0,
+        "is_mutex": true
+    },
+    "message": "ok"
+}
+````
+删除定时任务
+````
+GET
+这里的{id}对应cron表的id
+http://localhost:9990/cron/delete/{id}
+如：http://localhost:9990/cron/delete/1633
+返回值为被删除的定时任务
+{
+    "code": 200,
+    "data": {
+        "id": 1633,
+        "cron_set": "*/1 * * * * *",
+        "command": "curl http://test.com/index.php",
+        "remark": "",
+        "stop": false,
+        "start_time": 0,
+        "end_time": 0,
+        "is_mutex": false
+    },
+    "message": "ok"
+}
+````
+更新定时任务
+````
+POST
+http://localhost:9990/cron/update
+如：
+curl http://localhost:9990/cron/update -X POST -d "id=1307&cronSet=*/1 * * * * *&command=php -v&remark=&stop=0&start_time=0&end_time=0&is_mutex=1"
+参数               类型     是否必须    说明
+id                int      是         需要更新的定时任务，对应cron表id
+cronSet           string   是         定时任务的运行配置，与linux的crontab保持一致，唯一的区别在于这里精确到秒，linux的crontab精确到分钟，对应 秒分时日月周
+command           string   是         需要定时执行的命令
+start_time        int      否         该定时任务只在指定的开始时间之后运行 >= start_time，单位为时间戳，默认为0
+end_time          int      否         该定时任务只在指定的结束时间之前运行 < end_time，单位为时间戳，默认为0，意思为不限
+is_mutex          int      否         只能是0，1值，0意思是可以并发执行，1意思是必须严格互斥运行，即同一时间只能有一个定时任务在执行
+返回值为被更新后的定时任务
+{
+    "code": 200,
+    "data": {
+        "id": 1633,
+        "cron_set": "*/1 * * * * *",
+        "command": "curl http://test.com/index.php",
+        "remark": "",
+        "stop": false,
+        "start_time": 0,
+        "end_time": 0,
+        "is_mutex": false
+    },
+    "message": "ok"
+}
+````
+新增定时任务
+````
+POST
+http://localhost:9990/cron/add
+如：
+curl http://localhost:9990/cron/add -X POST -d "cronSet=*/1 * * * * *&command=php -v&remark=&stop=0&start_time=0&end_time=0&is_mutex=1"
+参数               类型     是否必须    说明
+cronSet           string   是         定时任务的运行配置，与linux的crontab保持一致，唯一的区别在于这里精确到秒，linux的crontab精确到分钟，对应 秒分时日月周
+command           string   是         需要定时执行的命令
+start_time        int      否         该定时任务只在指定的开始时间之后运行 >= start_time，单位为时间戳，默认为0
+end_time          int      否         该定时任务只在指定的结束时间之前运行 < end_time，单位为时间戳，默认为0，意思为不限
+is_mutex          int      否         只能是0，1值，0意思是可以并发执行，1意思是必须严格互斥运行，即同一时间只能有一个定时任务在执行
+返回值为新增的定时任务
+{
+    "code": 200,
+    "data": {
+        "id": 1633,
+        "cron_set": "*/1 * * * * *",
+        "command": "php -v",
+        "remark": "",
+        "stop": false,
+        "start_time": 0,
+        "end_time": 0,
+        "is_mutex": true
+    },
+    "message": "ok"
+}
+````
+
 查询定时任务执行日志
 ````
 http://localhost:9990/log/list
