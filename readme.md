@@ -12,6 +12,7 @@ wing-crontab功能说明
 数据库相关
 -----
 所有的操作，如需立即生效，不可以直接修改数据库，请使用api
+
 直接手动修改数据库的操作如需生效，请重启wing-crontab
 ````
 CREATE DATABASE `cron` /*!40100 DEFAULT CHARACTER SET utf8 */
