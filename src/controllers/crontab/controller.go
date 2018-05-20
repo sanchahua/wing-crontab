@@ -266,10 +266,11 @@ func (c *CrontabController) checkCommandLen() {
 			if len(c.pullc) < cap(c.pullc) {
 				c.pullc <- struct{}{}
 			}
+		} else {
 			time.Sleep(time.Millisecond * 100)
 			continue
 		}
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 1)
 	}
 }
 
