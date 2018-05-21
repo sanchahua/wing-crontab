@@ -15,7 +15,8 @@ func hasCmd(cmd int) bool {
 		cmd == CMD_SHOW_MEMBERS||
 		cmd == CMD_CRONTAB_CHANGE ||
 		cmd == CMD_RUN_COMMAND ||
-		cmd == CMD_PULL_COMMAND
+		cmd == CMD_PULL_COMMAND ||
+		cmd == CMD_DEL_CACHE
 }
 
 func Pack(cmd int, msg []byte) []byte {

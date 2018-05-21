@@ -39,6 +39,7 @@ type Controller struct {
 	clientRunningChan    chan *clientRunItem
 	clientRunningSetChan chan clientSetRunning//[]byte
 	clientRunningExists  chan *clientRunningExists
+	delCacheChan chan string
 }
 
 type clientRunItem struct {
@@ -73,6 +74,7 @@ const (
 	clientRunningChanLen    = 1000
 	clientRunningSetChanLen = 1000
 	clientRunningExistsLen  = 1000
+	delCacheChanLen = 1000
 )
 
 type sendFunc              func(data []byte)
@@ -118,6 +120,7 @@ func NewController(
 				clientRunningChan: make(chan *clientRunItem, clientRunningChanLen),
 				clientRunningSetChan: make(chan clientSetRunning, clientRunningSetChanLen),
 				clientRunningExists: make(chan *clientRunningExists, clientRunningExistsLen),
+				delCacheChan: make(chan string, delCacheChanLen),
 			}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
@@ -133,8 +136,10 @@ func (c *Controller) clientCheck() {
 	//默认超时时间设置为10分钟
 	var defaultTimeout = int64(10 * 60 * 1000)
 	go func() {
-		check <- struct{}{}
-		time.Sleep(time.Second)
+		for  {
+			check <- struct{}{}
+			time.Sleep(time.Second)
+		}
 	}()
 	for {
 		select {
@@ -179,6 +184,13 @@ func (c *Controller) clientCheck() {
 					delete(clientRunning, it.unique)
 				}
 			}
+			log.Debugf("#########################################current client running cache len %v", len(clientRunning))
+		case unique, ok := <- c.delCacheChan:
+			if !ok {
+				return
+			}
+			log.Debugf("receive del cache %v", unique)
+			delete(clientRunning, unique)
 		}
 	}
 }
@@ -226,6 +238,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			//to := time.NewTimer(time.Second*6)
 			startw := time.Now()
 			var running = c.checkClientUniqueExists(runningChan)// := &clientExists{exists:false, running:false}
+			close(runningChan)
 			//select {
 			//	case ex, ok := <- runningChan:
 			//		if ok {
@@ -297,11 +310,12 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				}
 			})
 			fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
-
 	case agent.CMD_CRONTAB_CHANGE:
 		//
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
 		c.delSendQueueChan <-  string(content)
+	case agent.CMD_DEL_CACHE:
+		c.delCacheChan <- string(content)
 	}
 }
 
@@ -389,6 +403,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 			//c.statisticsLock.Unlock()
 			//c.setStatisticsTime(id)
 		}
+		node.AsyncSend(agent.Pack(agent.CMD_DEL_CACHE, []byte(unique)))
 
 	}
 }
@@ -490,24 +505,23 @@ func (c *Controller) sendService() {
 				//}
 				//c.statisticsLock.Unlock()
 
-				//if d.Status > 0 && (int64(time.Now().UnixNano()/1000000) - d.Time) <= timeout {
+				if d.Status > 0 && (int64(time.Now().UnixNano()/1000000) - d.Time) <= 10000 {
+					fmt.Fprintf(os.Stderr, "%v is still in sending status, wait for back\r\n", d.CronId)
+					continue
+				}
+				d.Status = 1
+				d.SendTimes++
 				//
-				//	//fmt.Fprintf(os.Stderr, "%v is still sending, wait for back\r\n", d.CronId)
-				//	continue
-				//}
-				//d.Status = 1
-				//d.SendTimes++
-				//
-				//if d.SendTimes > 1 {
-				//	log.Warnf("send times %v, %+v", d.SendTimes, *d)
-				//}
+				if d.SendTimes > 1 {
+					log.Warnf("send times %v, %+v", d.SendTimes, *d)
+				}
 				//
 				//// 每次延迟3秒重试，最多20次，即1分钟之内才会重试
-				//if d.SendTimes >= 60 {
-				//	delete(sendQueue, d.Unique)
-				//	log.Warnf("send times max then 60, delete %+v", *d)
-				//	continue
-				//}
+				if d.SendTimes >= 60 {
+					delete(sendQueue, d.Unique)
+					log.Warnf("send times max then 60, delete %+v", *d)
+					continue
+				}
 
 				//Start := int64(time.Now().UnixNano()/1000000)
 
