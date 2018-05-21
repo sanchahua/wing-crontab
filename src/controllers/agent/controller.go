@@ -15,11 +15,10 @@ import (
 )
 
 type Controller struct {
-	client         *agent.AgentClient
-	server         *agent.TcpService
-	indexNormal    int64
-	indexMutex     int64
-
+	client           *agent.AgentClient
+	server           *agent.TcpService
+	indexNormal      int64
+	indexMutex       int64
 
 	dispatch         chan *runItem
 	onPullChan       chan *agent.TcpClientNode
@@ -27,29 +26,21 @@ type Controller struct {
 	sendQueueChan    chan *SendData
 	delSendQueueChan chan string
 
-	ctx            *app.Context
-	lock           *sync.Mutex
-	//queueNomalLock *sync.Mutex
-	//queueNomal     map[int64]*data.EsQueue
-	//queueMutexLock *sync.Mutex
-	//queueMutex     map[int64]*Mutex
-	//sendQueue      map[string]*SendData
-	//sendQueueLock  *sync.Mutex
-	onCronChange   OnCronChangeEventFunc
-	onCommand      OnCommandFunc
-	addlog         AddLogFunc
-	statistics     map[int64]*Statistics
-	statisticsLock *sync.Mutex
-
-	//dispatchChan chan *runItem
+	ctx              *app.Context
+	lock             *sync.Mutex
+	onCronChange     OnCronChangeEventFunc
+	onCommand        OnCommandFunc
+	addlog           AddLogFunc
+	statistics       map[int64]*Statistics
+	statisticsLock   *sync.Mutex
 }
 
 const (
-	maxQueueLen     = 64
-	dispatchChanLen = 10000
-	onPullChanLen = 128
-	runningEndChanLen = 1000
-	sendQueueChanLen = 1000
+	maxQueueLen         = 64
+	dispatchChanLen     = 10000
+	onPullChanLen       = 128
+	runningEndChanLen   = 1000
+	sendQueueChanLen    = 1000
 	delSendQueueChanLen = 1000
 )
 
@@ -76,39 +67,28 @@ func NewController(
 				indexNormal:    0,
 				indexMutex:     0,
 
-				dispatch:       make(chan *runItem, dispatchChanLen),
-				onPullChan:     make(chan *agent.TcpClientNode, onPullChanLen),
-				runningEndChan: make(chan int64, runningEndChanLen),
-				sendQueueChan:  make(chan *SendData, sendQueueChanLen),
+				dispatch:         make(chan *runItem, dispatchChanLen),
+				onPullChan:       make(chan *agent.TcpClientNode, onPullChanLen),
+				runningEndChan:   make(chan int64, runningEndChanLen),
+				sendQueueChan:    make(chan *SendData, sendQueueChanLen),
 				delSendQueueChan: make(chan string, delSendQueueChanLen),
 
 				ctx:            ctx,
 				lock:           new(sync.Mutex),
-				//queueNomal:     make(map[int64]*data.EsQueue),
-				//queueMutex:     make(map[int64]*Mutex),
-				//queueNomalLock: new(sync.Mutex),
-				//queueMutexLock: new(sync.Mutex),
-				//sendQueue:      make(map[string]*SendData),
-				//sendQueueLock:  new(sync.Mutex),
 				onCronChange:   onCronChange,
 				onCommand:      onCommand,
 				addlog:         addlog,
 				statistics:     make(map[int64]*Statistics),
 				statisticsLock: new(sync.Mutex),
-				//dispatchChan:make(chan *runItem, 10000)
 			}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
-	//cpu := runtime.NumCPU()
-	//for i:= 0; i < cpu; i++ {
-		go c.sendService()
-	//}
+	go c.sendService()
 	go c.keep()
 	return c
 }
 
 func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []byte) {
-	//log.Debugf("#############client receive: cmd=%d, content=%v", cmd, string(content))
 	switch cmd {
 	case agent.CMD_RUN_COMMAND:
 			var sendData SendData
@@ -141,12 +121,9 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
 
 	case agent.CMD_CRONTAB_CHANGE:
+		//
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
-
-			c.delSendQueueChan <-  string(content)
-		//	c.sendQueueLock.Lock()
-		//delete(c.sendQueue, string(content))
-		//c.sendQueueLock.Unlock()
+		c.delSendQueueChan <-  string(content)
 	}
 }
 
@@ -208,6 +185,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 
 		c.delSendQueueChan <- unique
 
+		//todo
 		// 如果send queue里面存在这个消息才是正常的返回值
 		// 后续返回握手也可能加入重发机制，所以这个判断很重要
 		 {
@@ -353,9 +331,9 @@ func (c *Controller) sendService() {
 }
 
 func (c *Controller) keep() {
-	var queueMutex = make(map[int64]*Mutex)
-	var queueNomal = make(map[int64]*data.EsQueue)
-	var gindexMutex = int64(0)
+	var queueMutex   = make(map[int64]*Mutex)
+	var queueNomal   = make(map[int64]*data.EsQueue)
+	var gindexMutex  = int64(0)
 	var gindexNormal = int64(0)
 
 	for {
@@ -511,55 +489,13 @@ func (c *Controller) keep() {
 }
 
 func (c *Controller) Dispatch(id int64, command string, isMutex bool, logId int64) {
-	//logrus.Debugf("Dispatch %v, %v, %v", id, command, isMutex)
-
 	item := &runItem{
-		id: id,
+		id:      id,
 		command: command,
 		isMutex: isMutex,
-		logId:logId,
+		logId:   logId,
 	}
 	c.dispatch <- item
-	//if isMutex {
-	//	var queueMutex *Mutex = nil
-	//	var ok = false
-	//
-	//	c.queueMutexLock.Lock()
-	//	queueMutex, ok = c.queueMutex[id]
-	//	if !ok {
-	//		queueMutex = &Mutex{
-	//			isRuning:false,
-	//			queue:data.NewQueue(maxQueueLen),
-	//			start:0,
-	//		}
-	//		c.queueMutex[id] = queueMutex
-	//	}
-	//	c.queueMutexLock.Unlock()
-	//
-	//		//log.Debugf("dispatch %+v", *item)
-	//	ok, num := queueMutex.queue.Put(item)
-	//	log.Debugf("queue len %v", num)
-	//
-	//	if !ok {
-	//		log.Errorf("put error %v, %v", ok, num)
-	//	}
-	//	return
-	//}
-	//
-	//c.queueNomalLock.Lock()
-	//queueNormal, ok := c.queueNomal[id]
-	//if !ok {
-	//	queueNormal = data.NewQueue(maxQueueLen)
-	//	c.queueNomal[id] = queueNormal
-	//}
-	//c.queueNomalLock.Unlock()
-	////item := &runItem{id: id, command: command, isMutex: isMutex,}
-	//ok, num := queueNormal.Put(item)
-	//log.Debugf("queue len %v", num)
-	//
-	//if !ok {
-	//	log.Errorf("put error %v, %v", ok, num)
-	//}
 }
 
 // set on leader select callback
