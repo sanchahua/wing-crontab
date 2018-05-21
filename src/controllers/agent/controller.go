@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"sync"
 	"time"
-	"library/data"
 	log "github.com/sirupsen/logrus"
 	"encoding/json"
 	mlog "models/log"
@@ -260,21 +259,21 @@ func (c *Controller) sendService() {
 				// 默认60秒超时重试
 
 				// 这里获取运行的平均时间，假设为t， 然后 t+60*1000 毫秒为超时时间
-				c.statisticsLock.Lock()
-				var timeout int64 = 60 * 1000
-				sta, ok := c.statistics[d.CronId]
-				if ok {
-					avg := sta.getAvg()
-					if avg > 0 {
-						timeout = avg * 3
-						if timeout > avg+60*1000 {
-							timeout = avg + 60*1000
-						} else if timeout < 300 {
-							timeout = 1000
-						}
-					}
-				}
-				c.statisticsLock.Unlock()
+				//c.statisticsLock.Lock()
+				var timeout = c.getTimeout(d.CronId)//int64 = 60 * 1000
+				//sta, ok := c.statistics[d.CronId]
+				//if ok {
+				//	avg := sta.getAvg()
+				//	if avg > 0 {
+				//		timeout = avg * 3
+				//		if timeout > avg+60*1000 {
+				//			timeout = avg + 60*1000
+				//		} else if timeout < 300 {
+				//			timeout = 1000
+				//		}
+				//	}
+				//}
+				//c.statisticsLock.Unlock()
 
 				if d.Status > 0 && (int64(time.Now().UnixNano()/1000000)-d.Time) <= timeout {
 
@@ -330,9 +329,31 @@ func (c *Controller) sendService() {
 	}
 }
 
+
+
+func (c *Controller) getTimeout(id int64) int64 {
+	c.statisticsLock.Lock()
+	var timeout int64 = 60 * 1000
+	sta, ok := c.statistics[id]
+	if ok {
+		avg := sta.getAvg()
+		if avg > 0 {
+			timeout = avg * 3
+			if timeout > avg + 60 * 1000 {
+				timeout = avg + 60 * 1000
+			} else if timeout < 300 {
+				timeout = 1000
+			}
+		}
+	}
+	c.statisticsLock.Unlock()
+	log.Debugf("%v avg timeout is %v", id, timeout)
+	return timeout
+}
+
 func (c *Controller) keep() {
-	var queueMutex   = make(map[int64]*Mutex)
-	var queueNomal   = make(map[int64]*data.EsQueue)
+	var queueMutex   = make(QMutex)//map[int64]*Mutex)
+	var queueNomal   = make(QEs)
 	var gindexMutex  = int64(0)
 	var gindexNormal = int64(0)
 
@@ -342,41 +363,10 @@ func (c *Controller) keep() {
 			if !ok {
 				return
 			}
-			for {
-				/////////////////////////////
-				if item.isMutex {
-					mutex, ok := queueMutex[item.id]
-					if !ok {
-						mutex = &Mutex{
-							isRuning: false,
-							queue:    data.NewQueue(maxQueueLen),
-							start:    0,
-						}
-						queueMutex[item.id] = mutex
-					}
-
-					ok, num := mutex.queue.Put(item)
-					log.Debugf("queue len %v", num)
-
-					if !ok {
-						log.Errorf("put error %v, %v", ok, num)
-					}
-					break
-				}
-				{
-					normal, ok := queueNomal[item.id]
-					if !ok {
-						normal = data.NewQueue(maxQueueLen)
-						queueNomal[item.id] = normal
-					}
-					//item := &runItem{id: id, command: command, isMutex: isMutex,}
-					ok, num := normal.Put(item)
-					log.Debugf("queue len %v", num)
-					if !ok {
-						log.Errorf("put error %v, %v", ok, num)
-					}
-				}
-				break
+			if item.isMutex {
+				queueMutex.append(item)
+			} else {
+				queueNomal.append(item)
 			}
 		case node, ok := <- c.onPullChan:
 			if !ok {
@@ -396,21 +386,22 @@ func (c *Controller) keep() {
 						// 最多锁定60秒
 
 						// 获取平均原型周期 + 60s最为超时标准
-						c.statisticsLock.Lock()
-						var timeout int64 = 60 * 1000
-						sta, ok := c.statistics[id]
-						if ok {
-							avg := sta.getAvg()
-							if avg > 0 {
-								timeout = avg * 3
-								if timeout > avg + 60 * 1000 {
-									timeout = avg + 60 * 1000
-								} else if timeout < 300 {
-									timeout = 1000
-								}
-							}
-						}
-						c.statisticsLock.Unlock()
+						var timeout = c.getTimeout(id)
+						//c.statisticsLock.Lock()
+						//var timeout int64 = 60 * 1000
+						//sta, ok := c.statistics[id]
+						//if ok {
+						//	avg := sta.getAvg()
+						//	if avg > 0 {
+						//		timeout = avg * 3
+						//		if timeout > avg + 60 * 1000 {
+						//			timeout = avg + 60 * 1000
+						//		} else if timeout < 300 {
+						//			timeout = 1000
+						//		}
+						//	}
+						//}
+						//c.statisticsLock.Unlock()
 
 						if queueMutex.isRuning && (int64(time.Now().UnixNano()/1000000) - queueMutex.start) < timeout {
 							//log.Debugf("================%v still running", id)
