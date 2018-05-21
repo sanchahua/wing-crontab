@@ -114,7 +114,8 @@ func (queueMutex *QMutex) dispatch(gindexMutex *int64,
 func (queueMutex *QMutex) setRunning(id int64, running bool) {
 	m ,ok := (*queueMutex)[id]
 	if ok {
-		m.isRuning = false
+		log.Debugf("##################set %v running is %v", id, running)
+		m.isRuning = running
 	} else {
 		log.Errorf("%v does not exists")
 	}

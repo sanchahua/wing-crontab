@@ -268,6 +268,7 @@ func (c *Controller) sendService() {
 	var sendQueue = make(map[string]*SendData)
 	var checkChan = make(chan struct{}, 1000)
 
+	// 信号生成，用于触发发送待发送的消息
 	go func() {
 		for {
 			checkChan <- struct{}{}
@@ -456,6 +457,7 @@ func (c *Controller) keep() {
 			sta, ok := queueMutex[id]
 			if ok {
 				sta.sta.totalUseTime += t - sta.sta.startTime
+				log.Debugf("#############avg=%v", sta.sta.getAvg())
 			} else {
 				log.Errorf("%v does not exists", id)
 			}
