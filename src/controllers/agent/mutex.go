@@ -121,6 +121,10 @@ func (queueMutex *QMutex) setRunning(id int64, running bool) {
 	}
 }
 
+func (queue *Mutex) setRunning(running bool) {
+	queue.isRuning = running
+}
+
 func (queue *Mutex) getTimeout() int64 {
 
 	var timeout int64 = 60 * 1000
