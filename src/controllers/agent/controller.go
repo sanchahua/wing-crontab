@@ -34,6 +34,32 @@ type Controller struct {
 	addlog           AddLogFunc
 	statistics       map[int64]*Statistics
 	statisticsLock   *sync.Mutex
+
+	//clientRunning        map[string]*clientRunItem
+	clientRunningChan    chan *clientRunItem
+	clientRunningSetChan chan clientSetRunning//[]byte
+	clientRunningExists  chan *clientRunningExists
+}
+
+type clientRunItem struct {
+	 running bool //是否正在运行，true是，false否，表示已完成
+	 unique string// *SendData
+	 setTime int64 //这个clientRunItem生成的毫秒时间戳
+}
+
+type clientSetRunning struct {
+	unique string
+	running bool
+}
+
+type clientRunningExists struct {
+	unique string
+	running *chan *clientExists
+}
+
+type clientExists struct {
+	running bool//chan bool
+	exists bool
 }
 
 const (
@@ -43,7 +69,10 @@ const (
 	runningEndChanLen   = 1000
 	sendQueueChanLen    = 1000
 	delSendQueueChanLen = 1000
-	statisticsChanLen   = 1000
+	statisticsChanLen       = 1000
+	clientRunningChanLen    = 1000
+	clientRunningSetChanLen = 1000
+	clientRunningExistsLen  = 1000
 )
 
 type sendFunc              func(data []byte)
@@ -69,13 +98,13 @@ func NewController(
 				indexNormal:    0,
 				indexMutex:     0,
 
-				dispatch:         make(chan *runItem, dispatchChanLen),
-				onPullChan:       make(chan *agent.TcpClientNode, onPullChanLen),
-				runningEndChan:   make(chan int64, runningEndChanLen),
-				sendQueueChan:    make(chan *SendData, sendQueueChanLen),
-				delSendQueueChan: make(chan string, delSendQueueChanLen),
-		statisticsStartChan:   make(chan []byte, statisticsChanLen),
-		statisticsEndChan:   make(chan []byte, statisticsChanLen),
+				dispatch:            make(chan *runItem, dispatchChanLen),
+				onPullChan:          make(chan *agent.TcpClientNode, onPullChanLen),
+				runningEndChan:      make(chan int64, runningEndChanLen),
+				sendQueueChan:       make(chan *SendData, sendQueueChanLen),
+				delSendQueueChan:    make(chan string, delSendQueueChanLen),
+				statisticsStartChan: make(chan []byte, statisticsChanLen),
+				statisticsEndChan:   make(chan []byte, statisticsChanLen),
 
 				ctx:            ctx,
 				lock:           new(sync.Mutex),
@@ -84,12 +113,90 @@ func NewController(
 				addlog:         addlog,
 				statistics:     make(map[int64]*Statistics),
 				statisticsLock: new(sync.Mutex),
+
+				//clientRunning:  make(map[string]*clientRunItem),
+				clientRunningChan: make(chan *clientRunItem, clientRunningChanLen),
+				clientRunningSetChan: make(chan clientSetRunning, clientRunningSetChanLen),
+				clientRunningExists: make(chan *clientRunningExists, clientRunningExistsLen),
 			}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
 	go c.sendService()
 	go c.keep()
+	go c.clientCheck()
 	return c
+}
+
+func (c *Controller) clientCheck() {
+	var clientRunning = make(map[string]*clientRunItem)
+	var check = make(chan struct{})
+	//默认超时时间设置为10分钟
+	var defaultTimeout = int64(10 * 60 * 1000)
+	go func() {
+		check <- struct{}{}
+		time.Sleep(time.Second)
+	}()
+	for {
+		select {
+		case item, ok := <- c.clientRunningChan:
+			if !ok {
+				return
+			}
+			clientRunning[item.unique] = item
+		case set, ok := <- c.clientRunningSetChan:
+			if !ok {
+				return
+			}
+			it, exists := clientRunning[set.unique]
+			if exists {
+				it.running = set.running
+			}
+		case ex, ok := <- c.clientRunningExists:
+			//log.Errorf("check exists %+v", ex)
+			if !ok {
+				return
+			}
+			i, exists := clientRunning[ex.unique]
+			if !exists {
+				*ex.running <- &clientExists{
+					exists: false,
+					running: false,
+				}
+			} else {
+				*ex.running <- &clientExists{
+					exists: true,
+					running: i.running,
+				}
+			}
+		case _, ok := <- check:
+			//这里用来检测超时的
+			if !ok {
+				return
+			}
+			for _, it := range clientRunning {
+				if int64(time.Now().UnixNano()/1000000) - it.setTime >= defaultTimeout {
+					log.Warnf("timeout was delete %v", it.unique)
+					delete(clientRunning, it.unique)
+				}
+			}
+		}
+	}
+}
+
+func (c *Controller) checkClientUniqueExists(runningChan chan *clientExists)  *clientExists {
+	to := time.NewTimer(time.Second*6)
+	//var running *clientExists// := &clientExists{exists:false, running:false}
+	select {
+	case ex, ok := <- runningChan:
+		if ok {
+			return ex
+		}
+	case <-to.C:
+		//running =
+		log.Warnf("check exists timeout")
+		return &clientExists{exists:false, running:false}
+	}
+	return &clientExists{exists:false, running:false}
 }
 
 func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []byte) {
@@ -101,28 +208,95 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				log.Errorf("json.Unmarshal with %v", err)
 				return
 			}
+
+			//这里需要加一个缓冲区，保存已经到达的sendData
+			//server端超过重发过来的sendData，先判断有没有
+			//如果有，直接返回握手，告诉server端成功了
+			//如果没有，进行后面的命令执行操作
+
+			//这里除了判断是否存在，还要判断是否正在运行
+			//这对于互斥任务来说很重要
+
+			//判断是否存在
+			var runningChan = make(chan *clientExists)
+			c.clientRunningExists <- &clientRunningExists{
+				unique:sendData.Unique,
+				running:&runningChan,
+			}
+			//to := time.NewTimer(time.Second*6)
+			startw := time.Now()
+			var running = c.checkClientUniqueExists(runningChan)// := &clientExists{exists:false, running:false}
+			//select {
+			//	case ex, ok := <- runningChan:
+			//		if ok {
+			//			running = ex
+			//		}
+			//	case <-to.C:
+			//		running = &clientExists{exists:false, running:false}
+			//		log.Warnf("check exists timeout %v", sendData.Unique)
+			//}
+		fmt.Fprintf(os.Stderr, "###############check exists use time %v\r\n", time.Since(startw))
+
 			id, dispatchTime, isMutex, command, dispatchServer, err := unpack(sendData.Data)
 			if err != nil {
 				log.Errorf("%v", err)
 				return
 			}
-		fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
+			fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
 
-		c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3")
+			//判断是否正在运行
 
 
-		sdata := make([]byte, 0)
-		sid   := make([]byte, 8)
-		binary.LittleEndian.PutUint64(sid, uint64(id))
-		sdata = append(sdata, sid...)
-		sdata = append(sdata, isMutex)
-		sdata = append(sdata, []byte(sendData.Unique)...)
+			//新过来的定时任务 running.exists 不可能为true
+			//如果正在运行，并且也存在
+			//这个时候不做任何处理
+			if running.exists && running.running {
+				log.Debugf("still running %v", sendData.Unique)
+				return
+			}
 
-		c.onCommand(id, command, dispatchTime, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
-			log.Debugf("command run send %v", sendData.Unique)
-			tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
-		})
-		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
+			//如果存在，并且不在运行（运行完成）
+			//直接发送一个握手包
+			if running.exists && !running.running {
+				sdata := make([]byte, 0)
+				sid   := make([]byte, 8)
+				binary.LittleEndian.PutUint64(sid, uint64(id))
+				sdata = append(sdata, sid...)
+				sdata = append(sdata, isMutex)
+				sdata = append(sdata, []byte(sendData.Unique)...)
+				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
+				log.Debugf("running complete %v", sendData.Unique)
+				return
+			}
+
+			c.clientRunningChan <- &clientRunItem{
+				unique: sendData.Unique,
+				running:true,
+				setTime:int64(time.Now().UnixNano()/1000000),
+			}
+
+
+			c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3")
+
+
+			sdata := make([]byte, 0)
+			sid   := make([]byte, 8)
+			binary.LittleEndian.PutUint64(sid, uint64(id))
+			sdata = append(sdata, sid...)
+			sdata = append(sdata, isMutex)
+			sdata = append(sdata, []byte(sendData.Unique)...)
+
+			c.onCommand(id, command, dispatchTime, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
+				log.Debugf("command run send %v", sendData.Unique)
+				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
+
+				//设置cache为不在运行 （已完成）
+				c.clientRunningSetChan <- clientSetRunning{
+					unique:sendData.Unique,
+					running: false,
+				}
+			})
+			fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
 
 	case agent.CMD_CRONTAB_CHANGE:
 		//
@@ -150,6 +324,8 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 			node.AsyncSend(agent.Pack(agent.CMD_CRONTAB_CHANGE, []byte(sdata.Unique)))
 		}
 	case agent.CMD_RUN_COMMAND:
+
+		//
 
 		//sdata := make([]byte, 0)
 		//sid := make([]byte, 8)
