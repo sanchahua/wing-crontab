@@ -19,11 +19,10 @@ type AgentClient struct {
 	buffer  []byte
 	bufferLock *sync.Mutex
 	conn     *net.TCPConn
+	connLock *sync.Mutex
 	statusLock *sync.Mutex
 	status int
 	getLeader GetLeaderFunc
-	//sendQueue map[string]*SendData
-	//sendQueueLock *sync.Mutex
 	dataChannel chan *dataItem
 	onEvents []OnClientEventFunc
 	asyncWriteChan chan []byte
@@ -40,46 +39,11 @@ func SetGetLeader(f GetLeaderFunc) ClientOption {
 	}
 }
 
-//func SetOnCommand(f OnCommandFunc) ClientOption {
-//	return func(tcp *AgentClient) {
-//		tcp.onCommand = f
-//	}
-//}
-
 func SetOnClientEvent(f ...OnClientEventFunc) ClientOption {
 	return func(tcp *AgentClient) {
 		tcp.onEvents = append(tcp.onEvents, f...)
 	}
 }
-
-//type SendData struct {
-//	Unique string `json:"unique"`
-//	Data []byte `json:"data"`
-//	Status int `json:"status"`
-//	Time int64 `json:"time"`
-//	SendTimes int `json:"send_times"`
-//	Cmd int
-//}
-//
-//func newSendData(cmd int, data []byte) *SendData {
-//	return &SendData{
-//		Unique:    wstring.RandString(128),
-//		Data:      data,
-//		Status:    0,
-//		Time:      0,
-//		SendTimes: 0,
-//		Cmd:       cmd,
-//	}
-//
-//}
-//
-//func (d *SendData) encode() []byte {
-//	b, e := json.Marshal(d)
-//	if e != nil {
-//		return nil
-//	}
-//	return b
-//}
 
 const asyncWriteChanLen = 10000
 
@@ -94,38 +58,22 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		conn:          nil,
 		statusLock:    new(sync.Mutex),
 		status:        0,
-		//sendQueue:     make(map[string]*SendData),
-		//sendQueueLock: new(sync.Mutex),
 		bufferLock:    new(sync.Mutex),
 		dataChannel:   make(chan *dataItem, dataChannelLen),
 		onEvents:      make([]OnClientEventFunc, 0),
 		asyncWriteChan:make(chan []byte, asyncWriteChanLen),
+		connLock:      new(sync.Mutex),
 	}
 	for _, f := range opts {
 		f(c)
 	}
 	go c.keepalive()
-	//go c.sendService()
 	go c.asyncWrite()
 	return c
 }
 
-// async send, must send success
-// will retry until timeout or receive unique id
-// 异步发送
-// 需要回复unique id 或者重试 36次之后超时
-//func (tcp *AgentClient) Send(cmd int, data []byte) {
-//	d := newSendData(cmd, data)
-//	tcp.sendQueueLock.Lock()
-//	tcp.sendQueue[d.Unique] = d
-//	tcp.sendQueueLock.Unlock()
-//}
-
 // 直接发送
 func (tcp *AgentClient) Write(data []byte) {
-	//if tcp.conn == nil {
-	//	return 0, nil
-	//}
 	start := time.Now().Unix()
 	for {
 		if (time.Now().Unix() - start) > 3 {
@@ -138,7 +86,6 @@ func (tcp *AgentClient) Write(data []byte) {
 		log.Warnf("asyncWriteChan full")
 	}
 	tcp.asyncWriteChan <- data
-	//return tcp.conn.Write(data)
 }
 
 func (tcp *AgentClient) asyncWrite() {
@@ -148,8 +95,9 @@ func (tcp *AgentClient) asyncWrite() {
 			if !ok {
 				return
 			}
+			//tcp.connLock.Lock()
 			if tcp.conn != nil {
-				log.Debugf("##########send data: %+v", data)
+				//log.Debugf("##########send data: %+v", data)
 				n, err := tcp.conn.Write(data)
 				if err != nil {
 					log.Errorf("send failure: %+v", err)
@@ -159,100 +107,17 @@ func (tcp *AgentClient) asyncWrite() {
 
 				}
 			}
+			//tcp.connLock.Unlock()
 		}
 	}
 }
 
-
-//func (tcp *AgentClient) sendService() {
-//	for {
-//		select {
-//			case <-tcp.ctx.Done():
-//				log.Debugf("keepalive exit 1")
-//				return
-//			default:
-//		}
-//		tcp.statusLock.Lock()
-//		if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
-//			tcp.statusLock.Unlock()
-//			//log.Infof("keepalive continue")
-//			time.Sleep(3 * time.Second)
-//			continue
-//		}
-//		tcp.statusLock.Unlock()
-//
-//		tcp.sendQueueLock.Lock()
-//		for _, d := range tcp.sendQueue {
-//			// status > 0 is sending
-//			if d.Status > 0 && (time.Now().Unix() - d.Time) <= 3 {
-//				continue
-//			}
-//			log.Infof("try to send %+v", *d)
-//			d.Status = 1
-//			d.SendTimes++
-//
-//			if d.SendTimes >= 36 {
-//				delete(tcp.sendQueue, d.Unique)
-//				log.Warnf("send timeout(36s), delete %+v", *d)
-//				continue
-//			}
-//			d.Time   = time.Now().Unix()
-//			sd      := d.encode()
-//			//log.Infof("try to send %+v", sd)
-//
-//			data    := Pack(d.Cmd, sd)
-//			dl      := len(data)
-//			var n int
-//			var err error
-//			if tcp.conn != nil {
-//				n, err = tcp.conn.Write(data)
-//			}
-//
-//			if err != nil {
-//				log.Errorf("[agent - client] agent keepalive error: %d, %v", n, err)
-//				tcp.statusLock.Lock()
-//				tcp.disconnect()
-//				tcp.statusLock.Unlock()
-//			} else if n != dl {
-//				log.Errorf("[agent - client] %s send not complete", tcp.conn.RemoteAddr().String())
-//			}
-//		}
-//		tcp.sendQueueLock.Unlock()
-//		time.Sleep(time.Second * 1)
-//	}
-//}
-
 func (tcp *AgentClient) keepalive() {
 	data := Pack(CMD_TICK, []byte(""))
-	dl   := len(data)
 	for {
-		select {
-			case <-tcp.ctx.Done():
-				log.Debugf("keepalive exit 1")
-				return
-			default:
-		}
-		tcp.statusLock.Lock()
-		if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
-			tcp.statusLock.Unlock()
-			//log.Infof("keepalive continue")
-			time.Sleep(3 * time.Second)
-			continue
-		}
-		tcp.statusLock.Unlock()
-		n, err := tcp.conn.Write(data)
-		if err != nil {
-			log.Errorf("[agent - client] agent keepalive error: %d, %v", n, err)
-			tcp.statusLock.Lock()
-			tcp.disconnect()
-			tcp.statusLock.Unlock()
-		} else if n != dl {
-			log.Errorf("[agent - client] %s send not complete", tcp.conn.RemoteAddr().String())
-		}
-		//log.Infof("client keepalive")
+		tcp.Write(data)
 		time.Sleep(3 * time.Second)
 	}
-	log.Debugf("keepalive exit 2")
 }
 
 func (tcp *AgentClient) OnLeader(leader bool) {
@@ -275,6 +140,8 @@ func (tcp *AgentClient) OnLeader(leader bool) {
 }
 
 func (tcp *AgentClient) connect(ip string, port int) {
+	//tcp.connLock.Lock()
+	//defer tcp.connLock.Unlock()
 	if tcp.conn != nil {
 		tcp.statusLock.Lock()
 		tcp.disconnect()

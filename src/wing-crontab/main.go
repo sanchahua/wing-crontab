@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"fmt"
 	mlog "models/log"
+	"os"
 )
 
 func main() {
@@ -82,7 +83,9 @@ func main() {
 			log.Errorf(" add log with error %v", err)
 			return
 		}
+		start:=time.Now()
 		agentController.Dispatch(id, command, isMutex, logEntity.Id)
+		fmt.Fprintf(os.Stderr, "agentController.Dispatch use time %v", time.Since(start))
 	})(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 

@@ -248,7 +248,7 @@ func (c *CrontabController) asyncPullCommand() {
 					return
 				}
 				if c.pullcommand != nil {
-					log.Debugf("send pull")
+					//log.Debugf("send pull")
 					c.pullcommand()
 				}
 		}

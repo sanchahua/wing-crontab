@@ -7,8 +7,6 @@ import (
 	"sync"
 	"io"
 	"context"
-	"fmt"
-	"os"
 )
 
 type TcpClientNode struct {
@@ -163,7 +161,7 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 
 	for {
 		if node.recvBuf == nil || len(node.recvBuf) < 6 {
-			log.Errorf("node.recvBuf len error %v", len(node.recvBuf))
+			//log.Errorf("node.recvBuf len error %v", len(node.recvBuf))
 			return
 		}
 
@@ -204,11 +202,11 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 			return
 		}
 //log.Debugf("agent node:%+v",content)
-		start := time.Now()
+		//start := time.Now()
 		for _, f := range node.onServerEvents {
 			go f(node, cmd, content)
 		}
-		fmt.Fprintf(os.Stderr, "node.onServerEvents use time %v\r\n", time.Since(start))
+		//fmt.Fprintf(os.Stderr, "node.onServerEvents use time %v\r\n", time.Since(start))
 		//switch cmd {
 		//case CMD_TICK:
 		//	node.AsyncSend(packDataTickOk)
@@ -258,7 +256,7 @@ func (node *TcpClientNode) readMessage() {
 			node.close()
 			return
 		}
-		log.Debugf("#####################server receive message: %+v", readBuffer[:size])
+		//log.Debugf("#####################server receive message: %+v", readBuffer[:size])
 		node.onMessage(readBuffer[:size])
 	}
 }
