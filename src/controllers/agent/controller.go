@@ -168,22 +168,29 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 
 		//log.Debugf("command is run (will delete from send queue): %v", string(content))
 		c.sendQueueLock.Lock()
-		delete(c.sendQueue, unique)
+		_, ex := c.sendQueue[unique]
+		if ex {
+			delete(c.sendQueue, unique)
+		}
 		//log.Debugf("send queue len: %v", len(c.sendQueue))
 		c.sendQueueLock.Unlock()
 
-		current := int64(time.Now().UnixNano() / 1000000)
-		c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", current, mlog.EVENT_CRON_END, "定时任务结束 - 5")
-		//log.Debugf("****************************command run back 4 => %v, command back time is %v", unique, time.Now().UnixNano())
-		c.statisticsLock.Lock()
-		st, ok := c.statistics[id]
-		if ok {
-			st.totalUseTime += current - st.startTime
-			fmt.Fprintf(os.Stderr, "%v avg use time = %vms\n", id, st.getAvg())
-		} else {
-			log.Errorf("%v does not exists")
+		// 如果send queue里面存在这个消息才是正常的返回值
+		// 后续返回握手也可能加入重发机制，所以这个判断很重要
+		if ex {
+			current := int64(time.Now().UnixNano() / 1000000)
+			c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", current, mlog.EVENT_CRON_END, "定时任务结束 - 5")
+			//log.Debugf("****************************command run back 4 => %v, command back time is %v", unique, time.Now().UnixNano())
+			c.statisticsLock.Lock()
+			st, ok := c.statistics[id]
+			if ok {
+				st.totalUseTime += current - st.startTime
+				fmt.Fprintf(os.Stderr, "%v avg use time = %vms\n", id, st.getAvg())
+			} else {
+				log.Errorf("%v does not exists")
+			}
+			c.statisticsLock.Unlock()
 		}
-		c.statisticsLock.Unlock()
 
 	}
 }
@@ -226,6 +233,8 @@ func (c *Controller) sendService() {
 					timeout = avg * 3
 					if timeout > 60 * 1000 {
 						timeout = avg + 60*1000
+					} else if timeout < 300 {
+						timeout = 1000
 					}
 				}
 			}
@@ -239,7 +248,7 @@ func (c *Controller) sendService() {
 			d.SendTimes++
 
 			if d.SendTimes > 1 {
-				log.Warnf("send times %v, *d", d.SendTimes, *d)
+				log.Warnf("send times %v, %+v", d.SendTimes, *d)
 			}
 
 			// 每次延迟3秒重试，最多20次，即1分钟之内才会重试
@@ -315,6 +324,8 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 						timeout = avg * 3
 						if timeout > 60 * 1000 {
 							timeout = avg + 60 * 1000
+						} else if timeout < 300 {
+							timeout = 1000
 						}
 					}
 				}
