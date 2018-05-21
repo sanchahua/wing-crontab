@@ -77,8 +77,12 @@ func main() {
 
 
 	crontab.SetOnWillRun(func(id int64, command string, isMutex bool) {
-		logController.AsyncAdd(id, "", 0, ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1")
-		agentController.Dispatch(id, command, isMutex)
+		logEntity, err := logController.Add(id, "", 0, ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1")
+		if err != nil {
+			log.Errorf(" add log with error %v", err)
+			return
+		}
+		agentController.Dispatch(id, command, isMutex, logEntity.Id)
 	})(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 

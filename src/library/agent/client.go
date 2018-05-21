@@ -149,7 +149,15 @@ func (tcp *AgentClient) asyncWrite() {
 				return
 			}
 			if tcp.conn != nil {
-				tcp.conn.Write(data)
+				log.Debugf("##########send data: %+v", data)
+				n, err := tcp.conn.Write(data)
+				if err != nil {
+					log.Errorf("send failure: %+v", err)
+				}
+				if n < len(data) {
+					log.Errorf("send not complete")
+
+				}
 			}
 		}
 	}

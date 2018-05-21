@@ -8,6 +8,7 @@ import (
 	"io"
 	"context"
 	"fmt"
+	"os"
 )
 
 type TcpClientNode struct {
@@ -16,6 +17,7 @@ type TcpClientNode struct {
 	sendFailureTimes int64       // 发送失败次数
 	recvBuf []byte      // 读缓冲区
 	connectTime int64       // 连接成功的时间戳
+	recvBufLock *sync.Mutex
 	status int
 	wg *sync.WaitGroup
 	lock *sync.Mutex          // 互斥锁，修改资源时锁定
@@ -45,6 +47,7 @@ func newNode(ctx context.Context, conn *net.Conn, opts ...NodeOption) *TcpClient
 		onclose:          make([]NodeFunc, 0),
 		wg:               new(sync.WaitGroup),
 		onServerEvents:   make([]OnServerEventFunc, 0),
+		recvBufLock:      new(sync.Mutex),
 	}
 	for _, f := range opts {
 		f(node)
@@ -160,6 +163,7 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 
 	for {
 		if node.recvBuf == nil || len(node.recvBuf) < 6 {
+			log.Errorf("node.recvBuf len error %v", len(node.recvBuf))
 			return
 		}
 
@@ -186,6 +190,7 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 
 		cmd, content, err := Unpack(&node.recvBuf)
 		if err != nil {
+			log.Errorf("node.recvBuf error %v", err)
 			return
 		}
 		//end:= clen+4//, nil
@@ -199,33 +204,35 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 			return
 		}
 //log.Debugf("agent node:%+v",content)
+		start := time.Now()
 		for _, f := range node.onServerEvents {
-			f(node, cmd, content)
+			go f(node, cmd, content)
 		}
-		switch cmd {
-		case CMD_TICK:
-			node.AsyncSend(packDataTickOk)
-		case CMD_CRONTAB_CHANGE:
-			//var data SendData
-			//err := json.Unmarshal(content, &data)
-			//if err != nil {
-			//	log.Errorf("%+v", err)
-			//} else {
-			//	event := binary.LittleEndian.Uint32(data.Data[:4])
-			//	go node.eventFired(int(event), data.Data[4:])
-			//	//log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
-			//	node.AsyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
-			//}
-		case CMD_PULL_COMMAND:
-			//start := time.Now()
-			//node.o nPullCommand(node)
-			//log.Debugf("###############PullCommand use time %+v", time.Since(start))
-		case CMD_RUN_COMMAND:
-		default:
-			node.AsyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
-			node.recvBuf = make([]byte, 0)
-			return
-		}
+		fmt.Fprintf(os.Stderr, "node.onServerEvents use time %v\r\n", time.Since(start))
+		//switch cmd {
+		//case CMD_TICK:
+		//	node.AsyncSend(packDataTickOk)
+		//case CMD_CRONTAB_CHANGE:
+		//	//var data SendData
+		//	//err := json.Unmarshal(content, &data)
+		//	//if err != nil {
+		//	//	log.Errorf("%+v", err)
+		//	//} else {
+		//	//	event := binary.LittleEndian.Uint32(data.Data[:4])
+		//	//	go node.eventFired(int(event), data.Data[4:])
+		//	//	//log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
+		//	//	node.AsyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
+		//	//}
+		//case CMD_PULL_COMMAND:
+		//	//start := time.Now()
+		//	//node.o nPullCommand(node)
+		//	//log.Debugf("###############PullCommand use time %+v", time.Since(start))
+		//case CMD_RUN_COMMAND:
+		//default:
+		//	node.AsyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
+		//	node.recvBuf = make([]byte, 0)
+		//	return
+		//}
 		//node.recvBuf = append( node.recvBuf[:0],  node.recvBuf[end:]...)
 	}
 }
@@ -251,6 +258,7 @@ func (node *TcpClientNode) readMessage() {
 			node.close()
 			return
 		}
+		log.Debugf("#####################server receive message: %+v", readBuffer[:size])
 		node.onMessage(readBuffer[:size])
 	}
 }

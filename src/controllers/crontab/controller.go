@@ -79,6 +79,7 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 		f(c)
 	}
 
+	log.Debugf("cpu num %v", cpu)
 	for i := 0; i < cpu + 2; i++ {
 		go c.run()
 	}
@@ -247,6 +248,7 @@ func (c *CrontabController) asyncPullCommand() {
 					return
 				}
 				if c.pullcommand != nil {
+					log.Debugf("send pull")
 					c.pullcommand()
 				}
 		}

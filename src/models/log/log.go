@@ -1,12 +1,11 @@
 package log
 
 import (
-	"errors"
 	"database/sql"
 )
-var (
-	updateFailError = errors.New("更新失败")
-)
+//var (
+//	updateFailError = errors.New("更新失败")
+//)
 // log 表实体类 entry
 /**
  `id` int(11) NOT NULL AUTO_INCREMENT,

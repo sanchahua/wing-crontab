@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 	log "github.com/sirupsen/logrus"
 	"encoding/json"
-	"runtime"
 	mlog "models/log"
 	"fmt"
 	"os"
+	"runtime"
 )
 
 type Controller struct {
@@ -100,8 +100,10 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			}
 			id, dispatchTime, isMutex, command, dispatchServer, err := unpack(sendData.Data)
 			if err != nil {
+				log.Errorf("%v", err)
 				return
 			}
+		fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
 
 		c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3")
 
@@ -114,8 +116,11 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			sdata = append(sdata, []byte(sendData.Unique)...)
 
 			c.onCommand(id, command, dispatchTime, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
-				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
+				fmt.Fprintf(os.Stderr,"send run command end\r\n")
+					tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
 			})
+		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
+
 	case agent.CMD_CRONTAB_CHANGE:
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
 		c.sendQueueLock.Lock()
@@ -125,7 +130,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 }
 
 func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content []byte) {
-	//log.Debugf("server receive:, %v, %v", event, content )
+	log.Debugf("###################server receive:%v, %v==CMD_PULL_COMMAND=%v", event, content,agent.CMD_PULL_COMMAND)
 	switch event {
 	case agent.CMD_PULL_COMMAND:
 		//start := time.Now()
@@ -153,6 +158,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		id      := int64(binary.LittleEndian.Uint64(content[:8]))
 		isMutex := content[8]
 		unique  := string(content[9:])
+		fmt.Fprintf(os.Stderr, "receive run command end %v, %v, %v\r\n", id, isMutex, unique)
 
 		if isMutex == 1 {
 			//log.Debugf("set is running false")
@@ -171,6 +177,8 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		_, ex := c.sendQueue[unique]
 		if ex {
 			delete(c.sendQueue, unique)
+		} else {
+			log.Errorf("does not int send queue: %v", unique)
 		}
 		//log.Debugf("send queue len: %v", len(c.sendQueue))
 		c.sendQueueLock.Unlock()
@@ -216,6 +224,7 @@ func (c *Controller) sendService() {
 		//log.Debugf("send queue len: %v", len(c.sendQueue))
 		times3 := 0
 		for _, d := range c.sendQueue {
+			start := time.Now()
 			// status > 0 is sending
 			// 发送中的数据，3秒之内不会在发送，超过3秒会进行2次重试
 			// todo ？？这里的3秒设置的是否合理，这里最好的方式应该有一个实时发送时间反馈
@@ -242,6 +251,7 @@ func (c *Controller) sendService() {
 
 			if d.Status > 0 && (int64(time.Now().UnixNano()/1000000) - d.Time) <= timeout {
 				times3++
+				//fmt.Fprintf(os.Stderr, "%v is still sending, wait for back\r\n", d.CronId)
 				continue
 			}
 			d.Status = 1
@@ -282,7 +292,7 @@ func (c *Controller) sendService() {
 			c.statisticsLock.Unlock()
 
 			d.send(sendData)
-
+			fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 
 		}
 		// 如果都是发送中，这里尝试等待10毫秒，让出cpu
@@ -298,8 +308,9 @@ func (c *Controller) sendService() {
 // 这个时候可以继续分配定时任务给客户端
 // 整个系统才去主动拉取的模式，只有客户端空闲达到一定程度，或者说足以负载当前的任务才会发起pull请求
 func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
+	log.Debugf("ou pull")
 	go func() {
-		//start := time.Now()
+		start := time.Now()
 		c.queueMutexLock.Lock()
 		func() {
 			indexMutex := int64(-1)
@@ -360,10 +371,10 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 			}
 		}()
 		c.queueMutexLock.Unlock()
-		//fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
+		fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
 	}()
 	go func() {
-		//start := time.Now()
+		start := time.Now()
 		c.queueNomalLock.Lock()
 		func() {
 			index := int64(-1)
@@ -393,7 +404,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 			}
 		}()
 		c.queueNomalLock.Unlock()
-		//fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
+		fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
 	}()
 }
 
@@ -402,8 +413,16 @@ func (c *Controller) Pull() {
 	c.client.Write(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
 }
 
-func (c *Controller) Dispatch(id int64, command string, isMutex bool) {
+func (c *Controller) Dispatch(id int64, command string, isMutex bool, logId int64) {
 	//logrus.Debugf("Dispatch %v, %v, %v", id, command, isMutex)
+
+	item := &runItem{
+		id: id,
+		command: command,
+		isMutex: isMutex,
+		logId:logId,
+	}
+
 	if isMutex {
 		c.queueMutexLock.Lock()
 		var queueMutex *Mutex = nil
@@ -418,13 +437,14 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool) {
 			c.queueMutex[id] = queueMutex
 		}
 		c.queueMutexLock.Unlock()
-		item := &runItem{
-				id: id,
-				command: command,
-				isMutex: isMutex,
-			}
+
 			//log.Debugf("dispatch %+v", *item)
-		queueMutex.queue.Put(item)
+		ok, num := queueMutex.queue.Put(item)
+		log.Debugf("queue len %v", num)
+
+		if !ok {
+			log.Errorf("put error %v, %v", ok, num)
+		}
 		return
 	}
 
@@ -435,8 +455,13 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool) {
 		c.queueNomal[id] = queueNormal
 	}
 	c.queueNomalLock.Unlock()
-	item := &runItem{id: id, command: command, isMutex: isMutex,}
-	queueNormal.Put(item)
+	//item := &runItem{id: id, command: command, isMutex: isMutex,}
+	ok, num := queueNormal.Put(item)
+	log.Debugf("queue len %v", num)
+
+	if !ok {
+		log.Errorf("put error %v, %v", ok, num)
+	}
 }
 
 // set on leader select callback
