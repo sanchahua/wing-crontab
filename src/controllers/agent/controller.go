@@ -221,7 +221,14 @@ func (c *Controller) sendService() {
 			var timeout int64 = 60 * 1000
 			sta, ok := c.statistics[d.CronId]
 			if ok {
-				timeout = sta.getAvg() + 60 * 1000
+				avg := sta.getAvg()
+				if avg > 0 {
+					if avg > 1000 {
+						timeout = avg + 60*1000
+					} else {
+						timeout = avg * 3
+					}
+				}
 			}
 			c.statisticsLock.Unlock()
 
@@ -239,7 +246,7 @@ func (c *Controller) sendService() {
 			// 每次延迟3秒重试，最多20次，即1分钟之内才会重试
 			if d.SendTimes >= 60 {
 				delete(c.sendQueue, d.Unique)
-				log.Warnf("send timeout(36s), delete %+v", *d)
+				log.Warnf("send times max then 60, delete %+v", *d)
 				continue
 			}
 
@@ -304,7 +311,14 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 				var timeout int64 = 60 * 1000
 				sta, ok := c.statistics[id]
 				if ok {
-					timeout = sta.getAvg() + 60 * 1000
+					avg := sta.getAvg()
+					if avg > 0 {
+						if avg > 1000 {
+							timeout = avg + 60*1000
+						} else {
+							timeout = avg * 3
+						}
+					}
 				}
 				c.statisticsLock.Unlock()
 

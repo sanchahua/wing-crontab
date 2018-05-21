@@ -275,7 +275,7 @@ func (c *CrontabController) checkCommandLen() {
 	// just for check error
 	for {
 		if len(c.runList) < cpu {
-			fmt.Fprintf(os.Stderr, "warning: runlist len is min then %v < %v", len(c.runList), cpu)
+			fmt.Fprintf(os.Stderr, "warning: runlist len is min then %v < %v\r\n", len(c.runList), cpu)
 			//log.Warnf("runlist len is min then %v < %v", len(c.runList), cpu)
 			if len(c.pullc) < cap(c.pullc) {
 				c.pullc <- struct{}{}
