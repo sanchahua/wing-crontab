@@ -231,7 +231,7 @@ func (c *Controller) sendService() {
 				avg := sta.getAvg()
 				if avg > 0 {
 					timeout = avg * 3
-					if timeout > 60 * 1000 {
+					if timeout > avg + 60 * 1000 {
 						timeout = avg + 60*1000
 					} else if timeout < 300 {
 						timeout = 1000
@@ -322,7 +322,7 @@ func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
 					avg := sta.getAvg()
 					if avg > 0 {
 						timeout = avg * 3
-						if timeout > 60 * 1000 {
+						if timeout > avg + 60 * 1000 {
 							timeout = avg + 60 * 1000
 						} else if timeout < 300 {
 							timeout = 1000
