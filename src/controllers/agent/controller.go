@@ -180,6 +180,8 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		if ok {
 			st.totalUseTime += current - st.startTime
 			fmt.Fprintf(os.Stderr, "%v avg use time = %vms\n", id, st.getAvg())
+		} else {
+			log.Errorf("%v does not exists")
 		}
 		c.statisticsLock.Unlock()
 
