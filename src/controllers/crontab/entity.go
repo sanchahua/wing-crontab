@@ -50,9 +50,15 @@ func newCronEntity(entity *cron.CronEntity, onwillrun OnWillRunFunc) *CronEntity
 	return e
 }
 
-func (row *CronEntity) SetWaitNum(num int64) {
+func (row *CronEntity) SubWaitNum() {
 	row.lock.Lock()
 	row.WaitNum--
+	row.lock.Unlock()
+}
+
+func (row *CronEntity) AddWaitNum() {
+	row.lock.Lock()
+	row.WaitNum++
 	row.lock.Unlock()
 }
 
@@ -69,10 +75,7 @@ func (row *CronEntity) Run() {
 		log.Debugf("%+v was stop", row.Id)
 		return
 	}
-	row.lock.Lock()
-	row.WaitNum++
-	row.lock.Unlock()
 	//roundbin to target server and run command
-	row.onwillrun(row.Id, row.Command, row.IsMutex, row.SetWaitNum)
+	row.onwillrun(row.Id, row.Command, row.IsMutex, row.AddWaitNum, row.SubWaitNum)
 	fmt.Fprintf(os.Stderr, "\r\n########## only leader do this %+v\r\n\r\n", *row)
 }

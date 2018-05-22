@@ -74,27 +74,27 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 
 // 直接发送
 func (tcp *AgentClient) Write(data []byte) {
-	//start := time.Now().Unix()
+	start := time.Now().Unix()
 	for {
-		//if (time.Now().Unix() - start) > 3 {
-		//	log.Errorf("asyncWriteChan full, wait timeout")
-		//	return
-		//}
+		if (time.Now().Unix() - start) > 1 {
+			log.Errorf("asyncWriteChan full, wait timeout")
+			return
+		}
 		if len(tcp.asyncWriteChan) < cap(tcp.asyncWriteChan) {
 			break
 		}
 		log.Warnf("asyncWriteChan full")
 		// 如果异步发送缓冲区满，直接同步发送
 		// 发送完return
-		n, err := tcp.conn.Write(data)
-		if err != nil {
-			log.Errorf("send failure: %+v", err)
-		}
-		if n < len(data) {
-			log.Errorf("send not complete")
-
-		}
-		return
+		//n, err := tcp.conn.Write(data)
+		//if err != nil {
+		//	log.Errorf("send failure: %+v", err)
+		//}
+		//if n < len(data) {
+		//	log.Errorf("send not complete")
+		//
+		//}
+		//return
 	}
 	tcp.asyncWriteChan <- data
 }
