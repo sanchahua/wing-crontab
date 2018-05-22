@@ -516,7 +516,7 @@ func (c *Controller) sendService() {
 					log.Warnf("send times %v, %+v", d.SendTimes, *d)
 				}
 				//
-				//// 每次延迟3秒重试，最多20次，即1分钟之内才会重试
+				//// 每次延迟1秒重试，最多60次，即1分钟之内才会重试
 				if d.SendTimes >= 60 {
 					delete(sendQueue, d.Unique)
 					log.Warnf("send times max then 60, delete %+v", *d)
