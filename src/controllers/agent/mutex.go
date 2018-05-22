@@ -59,7 +59,7 @@ func (queueMutex *QMutex) setRunning(id int64, running bool) {
 		//log.Debugf("##################set %v running is %v", id, running)
 		m.isRuning = running
 	} else {
-		log.Errorf("%v does not exists")
+		log.Errorf("%v does not exists", id)
 	}
 }
 
