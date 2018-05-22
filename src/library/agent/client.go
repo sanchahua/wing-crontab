@@ -270,7 +270,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		}
 
 		for _, f := range tcp.onEvents {
-			go f(tcp, cmd, content)
+			f(tcp, cmd, content)
 		}
 	}
 }

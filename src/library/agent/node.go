@@ -204,7 +204,7 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 //log.Debugf("agent node:%+v",content)
 		//start := time.Now()
 		for _, f := range node.onServerEvents {
-			go f(node, cmd, content)
+			f(node, cmd, content)
 		}
 		//fmt.Fprintf(os.Stderr, "node.onServerEvents use time %v\r\n", time.Since(start))
 		//switch cmd {

@@ -214,6 +214,10 @@ func (c *Controller) checkClientUniqueExists(runningChan chan *clientExists)  *c
 }
 
 func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []byte) {
+
+	start :=time.Now()
+	defer fmt.Fprintf(os.Stderr, "onClientEvent use time %v\r\n", time.Since(start))
+
 	switch cmd {
 	case agent.CMD_RUN_COMMAND:
 			var sendData SendData
@@ -327,11 +331,14 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 }
 
 func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content []byte) {
+	start :=time.Now()
+	defer fmt.Fprintf(os.Stderr, "onServerEvent use time %v\r\n", time.Since(start))
+
 	//log.Debugf("###################server receive:%v, %v==CMD_PULL_COMMAND=%v", event, content,agent.CMD_PULL_COMMAND)
 	switch event {
 	case agent.CMD_PULL_COMMAND:
 		//start := time.Now()
-		c.OnPullCommand(node)
+		c.onPullChan <- node
 		//fmt.Fprintf(os.Stderr, "OnPullCommand use time %v\n", time.Since(start))
 	case agent.CMD_CRONTAB_CHANGE:
 		var sdata SendData
@@ -428,10 +435,10 @@ func (c *Controller) SendToLeader(data []byte) {
 // pull请求到达，说明客户端有能力执行当前的定时任务
 // 这个时候可以继续分配定时任务给客户端
 // 整个系统才去主动拉取的模式，只有客户端空闲达到一定程度，或者说足以负载当前的任务才会发起pull请求
-func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
-	//log.Debugf("ou pull")
-	c.onPullChan <- node
-}
+//func (c *Controller) OnPullCommand(node *agent.TcpClientNode) {
+//	//log.Debugf("ou pull")
+//	c.onPullChan <- node
+//}
 
 func (c *Controller) Pull() {
 	//log.Debugf("##############################pull command(%v)", agent.CMD_PULL_COMMAND)
