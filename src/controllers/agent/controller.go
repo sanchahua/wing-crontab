@@ -130,6 +130,8 @@ func NewController(
 	return c
 }
 
+// 这个线程，用来检查分发服务器重试的
+// 比如，由于超时，服务端重试了这个定时任务，这时客户端要有去重机制
 func (c *Controller) clientCheck() {
 	var clientRunning = make(map[string]*clientRunItem)
 	var check = make(chan struct{})
