@@ -78,7 +78,7 @@ func main() {
 
 
 	crontab.SetOnWillRun(func(id int64, command string, isMutex bool) {
-		logEntity, err := logController.Add(id, "", 0, ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1")
+		logEntity, err := logController.Add(id, "", 0, ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1", 0)
 		if err != nil {
 			log.Errorf(" add log with error %v", err)
 			return
@@ -89,10 +89,10 @@ func main() {
 	})(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 
-	crontab.SetOnRun(func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
+	crontab.SetOnRun(func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration, logId int64) {
 		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
 		//start := time.Now()
-		logController.AsyncAdd(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_RUN_END, "定时任务运行结束 - 4")
+		logController.AsyncAdd(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_RUN_END, "定时任务运行结束 - 4", logId)
 		//log.Debugf("onrun use time %+v", time.Since(start))
 	})(crontabController)
 	//crontabController.Start()

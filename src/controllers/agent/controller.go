@@ -78,9 +78,9 @@ const (
 )
 
 type sendFunc              func(data []byte)
-type OnCommandFunc         func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func())
+type OnCommandFunc         func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, logId int64, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
-type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string)
+type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, logId int64)
 
 func NewController(
 	ctx *app.Context,
@@ -291,17 +291,22 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			}
 
 
-			c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3")
+			c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3", sendData.LogId)
 
 
 			sdata := make([]byte, 0)
 			sid   := make([]byte, 8)
 			binary.LittleEndian.PutUint64(sid, uint64(id))
+
+			slogid   := make([]byte, 8)
+			binary.LittleEndian.PutUint64(slogid, uint64(sendData.LogId))
+
 			sdata = append(sdata, sid...)
+			sdata = append(sdata, slogid...)
 			sdata = append(sdata, isMutex)
 			sdata = append(sdata, []byte(sendData.Unique)...)
 
-			c.onCommand(id, command, dispatchTime, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
+			c.onCommand(id, command, dispatchTime, dispatchServer, c.ctx.Config.BindAddress, isMutex, sendData.LogId, func() {
 				log.Debugf("command run send %v", sendData.Unique)
 				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
 
@@ -350,8 +355,10 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		//sdata = append(sdata, isMutex)
 		//sdata = append(sdata, []byte(sendData.Unique)...)
 		id      := int64(binary.LittleEndian.Uint64(content[:8]))
-		isMutex := content[8]
-		unique  := string(content[9:])
+		logId   := int64(binary.LittleEndian.Uint64(content[8:16]))
+
+		isMutex := content[16]
+		unique  := string(content[17:])
 		fmt.Fprintf(os.Stderr, "receive run command end %v, %v, %v\r\n", id, isMutex, unique)
 
 		if isMutex == 1 {
@@ -392,7 +399,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		// 后续返回握手也可能加入重发机制，所以这个判断很重要
 		 {
 			//current := int64(time.Now().UnixNano() / 1000000)
-			c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务结束 - 5")
+			c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务结束 - 5", logId)
 			//log.Debugf("****************************command run back 4 => %v, command back time is %v", unique, time.Now().UnixNano())
 			//c.statisticsLock.Lock()
 			//st, ok := c.statistics[id]
@@ -534,7 +541,7 @@ func (c *Controller) sendService() {
 				//一个定时任务的运行周期从 mlog.EVENT_CRON_DISPATCH 开始到 mlog.EVENT_CRON_END 结束
 				//todo 添加关键日志
 				if d.CronId > 0 {
-					c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATCH, "定时任务分发 - 2")
+					c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATCH, "定时任务分发 - 2", d.LogId)
 				}
 
 				//c.setStatistics(d.CronId)

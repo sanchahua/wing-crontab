@@ -33,6 +33,7 @@ type runItem struct {
 	runServer string
 	after func()
 	isMutex bool
+	logId int64
 }
 
 const (
@@ -41,7 +42,7 @@ const (
 	runListMaxLen = 10000
 )
 type PullCommandFunc func()
-type OnRunFunc func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
+type OnRunFunc func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration, logId int64)
 type OnWillRunFunc func(id int64, command string, isMutex bool)
 type CrontabControllerOption func(c *CrontabController)
 
@@ -192,7 +193,7 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 	c.Start()
 }
 
-func (c *CrontabController) runCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
+func (c *CrontabController) runCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, logId int64) {
 	f := int(time.Now().Unix() - dispatchTime)
 	if f > minFixTime {
 		//log.Warnf("diff time %v max then %v", f, minFixTime)
@@ -211,7 +212,7 @@ func (c *CrontabController) runCommand(id int64, command string, dispatchTime in
 		log.Warnf("c.onrun is nil")
 		return
 	}
-	c.onrun(id, dispatchTime, dispatchServer, runServer, res, time.Since(start))
+	c.onrun(id, dispatchTime, dispatchServer, runServer, res, time.Since(start), logId)
 }
 
 func (c *CrontabController) run() {
@@ -231,7 +232,7 @@ func (c *CrontabController) run() {
 				if !data.isMutex {
 					data.after()
 				}
-				c.runCommand(data.id, data.command , data.dispatchTime , data.dispatchServer , data.runServer)
+				c.runCommand(data.id, data.command , data.dispatchTime , data.dispatchServer , data.runServer, data.logId)
 				// 严格互斥模式下，必须运行完才能响应
 				if data.isMutex {
 					data.after()
@@ -290,7 +291,7 @@ func (c *CrontabController) checkCommandLen() {
 	}
 }
 
-func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func()) {
+func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, logId int64, after func()) {
 	if len(c.runList) >= runListMaxLen {
 		log.Errorf("runlist len is max then %v", runListMaxLen)
 		return
@@ -306,6 +307,7 @@ func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTim
 			runServer:      runServer,
 			after:          after,
 			isMutex:        isMutex == 1,
+			logId:          logId,
 		}
 	//} else {
 	//	//同步执行

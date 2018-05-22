@@ -25,6 +25,7 @@ type addItem struct {
 	rtime int64
 	event string
 	remark string
+	firstLogId int64
 }
 const addChannelLen = 10000
 func NewLogController(ctx *app.Context, handler *sql.DB) *LogController {
@@ -62,17 +63,17 @@ func (db *LogController) asyncAdd() {
 			if !ok {
 				return
 			}
-			db.db.Add(data.cronId, data.output, data.useTime, data.dispatchServer, data.runServer, data.rtime, data.event, data.remark)
+			db.db.Add(data.cronId, data.output, data.useTime, data.dispatchServer, data.runServer, data.rtime, data.event, data.remark, data.firstLogId)
 		}
 	}
 }
 
-func (db *LogController) AsyncAdd(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) {
+func (db *LogController) AsyncAdd(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, firstLogId int64) {
 	for {
 		if len(db.addChannel) < cap(db.addChannel) {
 			break
 		}
-		db.db.Add(cronId, output, useTime, dispatchServer, runServer, rtime, event, remark)
+		db.db.Add(cronId, output, useTime, dispatchServer, runServer, rtime, event, remark, firstLogId)
 		log.Warnf("AsyncAdd cache full, %v, %v", len(db.addChannel) , cap(db.addChannel))
 		return
 	}
@@ -85,11 +86,12 @@ func (db *LogController) AsyncAdd(cronId int64, output string, useTime int64, di
 		rtime:rtime,//time.Now().Unix(),
 		event:event,
 		remark:remark,
+		firstLogId:firstLogId,
 	}//db.db.Add(cronId, output, useTime, dispatchServer, runServer)
 }
 
-func (db *LogController) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) (*mlog.LogEntity, error) {
-	return db.db.Add(cronId, output, useTime, dispatchServer, runServer, rtime, event, remark)
+func (db *LogController) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, firstLogId int64) (*mlog.LogEntity, error) {
+	return db.db.Add(cronId, output, useTime, dispatchServer, runServer, rtime, event, remark, firstLogId)
 }
 
 // 获取所有的定时任务列表
