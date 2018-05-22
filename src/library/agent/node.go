@@ -155,9 +155,9 @@ func (node *TcpClientNode) asyncSendService() {
 }
 
 func (node *TcpClientNode) onMessage(msg []byte) {
-	node.recvBufLock.Lock()
+	//node.recvBufLock.Lock()
 	node.recvBuf = append(node.recvBuf, msg...)
-	node.recvBufLock.Unlock()
+	//node.recvBufLock.Unlock()
 	//log.Debugf("data: %+v", node.recvBuf)
 
 	for {
@@ -168,10 +168,10 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 
 		if len(node.recvBuf) > MAX_PACKAGE_LEN {
 			log.Errorf("max len error")
-			node.recvBufLock.Lock()
+			//node.recvBufLock.Lock()
 
 			node.recvBuf = make([]byte, 0)
-			node.recvBufLock.Unlock()
+			//node.recvBufLock.Unlock()
 
 			return
 		}
@@ -190,10 +190,10 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 		//content := node.recvBuf[6 : clen + 4]
 		////data  = append(data[:0], data[clen+4:]...)
 		//log.Debugf("return(%+v)(%+v)(%+v)", cmd, content, nil)
-		node.recvBufLock.Lock()
+		//node.recvBufLock.Lock()
 
 		cmd, content, err := Unpack(&node.recvBuf)
-		node.recvBufLock.Unlock()
+		//node.recvBufLock.Unlock()
 		if err != nil {
 			log.Errorf("node.recvBuf error %v", err)
 			return
@@ -204,10 +204,10 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 		//}
 		/////////////////////////////////////////
 		if !hasCmd(cmd) {
-			node.recvBufLock.Lock()
+			//node.recvBufLock.Lock()
 
 			node.recvBuf = make([]byte, 0)
-			node.recvBufLock.Unlock()
+			//node.recvBufLock.Unlock()
 
 			log.Errorf("cmd（%v）does not exists", cmd)
 			return

@@ -238,9 +238,9 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 }
 
 func (tcp *AgentClient) onMessage(msg []byte) {
-	tcp.bufferLock.Lock()
+	//tcp.bufferLock.Lock()
 	tcp.buffer = append(tcp.buffer, msg...)
-	tcp.bufferLock.Unlock()
+	//tcp.bufferLock.Unlock()
 
 	for {
 		bufferLen := len(tcp.buffer)
@@ -249,14 +249,14 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		}
 		if bufferLen > MAX_PACKAGE_LEN {
 			log.Errorf("buffer len is max then the limit %+v", MAX_PACKAGE_LEN)
-			tcp.bufferLock.Lock()
+			//tcp.bufferLock.Lock()
 			tcp.buffer = make([]byte, 0)
-			tcp.bufferLock.Unlock()
+			//tcp.bufferLock.Unlock()
 			return
 		}
-		tcp.bufferLock.Lock()
+		//tcp.bufferLock.Lock()
 		cmd, content, err := Unpack(&tcp.buffer)
-		tcp.bufferLock.Unlock()
+		//tcp.bufferLock.Unlock()
 		if err != nil {
 			log.Errorf("%v", err)
 			return
@@ -264,9 +264,9 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)
-			tcp.bufferLock.Lock()
+			//tcp.bufferLock.Lock()
 			tcp.buffer = make([]byte, 0)
-			tcp.bufferLock.Unlock()
+			//tcp.bufferLock.Unlock()
 			return
 		}
 

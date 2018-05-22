@@ -625,31 +625,6 @@ func (c *Controller) keep() {
 
 	for {
 		select {
-		case item, ok := <-c.dispatch:
-			if !ok {
-				return
-			}
-			//logEntity, err := c.addlog(item.id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1", 0)
-			//if err != nil {
-			//	log.Errorf(" add log with error %v", err)
-			//	item.logId = logEntity.Id
-			//}
-			setNum[item.id] = item.setWaitNum
-			if item.isMutex {
-				if _, ok := queueMutex[item.id]; !ok {
-					mutexKeys = append(mutexKeys, item.id)
-				}
-				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
-				queueMutex.append(item)
-			} else {
-				//log.Errorf("###############################normalKeys %+v\r\n\r\n", normalKeys)
-				if _, ok := queueNomal[item.id]; !ok {
-					normalKeys = append(normalKeys, item.id)
-				}
-				queueNomal.append(item)
-			}
-			//waitNum[item.id]++
-			//item.setWaitNum(waitNum[item.id])
 		case node, ok := <-c.onPullChan:
 			if !ok {
 				return
@@ -712,7 +687,6 @@ func (c *Controller) keep() {
 			} else {
 				log.Errorf("%v does not exists", id)
 			}
-
 		case sdata, ok := <- c.statisticsEndChan:
 			if !ok {
 				return
@@ -729,6 +703,31 @@ func (c *Controller) keep() {
 			} else {
 				log.Errorf("%v does not exists", id)
 			}
+		case item, ok := <-c.dispatch:
+			if !ok {
+				return
+			}
+			//logEntity, err := c.addlog(item.id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1", 0)
+			//if err != nil {
+			//	log.Errorf(" add log with error %v", err)
+			//	item.logId = logEntity.Id
+			//}
+			setNum[item.id] = item.setWaitNum
+			if item.isMutex {
+				if _, ok := queueMutex[item.id]; !ok {
+					mutexKeys = append(mutexKeys, item.id)
+				}
+				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
+				queueMutex.append(item)
+			} else {
+				//log.Errorf("###############################normalKeys %+v\r\n\r\n", normalKeys)
+				if _, ok := queueNomal[item.id]; !ok {
+					normalKeys = append(normalKeys, item.id)
+				}
+				queueNomal.append(item)
+			}
+			//waitNum[item.id]++
+			//item.setWaitNum(waitNum[item.id])
 		}
 	}
 }
