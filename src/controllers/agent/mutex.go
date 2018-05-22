@@ -5,8 +5,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"time"
 	"library/agent"
-	"fmt"
-	"os"
 )
 
 type Mutex struct {
@@ -40,18 +38,15 @@ func (queueMutex *QMutex) append(item *runItem) {
 	log.Debugf("add item to queueMutex, current len %v", len(*queueMutex))
 }
 
-func (queueMutex *QMutex) dispatch(gindexMutex *int64,
-	address string, send func(data []byte), c chan *SendData) {
-	start := time.Now()
-	{
-		indexMutex := int64(-1)
-		if *gindexMutex >= int64(len(*queueMutex)-1) {
-			*gindexMutex = 0
-		}
+func (queueMutex *QMutex) dispatch(id int64, address string, send func(data []byte), c chan *SendData) {
+	//start := time.Now()
+	//{
 		log.Debugf("queue mutex len %v", *queueMutex)
-		for id, queue := range *queueMutex {
+		//for id, queue := range *queueMutex
+		//{
+			queue := (*queueMutex)[id]
 			log.Debugf("queue mutex queue len %v", queue.queue.Quantity())
-			indexMutex++
+
 			// 如果有未完成的任务，跳过
 			// 这里的正在运行应该有一个超时时间
 			// 一般情况下用不着，仅仅为了预防，提高可靠性
@@ -76,21 +71,22 @@ func (queueMutex *QMutex) dispatch(gindexMutex *int64,
 			//	}
 			//}
 			//c.statisticsLock.Unlock()
-
-			if queue.isRuning && (int64(time.Now().UnixNano()/1000000) - queue.start) < timeout {
+			tn := int64(time.Now().UnixNano()/1000000)
+			if queue.isRuning && (tn - queue.start) < timeout {
 				log.Debugf("================%v still running", id)
-				continue
+				return
 			}
-			if indexMutex >= *gindexMutex {
+			//if indexMutex >= *gindexMutex
+			//{
 
-				(*gindexMutex)++
+				//(*gindexMutex)++
 				itemI, ok, _ := queue.queue.Get()
 				if !ok || itemI == nil {
 					//log.Warnf("queue get empty, %+v, %+v, %+v", ok, itemI)
-					continue
+					return
 				}
 				queue.isRuning = true
-				queue.start = int64(time.Now().UnixNano()/1000000)//time.Now().Unix()
+				queue.start = tn//int64(time.Now().UnixNano()/1000000)//time.Now().Unix()
 				item := itemI.(*runItem)
 				//分发互斥定时任务
 				sendData := pack(item, address)//c.ctx.Config.BindAddress)
@@ -102,12 +98,12 @@ func (queueMutex *QMutex) dispatch(gindexMutex *int64,
 				//c.sendQueueLock.Unlock()
 				//c.sendQueueChan <- d
 				//c <- d
-				break
-			}
+				//break
+			//}
 
-		}
-	}
-	fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
+		//}
+	//}
+	//fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
 
 }
 

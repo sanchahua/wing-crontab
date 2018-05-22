@@ -605,6 +605,10 @@ func (c *Controller) keep() {
 	var gindexMutex  = int64(0)
 	var gindexNormal = int64(0)
 
+	// indexs
+	var mutexKeys    = make([]int64, 0)
+	var normalKeys   = make([]int64, 0)
+
 	for {
 		select {
 		case item, ok := <-c.dispatch:
@@ -612,16 +616,41 @@ func (c *Controller) keep() {
 				return
 			}
 			if item.isMutex {
+				if _, ok := queueMutex[item.id]; !ok {
+					mutexKeys = append(mutexKeys, item.id)
+				}
+				fmt.Fprintf(os.Stderr, "###############################mutexKeys %+v\r\n\r\n", mutexKeys)
 				queueMutex.append(item)
 			} else {
+				fmt.Fprintf(os.Stderr, "###############################normalKeys %+v\r\n\r\n", normalKeys)
+				if _, ok := queueNomal[item.id]; !ok {
+					normalKeys = append(normalKeys, item.id)
+				}
 				queueNomal.append(item)
 			}
 		case node, ok := <-c.onPullChan:
 			if !ok {
 				return
 			}
-			queueMutex.dispatch(&gindexMutex,  c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
-			queueNomal.dispatch(&gindexNormal, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
+
+			if len(mutexKeys) > 0 {
+				start := time.Now()
+				queueMutex.dispatch(mutexKeys[int(gindexMutex)], c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
+				fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
+
+				gindexMutex++
+				if gindexMutex >= int64(len(mutexKeys)-1) {
+					gindexMutex = 0
+				}
+			}
+
+			if len(normalKeys) > 0 {
+				queueNomal.dispatch(normalKeys[int(gindexNormal)], c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
+				gindexNormal++
+				if gindexNormal >= int64(len(normalKeys)-1) {
+					gindexNormal = 0
+				}
+			}
 		case endId, ok := <-c.runningEndChan:
 			if !ok {
 				return

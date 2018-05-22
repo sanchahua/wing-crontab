@@ -25,24 +25,26 @@ func (queueNomal *QEs) append(item *runItem){
 	log.Debugf("add item to queueMutex, current len %v", len(*queueNomal))
 }
 
-func (queueNomal *QEs) dispatch(gindexNormal *int64, address string, send func(data []byte), c chan *SendData){
+func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte), c chan *SendData){
 	start := time.Now()
 	{
-		index := int64(-1)
-		if *gindexNormal >= int64(len(*queueNomal)-1) {
-			*gindexNormal = 0
-		}
+		//index := int64(-1)
+		//if *gindexNormal >= int64(len(*queueNomal)-1) {
+		//	*gindexNormal = 0
+		//}
 
-		for _, queueNormal := range *queueNomal {
-			index++
-			if index != *gindexNormal {
-				continue
-			}
-			(*gindexNormal)++
+		//for _, queueNormal := range *queueNomal
+		queueNormal := (*queueNomal)[id]
+		{
+			//index++
+			//if index != *gindexNormal {
+			//	continue
+			//}
+			//(*gindexNormal)++
 			itemI, ok, _ := queueNormal.Get()
 			if !ok || itemI == nil {
 				//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
-				continue
+				return
 			}
 			item := itemI.(*runItem)
 			sendData := pack(item, address)//c.ctx.Config.BindAddress)
@@ -53,7 +55,6 @@ func (queueNomal *QEs) dispatch(gindexNormal *int64, address string, send func(d
 			//c.sendQueueLock.Unlock()
 			//c.sendQueueChan <- d
 
-			break
 		}
 	}
 	fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
