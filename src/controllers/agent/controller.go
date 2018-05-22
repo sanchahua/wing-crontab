@@ -186,12 +186,12 @@ func (c *Controller) clientCheck() {
 					delete(clientRunning, it.unique)
 				}
 			}
-			log.Debugf("#########################################current client running cache len %v", len(clientRunning))
+			//log.Debugf("#########################################current client running cache len %v", len(clientRunning))
 		case unique, ok := <- c.delCacheChan:
 			if !ok {
 				return
 			}
-			log.Debugf("receive del cache %v", unique)
+			//log.Debugf("receive del cache %v", unique)
 			delete(clientRunning, unique)
 		}
 	}
@@ -266,7 +266,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			//如果正在运行，并且也存在
 			//这个时候不做任何处理
 			if running.exists && running.running {
-				log.Debugf("still running %v", sendData.Unique)
+				//log.Debugf("still running %v", sendData.Unique)
 				return
 			}
 
@@ -280,7 +280,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				sdata = append(sdata, isMutex)
 				sdata = append(sdata, []byte(sendData.Unique)...)
 				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
-				log.Debugf("running complete %v", sendData.Unique)
+				//log.Debugf("running complete %v", sendData.Unique)
 				return
 			}
 
@@ -307,7 +307,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			sdata = append(sdata, []byte(sendData.Unique)...)
 
 			c.onCommand(id, command, dispatchTime, dispatchServer, c.ctx.Config.BindAddress, isMutex, sendData.LogId, func() {
-				log.Debugf("command run send %v", sendData.Unique)
+				//log.Debugf("command run send %v", sendData.Unique)
 				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
 
 				//设置cache为不在运行 （已完成）
@@ -555,17 +555,17 @@ func (c *Controller) sendService() {
 					c.statisticsStartChan <- sdata
 				}
 
-				log.Debugf("#################################send %+v", *d)
+				//log.Debugf("#################################send %+v", *d)
 				d.send(sendData)
 				delete(sendQueue, d.Unique)
 				fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 
 			}
-			case unique, ok := <- c.delSendQueueChan:
+			case _, ok := <- c.delSendQueueChan:
 				if !ok {
 					return
 				}
-				log.Debugf("running complete %v", unique)
+				//log.Debugf("running complete %v", unique)
 				//log.Debugf("=========================delete from send queue %v", unique)
 				//_, exists := sendQueue[unique]
 				//if exists {
@@ -595,7 +595,7 @@ func (c *Controller) getTimeout(id int64) int64 {
 		}
 	}
 	c.statisticsLock.Unlock()
-	log.Debugf("%v avg timeout is %v", id, timeout)
+	//log.Debugf("%v avg timeout is %v", id, timeout)
 	return timeout
 }
 
@@ -619,10 +619,10 @@ func (c *Controller) keep() {
 				if _, ok := queueMutex[item.id]; !ok {
 					mutexKeys = append(mutexKeys, item.id)
 				}
-				fmt.Fprintf(os.Stderr, "###############################mutexKeys %+v\r\n\r\n", mutexKeys)
+				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
 				queueMutex.append(item)
 			} else {
-				fmt.Fprintf(os.Stderr, "###############################normalKeys %+v\r\n\r\n", normalKeys)
+				//log.Errorf("###############################normalKeys %+v\r\n\r\n", normalKeys)
 				if _, ok := queueNomal[item.id]; !ok {
 					normalKeys = append(normalKeys, item.id)
 				}
@@ -635,21 +635,26 @@ func (c *Controller) keep() {
 
 			if len(mutexKeys) > 0 {
 				start := time.Now()
-				queueMutex.dispatch(mutexKeys[int(gindexMutex)], c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
-				fmt.Fprintf(os.Stderr, "OnPullCommand mutex use time %v\n", time.Since(start))
+				id := mutexKeys[int(gindexMutex)]
+				queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
+				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
+				fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
 
 				gindexMutex++
-				if gindexMutex >= int64(len(mutexKeys)-1) {
+				if gindexMutex >= int64(len(mutexKeys)) {
 					gindexMutex = 0
 				}
 			}
 
 			if len(normalKeys) > 0 {
+				start := time.Now()
 				queueNomal.dispatch(normalKeys[int(gindexNormal)], c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
 				gindexNormal++
-				if gindexNormal >= int64(len(normalKeys)-1) {
+				if gindexNormal >= int64(len(normalKeys)) {
 					gindexNormal = 0
 				}
+				fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
+
 			}
 		case endId, ok := <-c.runningEndChan:
 			if !ok {
@@ -664,7 +669,7 @@ func (c *Controller) keep() {
 			id := int64(binary.LittleEndian.Uint64(sdata[:8]))
 			t := int64(binary.LittleEndian.Uint64(sdata[8:])) //, uint64(int64(time.Now().UnixNano() / 1000000)))
 
-			log.Debugf(" %v start at %v", id, t)
+			//log.Debugf(" %v start at %v", id, t)
 			sta, ok := queueMutex[id]
 			if ok {
 				sta.sta.sendTimes++
@@ -680,12 +685,12 @@ func (c *Controller) keep() {
 
 			id := int64(binary.LittleEndian.Uint64(sdata[:8]))
 			t  := int64(binary.LittleEndian.Uint64(sdata[8:])) //, uint64(int64(time.Now().UnixNano() / 1000000)))
-			log.Debugf(" %v end at %v", id, t)
+			//log.Debugf(" %v end at %v", id, t)
 
 			sta, ok := queueMutex[id]
 			if ok {
 				sta.sta.totalUseTime += t - sta.sta.startTime
-				log.Debugf("#############avg=%v", sta.sta.getAvg())
+				//log.Debugf("#############avg=%v", sta.sta.getAvg())
 			} else {
 				log.Errorf("%v does not exists", id)
 			}
@@ -694,12 +699,17 @@ func (c *Controller) keep() {
 }
 
 func (c *Controller) Dispatch(id int64, command string, isMutex bool, logId int64) {
+	if len(c.dispatch) >= cap(c.dispatch) {
+		log.Errorf("dispatch cache full")
+		return
+	}
 	item := &runItem{
 		id:      id,
 		command: command,
 		isMutex: isMutex,
 		logId:   logId,
 	}
+	//log.Debugf("dispatch (len = %v) %+v", len(c.dispatch), *item)
 	c.dispatch <- item
 }
 
