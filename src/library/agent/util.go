@@ -61,7 +61,7 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	//log.Debugf("clen=%+v", clen)
 	if len(*data) < clen + 4 {
 		//log.Warnf("package is not complete")
-		log.Errorf("data len error %v < %v : %+v", len(*data), clen + 4, *data)
+		log.Errorf("data len error %v < %v : %+v\r\n%v", len(*data), clen + 4, *data, string(*data))
 		//*data = make([]byte, 0)
 		return 0, nil, DataLenError
 	}

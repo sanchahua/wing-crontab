@@ -589,8 +589,6 @@ func (c *Controller) sendService() {
 	}
 }
 
-
-
 func (c *Controller) getTimeout(id int64) int64 {
 	c.statisticsLock.Lock()
 	var timeout int64 = 60 * 1000
@@ -638,6 +636,8 @@ func (c *Controller) keep() {
 					set, ok := setNum[id]
 					if ok {
 						set()
+					} else {
+						log.Errorf("%v set num does not exists", id)
 					}
 				})
 				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
@@ -657,6 +657,8 @@ func (c *Controller) keep() {
 					set, ok := setNum[id]
 					if ok {
 						set()
+					} else {
+						log.Errorf("%v set num does not exists", id)
 					}
 				})
 				gindexNormal++

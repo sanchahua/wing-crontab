@@ -174,7 +174,6 @@ func (tcp *AgentClient) connect(ip string, port int) {
 }
 
 func (tcp *AgentClient) start(serviceIp string, port int) {
-	var readBuffer [4096]byte
 	go func() {
 		if serviceIp == "" || port == 0 {
 			log.Warnf("ip or port empty %s:%d", serviceIp, port)
@@ -225,7 +224,9 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 					break
 				}
 				//start3 := time.Now()
-				size, err := tcp.conn.Read(readBuffer[0:])
+				readBuffer := make([]byte, 4096)
+
+				size, err := tcp.conn.Read(readBuffer)
 				//fmt.Fprintf(os.Stderr, "read use time %v\n", time.Since(start3))
 
 				if err != nil || size <= 0 {

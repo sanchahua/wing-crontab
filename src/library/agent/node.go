@@ -254,10 +254,11 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 
 func (node *TcpClientNode) readMessage() {
 	//node := newNode(tcp.ctx, conn, NodeClose(tcp.agents.remove), NodePro(tcp.agents.append))
-	var readBuffer [tcpDefaultReadBufferSize]byte
+
 	// 设定3秒超时，如果添加到分组成功，超时限制将被清除
 	for {
-		size, err := (*node.conn).Read(readBuffer[0:])
+		readBuffer := make([]byte, 4096)
+		size, err := (*node.conn).Read(readBuffer)
 		if err != nil {
 			if err != io.EOF {
 				log.Warnf("tcp node %s disconnect with error: %v", (*node.conn).RemoteAddr().String(), err)
