@@ -616,6 +616,8 @@ func (c *Controller) keep() {
 	var queueNomal   = make(QEs)
 	var gindexMutex  = int64(0)
 	var gindexNormal = int64(0)
+	var waitNum      = make(map[int64] int64)
+	var setNum       = make(map[int64] func(int64))
 
 	// indexs
 	var mutexKeys    = make([]int64, 0)
@@ -632,6 +634,7 @@ func (c *Controller) keep() {
 			//	log.Errorf(" add log with error %v", err)
 			//	item.logId = logEntity.Id
 			//}
+			setNum[item.id] = item.setWaitNum
 			if item.isMutex {
 				if _, ok := queueMutex[item.id]; !ok {
 					mutexKeys = append(mutexKeys, item.id)
@@ -645,6 +648,8 @@ func (c *Controller) keep() {
 				}
 				queueNomal.append(item)
 			}
+			waitNum[item.id]++
+			item.setWaitNum(waitNum[item.id])
 		case node, ok := <-c.onPullChan:
 			if !ok {
 				return
@@ -653,7 +658,13 @@ func (c *Controller) keep() {
 			if len(mutexKeys) > 0 {
 				start := time.Now()
 				id := mutexKeys[int(gindexMutex)]
-				queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
+				queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(){
+					waitNum[id]--
+					set, ok := setNum[id]
+					if ok {
+						set(waitNum[id])
+					}
+				})
 				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
 				fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
 
@@ -665,7 +676,14 @@ func (c *Controller) keep() {
 
 			if len(normalKeys) > 0 {
 				start := time.Now()
-				queueNomal.dispatch(normalKeys[int(gindexNormal)], c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan)
+				id := normalKeys[int(gindexNormal)]
+				queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(){
+					waitNum[id]--
+					set, ok := setNum[id]
+					if ok {
+						set(waitNum[id])
+					}
+				})
 				gindexNormal++
 				if gindexNormal >= int64(len(normalKeys)) {
 					gindexNormal = 0
@@ -715,7 +733,7 @@ func (c *Controller) keep() {
 	}
 }
 
-func (c *Controller) Dispatch(id int64, command string, isMutex bool) {
+func (c *Controller) Dispatch(id int64, command string, isMutex bool, setWaitNum func(int64)) {
 	if len(c.dispatch) >= cap(c.dispatch) {
 		log.Errorf("dispatch cache full")
 		return
@@ -725,6 +743,7 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool) {
 		command: command,
 		isMutex: isMutex,
 		logId:   0,
+		setWaitNum:setWaitNum,
 	}
 	//log.Debugf("dispatch (len = %v) %+v", len(c.dispatch), *item)
 	c.dispatch <- item

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"models/cron"
+	"sync"
 )
 
 type CronEntity struct {
@@ -22,6 +23,8 @@ type CronEntity struct {
 
 	onwillrun OnWillRunFunc `json:"-"`
 	filter IFilter          `json:"-"`
+	WaitNum int64           `json:"wait_num"`
+	lock  *sync.RWMutex      `json:"-"`
 }
 type CronEntityMiddleWare func(entity *CronEntity) IFilter
 
@@ -37,6 +40,7 @@ func newCronEntity(entity *cron.CronEntity, onwillrun OnWillRunFunc) *CronEntity
 		StartTime: entity.StartTime,
 		EndTime:   entity.EndTime,
 		IsMutex:   entity.IsMutex,
+		lock:      new(sync.RWMutex),
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
@@ -46,13 +50,26 @@ func newCronEntity(entity *cron.CronEntity, onwillrun OnWillRunFunc) *CronEntity
 	return e
 }
 
+func (row *CronEntity) SetWaitNum(num int64) {
+	row.lock.Lock()
+	row.WaitNum = num
+	row.lock.Unlock()
+}
+
 func (row *CronEntity) Run() {
+	row.lock.RLock()
+	fmt.Fprintf(os.Stderr, "%v wait num is %v\r\n", row.Id, row.WaitNum)
+	if row.WaitNum >= 60 {
+		row.lock.RUnlock()
+		return
+	}
+	row.lock.RUnlock()
 	if row.filter.Stop() {
 		// 外部注入，停止执行定时任务支持
 		log.Debugf("%+v was stop", row.Id)
 		return
 	}
 	//roundbin to target server and run command
-	row.onwillrun(row.Id, row.Command, row.IsMutex)
+	row.onwillrun(row.Id, row.Command, row.IsMutex, row.SetWaitNum)
 	fmt.Fprintf(os.Stderr, "\r\n########## only leader do this %+v\r\n\r\n", *row)
 }
