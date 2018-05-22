@@ -412,7 +412,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 
 // send data to leader
 func (c *Controller) SendToLeader(data []byte) {
-	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, c.client.Write, 0, false)
+	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, c.client.Write, 0, false, 0)
 	c.sendQueueChan <- d
 }
 

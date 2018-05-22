@@ -47,7 +47,7 @@ func (queueNomal *QEs) dispatch(gindexNormal *int64, address string, send func(d
 			item := itemI.(*runItem)
 			sendData := pack(item, address)//c.ctx.Config.BindAddress)
 
-			c <- newSendData(agent.CMD_RUN_COMMAND, sendData, /*node.AsyncSend*/send, item.id, item.isMutex) //c.server.Broadcast)//
+			c <- newSendData(agent.CMD_RUN_COMMAND, sendData, /*node.AsyncSend*/send, item.id, item.isMutex, item.logId) //c.server.Broadcast)//
 			//c.sendQueueLock.Lock()
 			//c.sendQueue[d.Unique] = d
 			//c.sendQueueLock.Unlock()

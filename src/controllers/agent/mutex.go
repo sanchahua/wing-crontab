@@ -95,7 +95,7 @@ func (queueMutex *QMutex) dispatch(gindexMutex *int64,
 				//分发互斥定时任务
 				sendData := pack(item, address)//c.ctx.Config.BindAddress)
 
-				c <- newSendData(agent.CMD_RUN_COMMAND, sendData, /*node.AsyncSend*/send, item.id, item.isMutex)
+				c <- newSendData(agent.CMD_RUN_COMMAND, sendData, /*node.AsyncSend*/send, item.id, item.isMutex, item.logId)
 				//log.Debugf("###########dispatch mutex : %+v", *d)
 				//c.sendQueueLock.Lock()
 				//c.sendQueue[d.Unique] = d
