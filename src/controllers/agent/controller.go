@@ -56,6 +56,7 @@ type clientSetRunning struct {
 type clientRunningExists struct {
 	unique string
 	running *chan *clientExists
+	start int64
 }
 
 type clientExists struct {
@@ -163,16 +164,19 @@ func (c *Controller) clientCheck() {
 			if !ok {
 				return
 			}
-			i, exists := clientRunning[ex.unique]
-			if !exists {
-				*ex.running <- &clientExists{
-					exists: false,
-					running: false,
-				}
-			} else {
-				*ex.running <- &clientExists{
-					exists: true,
-					running: i.running,
+			// if timeout, do not send check
+			if int64(time.Now().UnixNano()/1000000) - ex.start < 5500 {
+				i, exists := clientRunning[ex.unique]
+				if !exists {
+					*ex.running <- &clientExists{
+						exists:  false,
+						running: false,
+					}
+				} else {
+					*ex.running <- &clientExists{
+						exists:  true,
+						running: i.running,
+					}
 				}
 			}
 		case _, ok := <- check:
@@ -240,6 +244,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			c.clientRunningExists <- &clientRunningExists{
 				unique:sendData.Unique,
 				running:&runningChan,
+				start: int64(time.Now().UnixNano()/1000000),
 			}
 			//to := time.NewTimer(time.Second*6)
 			startw := time.Now()
