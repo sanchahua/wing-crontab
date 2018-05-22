@@ -207,7 +207,7 @@ func (c *CrontabController) runCommand(id int64, command string, dispatchTime in
 		res = append(res, []byte("  error: " + err.Error())...)
 		log.Errorf("执行命令(%v)发生错误：%+v", command, err)
 	}
-	log.Infof("%+v was run: %v", id, command)
+	fmt.Fprintf(os.Stderr, "##########################%+v was run: %v##########################\r\n", id, command)
 	if c.onrun == nil {
 		log.Warnf("c.onrun is nil")
 		return
