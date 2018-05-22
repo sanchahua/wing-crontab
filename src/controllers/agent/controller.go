@@ -616,7 +616,7 @@ func (c *Controller) keep() {
 	var queueNomal   = make(QEs)
 	var gindexMutex  = int64(0)
 	var gindexNormal = int64(0)
-	var waitNum      = make(map[int64] int64)
+	//var waitNum      = make(map[int64] int64)
 	var setNum       = make(map[int64] func(int64))
 
 	// indexs
@@ -648,8 +648,8 @@ func (c *Controller) keep() {
 				}
 				queueNomal.append(item)
 			}
-			waitNum[item.id]++
-			item.setWaitNum(waitNum[item.id])
+			//waitNum[item.id]++
+			//item.setWaitNum(waitNum[item.id])
 		case node, ok := <-c.onPullChan:
 			if !ok {
 				return
@@ -659,10 +659,10 @@ func (c *Controller) keep() {
 				start := time.Now()
 				id := mutexKeys[int(gindexMutex)]
 				queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(){
-					waitNum[id]--
+					//waitNum[id]--
 					set, ok := setNum[id]
 					if ok {
-						set(waitNum[id])
+						set(0)
 					}
 				})
 				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
@@ -678,10 +678,10 @@ func (c *Controller) keep() {
 				start := time.Now()
 				id := normalKeys[int(gindexNormal)]
 				queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(){
-					waitNum[id]--
+					//waitNum[id]--
 					set, ok := setNum[id]
 					if ok {
-						set(waitNum[id])
+						set(0)
 					}
 				})
 				gindexNormal++
