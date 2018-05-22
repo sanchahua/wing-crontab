@@ -7,6 +7,7 @@ import (
 	"os"
 	"models/cron"
 	"sync"
+	"sync/atomic"
 )
 
 type CronEntity struct {
@@ -51,25 +52,20 @@ func newCronEntity(entity *cron.CronEntity, onwillrun OnWillRunFunc) *CronEntity
 }
 
 func (row *CronEntity) SubWaitNum() {
-	row.lock.Lock()
-	row.WaitNum--
-	row.lock.Unlock()
+	//row.lock.Lock()
+	//row.WaitNum--
+	atomic.AddInt64(&row.WaitNum, -1)
 }
 
 func (row *CronEntity) AddWaitNum() {
-	row.lock.Lock()
-	row.WaitNum++
-	row.lock.Unlock()
+	atomic.AddInt64(&row.WaitNum, 1)
 }
 
 func (row *CronEntity) Run() {
-	row.lock.RLock()
 	fmt.Fprintf(os.Stderr, "%v wait num is %v\r\n", row.Id, row.WaitNum)
-	if row.WaitNum >= 60 {
-		row.lock.RUnlock()
+	if atomic.LoadInt64(&row.WaitNum) >= 60 {
 		return
 	}
-	row.lock.RUnlock()
 	if row.filter.Stop() {
 		// 外部注入，停止执行定时任务支持
 		log.Debugf("%+v was stop", row.Id)
