@@ -16,7 +16,6 @@ import (
 	"database/sql"
 	"fmt"
 	mlog "models/log"
-	"os"
 )
 
 func main() {
@@ -77,16 +76,7 @@ func main() {
 	defer agentController.Close()
 
 
-	crontab.SetOnWillRun(func(id int64, command string, isMutex bool) {
-		logEntity, err := logController.Add(id, "", 0, ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1", 0)
-		if err != nil {
-			log.Errorf(" add log with error %v", err)
-			return
-		}
-		start:=time.Now()
-		agentController.Dispatch(id, command, isMutex, logEntity.Id)
-		fmt.Fprintf(os.Stderr, "agentController.Dispatch use time %v", time.Since(start))
-	})(crontabController)
+	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 
 	crontab.SetOnRun(func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration, logId int64) {

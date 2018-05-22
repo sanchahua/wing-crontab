@@ -80,7 +80,7 @@ const (
 type sendFunc              func(data []byte)
 type OnCommandFunc         func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, logId int64, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
-type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, logId int64)
+type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, logId int64)//  (*mlog.LogEntity, error)
 
 func NewController(
 	ctx *app.Context,
@@ -622,6 +622,11 @@ func (c *Controller) keep() {
 			if !ok {
 				return
 			}
+			//logEntity, err := c.addlog(item.id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_GEGIN, "定时任务开始 - 1", 0)
+			//if err != nil {
+			//	log.Errorf(" add log with error %v", err)
+			//	item.logId = logEntity.Id
+			//}
 			if item.isMutex {
 				if _, ok := queueMutex[item.id]; !ok {
 					mutexKeys = append(mutexKeys, item.id)
@@ -705,7 +710,7 @@ func (c *Controller) keep() {
 	}
 }
 
-func (c *Controller) Dispatch(id int64, command string, isMutex bool, logId int64) {
+func (c *Controller) Dispatch(id int64, command string, isMutex bool) {
 	if len(c.dispatch) >= cap(c.dispatch) {
 		log.Errorf("dispatch cache full")
 		return
@@ -714,7 +719,7 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool, logId int6
 		id:      id,
 		command: command,
 		isMutex: isMutex,
-		logId:   logId,
+		logId:   0,
 	}
 	//log.Debugf("dispatch (len = %v) %+v", len(c.dispatch), *item)
 	c.dispatch <- item
