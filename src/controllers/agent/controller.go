@@ -65,17 +65,17 @@ type clientExists struct {
 }
 
 const (
-	maxQueueLen         = 64
-	dispatchChanLen     = 10000
-	onPullChanLen       = 128
-	runningEndChanLen   = 1000
-	sendQueueChanLen    = 1000
-	delSendQueueChanLen = 1000
+	maxQueueLen             = 64
+	dispatchChanLen         = 100000
+	onPullChanLen           = 128
+	runningEndChanLen       = 1000
+	sendQueueChanLen        = 1000
+	delSendQueueChanLen     = 1000
 	statisticsChanLen       = 1000
 	clientRunningChanLen    = 1000
 	clientRunningSetChanLen = 1000
 	clientRunningExistsLen  = 1000
-	delCacheChanLen = 1000
+	delCacheChanLen         = 1000
 )
 
 type sendFunc              func(data []byte)
