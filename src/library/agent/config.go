@@ -33,7 +33,7 @@ const (
 const (
 	tcpNodeOnline = 1 << iota
 )
-const MAX_PACKAGE_LEN = 1024000
+const MAX_PACKAGE_LEN = 10240
 
 
 type NodeFunc func(n *TcpClientNode)

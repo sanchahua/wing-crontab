@@ -569,22 +569,22 @@ func (c *Controller) sendService() {
 
 				//log.Debugf("#################################send %+v", *d)
 				d.send(sendData)
-				delete(sendQueue, d.Unique)
+				//delete(sendQueue, d.Unique)
 				fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 
 			}
-			case _, ok := <- c.delSendQueueChan:
+			case unique, ok := <- c.delSendQueueChan:
 				if !ok {
 					return
 				}
-				//log.Debugf("running complete %v", unique)
+				fmt.Fprintf(os.Stderr, "running complete %v\r\n", unique)
 				//log.Debugf("=========================delete from send queue %v", unique)
-				//_, exists := sendQueue[unique]
-				//if exists {
-				//	delete(sendQueue, unique)
-				//} else {
-				//	log.Errorf("does not in send queue %v", unique)
-				//}
+				_, exists := sendQueue[unique]
+				if exists {
+					delete(sendQueue, unique)
+				} else {
+					log.Warnf("does not in send queue %v", unique)
+				}
 		}
 	}
 }

@@ -43,7 +43,7 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	}
 	defer func() {
 		if err := recover(); err != nil {
-			log.Errorf("%+v", err)
+			log.Errorf("Unpack recover##########%+v", err)
 			*data = make([]byte, 0)
 		}
 	}()
@@ -62,7 +62,7 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	if len(*data) < clen + 4 {
 		//log.Warnf("package is not complete")
 		log.Errorf("data len error %v < %v : %+v", len(*data), clen + 4, *data)
-		*data = make([]byte, 0)
+		//*data = make([]byte, 0)
 		return 0, nil, DataLenError
 	}
 	//log.Debugf("cmd=%+v", (*data)[4:6])
