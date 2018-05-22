@@ -258,6 +258,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		cmd, content, err := Unpack(&tcp.buffer)
 		tcp.bufferLock.Unlock()
 		if err != nil {
+			log.Errorf("%v", err)
 			return
 		}
 

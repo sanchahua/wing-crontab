@@ -44,6 +44,7 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	//log.Debugf("data: %+v", *data)
 	if len(*data) > MAX_PACKAGE_LEN {
 		log.Errorf("max len error: %+v", *data)
+		*data = make([]byte, 0)
 		return 0, nil, MaxPackError
 	}
 	if len(*data) < 6 {
@@ -54,7 +55,8 @@ func Unpack(data *[]byte) (int, []byte, error) {
 	//log.Debugf("clen=%+v", clen)
 	if len(*data) < clen + 4 {
 		//log.Warnf("package is not complete")
-		log.Errorf("data len error: %+v", *data)
+		log.Errorf("data len error %v < %v : %+v", len(*data), clen + 4, *data)
+		*data = make([]byte, 0)
 		return 0, nil, DataLenError
 	}
 	//log.Debugf("cmd=%+v", (*data)[4:6])
