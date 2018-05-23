@@ -37,10 +37,10 @@ type Controller struct {
 	statisticsLock   *sync.Mutex
 
 	//clientRunning        map[string]*clientRunItem
-	clientRunningChan    chan *clientRunItem
-	clientRunningSetChan chan clientSetRunning//[]byte
-	clientRunningExists  chan *clientRunningExists
-	delCacheChan chan string
+	//clientRunningChan    chan *clientRunItem
+	//clientRunningSetChan chan clientSetRunning//[]byte
+	//clientRunningExists  chan *clientRunningExists
+	//delCacheChan chan string
 	sendQueueLen int64
 }
 
@@ -74,10 +74,10 @@ const (
 	sendQueueChanLen        = 1000
 	delSendQueueChanLen     = 1000
 	statisticsChanLen       = 1000
-	clientRunningChanLen    = 1000
-	clientRunningSetChanLen = 1000
-	clientRunningExistsLen  = 1000
-	delCacheChanLen         = 1000
+	//clientRunningChanLen    = 1000
+	//clientRunningSetChanLen = 1000
+	//clientRunningExistsLen  = 1000
+	//delCacheChanLen         = 1000
 	maxSendQueueLen         = 64
 )
 
@@ -121,89 +121,89 @@ func NewController(
 				statisticsLock: new(sync.Mutex),
 
 				//clientRunning:  make(map[string]*clientRunItem),
-				clientRunningChan: make(chan *clientRunItem, clientRunningChanLen),
-				clientRunningSetChan: make(chan clientSetRunning, clientRunningSetChanLen),
-				clientRunningExists: make(chan *clientRunningExists, clientRunningExistsLen),
-				delCacheChan: make(chan string, delCacheChanLen),
+				//clientRunningChan: make(chan *clientRunItem, clientRunningChanLen),
+				//clientRunningSetChan: make(chan clientSetRunning, clientRunningSetChanLen),
+				//clientRunningExists: make(chan *clientRunningExists, clientRunningExistsLen),
+				//delCacheChan: make(chan string, delCacheChanLen),
 				sendQueueLen:0,
 			}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
 	go c.sendService()
 	go c.keep()
-	go c.clientCheck()
+	//go c.clientCheck()
 	return c
 }
 
 // 这个线程，用来检查分发服务器重试的
 // 比如，由于超时，服务端重试了这个定时任务，这时客户端要有去重机制
-func (c *Controller) clientCheck() {
-	var clientRunning = make(map[string]*clientRunItem)
-	var check = make(chan struct{})
-	//默认超时时间设置为10分钟
-	var defaultTimeout = int64(10 * 60 * 1000)
-	go func() {
-		for  {
-			check <- struct{}{}
-			time.Sleep(time.Second)
-		}
-	}()
-	for {
-		select {
-		case item, ok := <- c.clientRunningChan:
-			if !ok {
-				return
-			}
-			clientRunning[item.unique] = item
-		case set, ok := <- c.clientRunningSetChan:
-			if !ok {
-				return
-			}
-			it, exists := clientRunning[set.unique]
-			if exists {
-				it.running = set.running
-			}
-		case ex, ok := <- c.clientRunningExists:
-			//log.Errorf("check exists %+v", ex)
-			if !ok {
-				return
-			}
-			// if timeout, do not send check
-			if int64(time.Now().UnixNano()/1000000) - ex.start < 5500 {
-				i, exists := clientRunning[ex.unique]
-				if !exists {
-					*ex.running <- &clientExists{
-						exists:  false,
-						running: false,
-					}
-				} else {
-					*ex.running <- &clientExists{
-						exists:  true,
-						running: i.running,
-					}
-				}
-			}
-		case _, ok := <- check:
-			//这里用来检测超时的
-			if !ok {
-				return
-			}
-			for _, it := range clientRunning {
-				if int64(time.Now().UnixNano()/1000000) - it.setTime >= defaultTimeout {
-					log.Warnf("timeout was delete %v", it.unique)
-					delete(clientRunning, it.unique)
-				}
-			}
-			//log.Debugf("#########################################current client running cache len %v", len(clientRunning))
-		case unique, ok := <- c.delCacheChan:
-			if !ok {
-				return
-			}
-			//log.Debugf("receive del cache %v", unique)
-			delete(clientRunning, unique)
-		}
-	}
-}
+//func (c *Controller) clientCheck() {
+//	var clientRunning = make(map[string]*clientRunItem)
+//	var check = make(chan struct{})
+//	//默认超时时间设置为10分钟
+//	var defaultTimeout = int64(10 * 60 * 1000)
+//	go func() {
+//		for  {
+//			check <- struct{}{}
+//			time.Sleep(time.Second)
+//		}
+//	}()
+//	for {
+//		select {
+//		case item, ok := <- c.clientRunningChan:
+//			if !ok {
+//				return
+//			}
+//			clientRunning[item.unique] = item
+//		case set, ok := <- c.clientRunningSetChan:
+//			if !ok {
+//				return
+//			}
+//			it, exists := clientRunning[set.unique]
+//			if exists {
+//				it.running = set.running
+//			}
+//		case ex, ok := <- c.clientRunningExists:
+//			//log.Errorf("check exists %+v", ex)
+//			if !ok {
+//				return
+//			}
+//			// if timeout, do not send check
+//			if int64(time.Now().UnixNano()/1000000) - ex.start < 5500 {
+//				i, exists := clientRunning[ex.unique]
+//				if !exists {
+//					*ex.running <- &clientExists{
+//						exists:  false,
+//						running: false,
+//					}
+//				} else {
+//					*ex.running <- &clientExists{
+//						exists:  true,
+//						running: i.running,
+//					}
+//				}
+//			}
+//		case _, ok := <- check:
+//			//这里用来检测超时的
+//			if !ok {
+//				return
+//			}
+//			for _, it := range clientRunning {
+//				if int64(time.Now().UnixNano()/1000000) - it.setTime >= defaultTimeout {
+//					log.Warnf("timeout was delete %v", it.unique)
+//					delete(clientRunning, it.unique)
+//				}
+//			}
+//			//log.Debugf("#########################################current client running cache len %v", len(clientRunning))
+//		case unique, ok := <- c.delCacheChan:
+//			if !ok {
+//				return
+//			}
+//			//log.Debugf("receive del cache %v", unique)
+//			delete(clientRunning, unique)
+//		}
+//	}
+//}
 
 func (c *Controller) checkClientUniqueExists(runningChan chan *clientExists)  *clientExists {
 	to := time.NewTimer(time.Second*6)
@@ -316,10 +316,10 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
 
 				//设置cache为不在运行 （已完成）
-				c.clientRunningSetChan <- clientSetRunning{
-					unique:sendData.Unique,
-					running: false,
-				}
+				//c.clientRunningSetChan <- clientSetRunning{
+				//	unique:sendData.Unique,
+				//	running: false,
+				//}
 			})
 			fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
 	case agent.CMD_CRONTAB_CHANGE:
@@ -327,7 +327,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
 		c.delSendQueueChan <-  string(content)
 	case agent.CMD_DEL_CACHE:
-		c.delCacheChan <- string(content)
+		//c.delCacheChan <- string(content)
 	}
 }
 
@@ -339,7 +339,9 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 	switch event {
 	case agent.CMD_PULL_COMMAND:
 		//start := time.Now()
-		c.onPullChan <- node
+		if len(c.onPullChan) < 32 {
+			c.onPullChan <- node
+		}
 		//fmt.Fprintf(os.Stderr, "OnPullCommand use time %v\n", time.Since(start))
 	case agent.CMD_CRONTAB_CHANGE:
 		var sdata SendData
@@ -449,30 +451,30 @@ func (c *Controller) Pull() {
 	c.client.AsyncWrite(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
 }
 
-func (c *Controller) setStatistics(id int64) {
-	c.statisticsLock.Lock()
-	st, ok := c.statistics[id]
-	if !ok {
-		st = &Statistics{}
-		c.statistics[id] = st
-	}
-	st.sendTimes++
-	st.startTime = int64(time.Now().UnixNano() / 1000000)
-	c.statisticsLock.Unlock()
-}
+//func (c *Controller) setStatistics(id int64) {
+//	c.statisticsLock.Lock()
+//	st, ok := c.statistics[id]
+//	if !ok {
+//		st = &Statistics{}
+//		c.statistics[id] = st
+//	}
+//	st.sendTimes++
+//	st.startTime = int64(time.Now().UnixNano() / 1000000)
+//	c.statisticsLock.Unlock()
+//}
 
-func (c *Controller) setStatisticsTime(id int64) {
-	c.statisticsLock.Lock()
-	st, ok := c.statistics[id]
-	if ok {
-		current := int64(time.Now().UnixNano() / 1000000)
-		st.totalUseTime += current - st.startTime
-		fmt.Fprintf(os.Stderr, "%v avg use time = %vms\n", id, st.getAvg())
-	} else {
-		log.Errorf("%v does not exists", id)
-	}
-	c.statisticsLock.Unlock()
-}
+//func (c *Controller) setStatisticsTime(id int64) {
+//	c.statisticsLock.Lock()
+//	st, ok := c.statistics[id]
+//	if ok {
+//		current := int64(time.Now().UnixNano() / 1000000)
+//		st.totalUseTime += current - st.startTime
+//		fmt.Fprintf(os.Stderr, "%v avg use time = %vms\n", id, st.getAvg())
+//	} else {
+//		log.Errorf("%v does not exists", id)
+//	}
+//	c.statisticsLock.Unlock()
+//}
 
 func (c *Controller) sendService() {
 
@@ -500,51 +502,50 @@ func (c *Controller) sendService() {
 					return
 				}
 				for _, d := range sendQueue {
-				start := time.Now()
-				if d.Status > 0 && (int64(time.Now().UnixNano()/1000000) - d.Time) <= 10000 {
-					fmt.Fprintf(os.Stderr, "%v is still in sending status, wait for back\r\n", d.CronId)
-					continue
-				}
-				d.Status = 1
-				d.SendTimes++
+					start := time.Now()
+					if d.Status > 0 && (int64(time.Now().UnixNano()/1000000) - d.Time) <= 10000 {
+						fmt.Fprintf(os.Stderr, "%v is still in sending status, wait for back\r\n", d.CronId)
+						continue
+					}
+					d.Status = 1
+					d.SendTimes++
 
-				if d.SendTimes > 1 {
-					log.Warnf("send times %v, %+v", d.SendTimes, *d)
-					//timeSingnal = int64(timeSingnal * int64(d.SendTimes))
-					//if timeSingnal > 1000 {
-					//	timeSingnal = 1000
-					//}
-				}
-				//// 每次延迟1秒重试，最多60次，即1分钟之内才会重试
-				/*if d.SendTimes > 2 {
+					if d.SendTimes > 1 {
+						log.Warnf("send times %v, %+v", d.SendTimes, *d)
+						//timeSingnal = int64(timeSingnal * int64(d.SendTimes))
+						//if timeSingnal > 1000 {
+						//	timeSingnal = 1000
+						//}
+					}
+					//// 每次延迟1秒重试，最多60次，即1分钟之内才会重试
+					/*if d.SendTimes > 2 {
+						delete(sendQueue, d.Unique)
+						log.Warnf("send times max then 60, delete %+v", *d)
+						continue
+					}*/
+
+					d.Time    = int64(time.Now().UnixNano() / 1000000)
+					sd       := d.encode()
+					sendData := agent.Pack(d.Cmd, sd)
+
+					//一个定时任务的运行周期从 mlog.EVENT_CRON_DISPATCH 开始到 mlog.EVENT_CRON_END 结束
+					//todo 添加关键日志
+					if d.CronId > 0 {
+						c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATCH, "定时任务分发 - 2")
+					}
+
+					if d.IsMutex {
+						sdata := make([]byte, 16)
+						binary.LittleEndian.PutUint64(sdata[:8], uint64(d.CronId))
+						binary.LittleEndian.PutUint64(sdata[8:], uint64(int64(time.Now().UnixNano()/1000000)))
+						c.statisticsStartChan <- sdata
+					}
+
+					//log.Debugf("#################################send %+v", *d)
+					d.send(sendData)
 					delete(sendQueue, d.Unique)
-					log.Warnf("send times max then 60, delete %+v", *d)
-					continue
-				}*/
-
-				d.Time    = int64(time.Now().UnixNano() / 1000000)
-				sd       := d.encode()
-				sendData := agent.Pack(d.Cmd, sd)
-
-				//一个定时任务的运行周期从 mlog.EVENT_CRON_DISPATCH 开始到 mlog.EVENT_CRON_END 结束
-				//todo 添加关键日志
-				if d.CronId > 0 {
-					c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATCH, "定时任务分发 - 2")
+					fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 				}
-
-				if d.IsMutex {
-					sdata := make([]byte, 16)
-					binary.LittleEndian.PutUint64(sdata[:8], uint64(d.CronId))
-					binary.LittleEndian.PutUint64(sdata[8:], uint64(int64(time.Now().UnixNano()/1000000)))
-					c.statisticsStartChan <- sdata
-				}
-
-				//log.Debugf("#################################send %+v", *d)
-				d.send(sendData)
-				delete(sendQueue, d.Unique)
-				fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
-
-			}
 				atomic.StoreInt64(&c.sendQueueLen, int64(len(sendQueue)))
 			case unique, ok := <- c.delSendQueueChan:
 				if !ok {
@@ -562,25 +563,25 @@ func (c *Controller) sendService() {
 	}
 }
 
-func (c *Controller) getTimeout(id int64) int64 {
-	c.statisticsLock.Lock()
-	var timeout int64 = 60 * 1000
-	sta, ok := c.statistics[id]
-	if ok {
-		avg := sta.getAvg()
-		if avg > 0 {
-			timeout = avg * 3
-			if timeout > avg + 60 * 1000 {
-				timeout = avg + 60 * 1000
-			} else if timeout < 300 {
-				timeout = 1000
-			}
-		}
-	}
-	c.statisticsLock.Unlock()
-	//log.Debugf("%v avg timeout is %v", id, timeout)
-	return timeout
-}
+//func (c *Controller) getTimeout(id int64) int64 {
+//	c.statisticsLock.Lock()
+//	var timeout int64 = 60 * 1000
+//	sta, ok := c.statistics[id]
+//	if ok {
+//		avg := sta.getAvg()
+//		if avg > 0 {
+//			timeout = avg * 3
+//			if timeout > avg + 60 * 1000 {
+//				timeout = avg + 60 * 1000
+//			} else if timeout < 300 {
+//				timeout = 1000
+//			}
+//		}
+//	}
+//	c.statisticsLock.Unlock()
+//	//log.Debugf("%v avg timeout is %v", id, timeout)
+//	return timeout
+//}
 
 func (c *Controller) keep() {
 	var queueMutex   = make(QMutex)
@@ -601,7 +602,7 @@ func (c *Controller) keep() {
 				return
 			}
 
-			if atomic.LoadInt64(&c.sendQueueLen) < 64 {
+			if atomic.LoadInt64(&c.sendQueueLen) < 32 {
 				if len(mutexKeys) > 0 {
 					start := time.Now()
 					id := mutexKeys[int(gindexMutex)]

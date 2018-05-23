@@ -25,7 +25,7 @@ type CrontabController struct {
 	runList chan *runItem
 	runListLen int64
 	pullc chan struct{}
-	waiting int64
+	//waiting int64
 	runtimes uint64
 	usetime uint64
 }
@@ -40,7 +40,7 @@ type runItem struct {
 }
 
 const (
-	runListMaxLen = 512
+	runListMaxLen = 10000
 	uintMax = uint64(1) << 63
 )
 type PullCommandFunc func()
@@ -76,7 +76,7 @@ func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 		running:0,
 		fixTime:0,
 		runList:make(chan *runItem, runListMaxLen),
-		pullc:make(chan struct{}, 1),
+		pullc:make(chan struct{}, cpu * 2 + 2),
 	}
 	for _, f := range opts {
 		f(c)
@@ -237,9 +237,17 @@ func (c *CrontabController) run() {
 				v := atomic.AddUint64(&c.usetime, uint64(time.Now().UnixNano()/1000000) - start)
 
 				if v >= uintMax {
-					atomic.StoreUint64(&c.runtimes, 0)
-					atomic.StoreUint64(&c.usetime, 0)
+					avg      := uint64(0)
+					runtimes := uint64(0)
+					times    := atomic.LoadUint64(&c.runtimes)
 
+					if times > 0 {
+						runtimes = 1
+						avg = uint64(atomic.LoadUint64(&c.usetime)/times)
+					}
+
+					atomic.StoreUint64(&c.runtimes, runtimes)
+					atomic.StoreUint64(&c.usetime, avg)
 				}
 
 				// 严格互斥模式下，必须运行完才能响应
@@ -260,7 +268,7 @@ func (c *CrontabController) asyncPullCommand() {
 					return
 				}
 				if c.pullcommand != nil {
-					atomic.AddInt64(&c.waiting, 1)
+					//atomic.AddInt64(&c.waiting, 1)
 					c.pullcommand()
 				}
 		}
@@ -278,22 +286,22 @@ func (c *CrontabController) checkCommandLen() {
 	cpu := int64(runtime.NumCPU() * 2)
 	//haf := int64(runListMaxLen/2)
 	for {
-		wait := atomic.LoadInt64(&c.waiting)
-		fmt.Fprintf(os.Stderr, "\r\nrun list len %v, waiting num %v\r\n", len(c.runList), wait)
+		//wait := atomic.LoadInt64(&c.waiting)
+		fmt.Fprintf(os.Stderr, "\r\nrun list len %v\r\n", len(c.runList))
 		if atomic.LoadInt64(&c.runListLen) < cpu {
 			c.pullc <- struct{}{}
 		}
-		if wait >= cpu {
-			avg := int64(100)
-			times := atomic.LoadUint64(&c.runtimes)
-			if times > 0 {
-				avg = int64(atomic.LoadUint64(&c.usetime)/times)
-			}
-			log.Warnf("waiting num is max then %v, avg time is %vms", cpu, avg)
-			time.Sleep(time.Millisecond * time.Duration(avg) * time.Duration(cpu) + time.Millisecond*time.Duration(cpu*500))
-			atomic.StoreInt64(&c.waiting, 0)
-		}
-		time.Sleep(time.Millisecond * 100)
+		//if wait >= cpu {
+		//	avg := int64(100)
+		//	times := atomic.LoadUint64(&c.runtimes)
+		//	if times > 0 {
+		//		avg = int64(atomic.LoadUint64(&c.usetime)/times)
+		//	}
+		//	log.Warnf("waiting num is max then %v, avg time is %vms", cpu, avg)
+		//	time.Sleep(time.Millisecond * time.Duration(avg) * time.Duration(cpu) + time.Millisecond*time.Duration(cpu*500))
+		//	atomic.StoreInt64(&c.waiting, 0)
+		//}
+		time.Sleep(time.Second * 1)
 	}
 }
 
@@ -302,9 +310,9 @@ func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTim
 		log.Errorf("runlist len is max then %v", runListMaxLen)
 		return
 	}
-	if atomic.LoadInt64(&c.waiting) > 0 {
-		atomic.AddInt64(&c.waiting, -1)
-	}
+	//if atomic.LoadInt64(&c.waiting) > 0 {
+	//	atomic.AddInt64(&c.waiting, -1)
+	//}
 	c.runList <- &runItem{
 		id:             id,
 		command:        command,
