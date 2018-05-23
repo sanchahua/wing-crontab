@@ -244,7 +244,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			//这对于互斥任务来说很重要
 
 			//判断是否存在
-			var runningChan = make(chan *clientExists)
+			/*var runningChan = make(chan *clientExists)
 			c.clientRunningExists <- &clientRunningExists{
 				unique:sendData.Unique,
 				running:&runningChan,
@@ -254,17 +254,8 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			startw := time.Now()
 			var running = c.checkClientUniqueExists(runningChan)// := &clientExists{exists:false, running:false}
 			close(runningChan)
-			//select {
-			//	case ex, ok := <- runningChan:
-			//		if ok {
-			//			running = ex
-			//		}
-			//	case <-to.C:
-			//		running = &clientExists{exists:false, running:false}
-			//		log.Warnf("check exists timeout %v", sendData.Unique)
-			//}
-		fmt.Fprintf(os.Stderr, "###############check exists use time %v\r\n", time.Since(startw))
-
+			fmt.Fprintf(os.Stderr, "###############check exists use time %v\r\n", time.Since(startw))
+*/
 			id, dispatchTime, isMutex, command, dispatchServer, err := unpack(sendData.Data)
 			if err != nil {
 				log.Errorf("%v", err)
@@ -278,15 +269,15 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			//新过来的定时任务 running.exists 不可能为true
 			//如果正在运行，并且也存在
 			//这个时候不做任何处理
-			if running.exists && running.running {
+			/*if running.exists && running.running {
 				//log.Debugf("still running %v", sendData.Unique)
 				log.Infof("still running %v", sendData.Unique)
 				return
-			}
+			}*/
 
 			//如果存在，并且不在运行（运行完成）
 			//直接发送一个握手包
-			if running.exists && !running.running {
+			/*if running.exists && !running.running {
 				sdata := make([]byte, 0)
 				sid   := make([]byte, 8)
 				binary.LittleEndian.PutUint64(sid, uint64(id))
@@ -302,7 +293,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				unique: sendData.Unique,
 				running:true,
 				setTime:int64(time.Now().UnixNano()/1000000),
-			}
+			}*/
 
 
 			c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3", sendData.LogId)
