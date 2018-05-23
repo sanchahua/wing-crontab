@@ -26,5 +26,5 @@ func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte)
 	item := itemI.(*runItem)
 	sendData := pack(item, address)//c.ctx.Config.BindAddress)
 	success(queueNormal.Quantity())
-	c <- newSendData(agent.CMD_RUN_COMMAND, sendData, send, item.id, item.isMutex, item.logId)
+	c <- newSendData(agent.CMD_RUN_COMMAND, sendData, send, item.id, item.isMutex)
 }

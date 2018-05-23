@@ -30,7 +30,7 @@ type LogEntity struct {
 type ILog interface {
 	GetList(cronId int64, search string, dispatchServer, runServer string, page int64, limit int64) ([]*LogEntity, int64, error)
 	Get(rid int64) (*LogEntity, error)
-	Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, firstLogId int64) (*LogEntity, error)
+	Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) (*LogEntity, error)
 	Delete(id int64) (*LogEntity, error)
 	DeleteFormCronId(cronId int64) ([]*LogEntity, error)
 }

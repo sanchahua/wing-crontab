@@ -51,7 +51,7 @@ func (queueMutex *QMutex) dispatch(id int64, address string, send func(data []by
 	//分发互斥定时任务
 	sendData := pack(item, address)//c.ctx.Config.BindAddress)
 	success(queue.queue.Quantity())
-	c <- newSendData(agent.CMD_RUN_COMMAND, sendData, /*node.AsyncSend*/send, item.id, item.isMutex, item.logId)
+	c <- newSendData(agent.CMD_RUN_COMMAND, sendData, /*node.AsyncSend*/send, item.id, item.isMutex)
 }
 
 func (queueMutex *QMutex) setRunning(id int64, running bool) {

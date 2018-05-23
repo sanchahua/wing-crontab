@@ -80,7 +80,6 @@ CREATE TABLE `cron` (
 ````
 CREATE TABLE `log` (
  `id` int(11) NOT NULL AUTO_INCREMENT,
- `first_log_id` int(11) NOT NULL DEFAULT '0' COMMENT 'event = 1 的log id，用来分析链路的',
  `cron_id` int(11) NOT NULL DEFAULT '0',
  `event` varchar(32) NOT NULL DEFAULT '' COMMENT '事件',
  `time` bigint(20) NOT NULL COMMENT '命令运行的时间(毫秒时间戳)',
@@ -580,7 +579,6 @@ CREATE TABLE `cron` (
 
 CREATE TABLE `log` (
  `id` int(11) NOT NULL AUTO_INCREMENT,
- `first_log_id` int(11) NOT NULL DEFAULT '0' COMMENT 'event = 1 的log id，用来分析链路的',
  `cron_id` int(11) NOT NULL DEFAULT '0',
  `event` varchar(32) NOT NULL DEFAULT '' COMMENT '事件',
  `time` bigint(20) NOT NULL COMMENT '命令运行的时间(毫秒时间戳)',

@@ -4,7 +4,5 @@ type runItem struct {
 	id int64
 	command string
 	isMutex bool
-	logId int64
-	//addWaitNum func()
 	subWaitNum func() int64
 }

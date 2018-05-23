@@ -162,9 +162,9 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, firstLogId int64) (*LogEntity, error) {
-	sqlStr := "INSERT INTO `log`(`cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server`, `event`, `remark`, `first_log_id`) VALUES (?,?,?,?,?,?,?,?,?)"
-	res, err := db.handler.Exec(sqlStr, cronId, rtime, output, useTime, dispatchServer, runServer, event, remark, firstLogId)
+func (db *DbLog) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) (*LogEntity, error) {
+	sqlStr := "INSERT INTO `log`(`cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server`, `event`, `remark`) VALUES (?,?,?,?,?,?,?,?)"
+	res, err := db.handler.Exec(sqlStr, cronId, rtime, output, useTime, dispatchServer, runServer, event, remark)
 	if err != nil {
 		log.Errorf("新增log错误：%+v", err)
 		return nil, err
