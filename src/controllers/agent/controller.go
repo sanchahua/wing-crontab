@@ -8,7 +8,7 @@ import (
 	"time"
 	log "github.com/sirupsen/logrus"
 	"encoding/json"
-	mlog "models/log"
+	//mlog "models/log"
 	"fmt"
 	"os"
 	"sync/atomic"
@@ -32,7 +32,7 @@ type Controller struct {
 	lock             *sync.Mutex
 	onCronChange     OnCronChangeEventFunc
 	onCommand        OnCommandFunc
-	addlog           AddLogFunc
+	//addlog           AddLogFunc
 	statistics       map[int64]*Statistics
 	statisticsLock   *sync.Mutex
 
@@ -82,9 +82,9 @@ const (
 )
 
 type sendFunc              func(data []byte)  (int, error)
-type OnCommandFunc         func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func())
+type OnCommandFunc         func(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
-type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string)  (*mlog.LogEntity, error)
+//type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string)  (*mlog.LogEntity, error)
 
 func NewController(
 	ctx *app.Context,
@@ -98,7 +98,7 @@ func NewController(
 	//这个事件由leader分发定时任务到节点，节点收到定时任务时触发
 	//最终接收的api是crontabController.ReceiveCommand
 	onCommand OnCommandFunc,
-	addlog AddLogFunc,
+	//addlog AddLogFunc,
 ) *Controller {
 	c      := &Controller{
 				indexNormal:    0,
@@ -116,7 +116,7 @@ func NewController(
 				lock:           new(sync.Mutex),
 				onCronChange:   onCronChange,
 				onCommand:      onCommand,
-				addlog:         addlog,
+			//	addlog:         addlog,
 				statistics:     make(map[int64]*Statistics),
 				statisticsLock: new(sync.Mutex),
 
@@ -256,12 +256,12 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			close(runningChan)
 			fmt.Fprintf(os.Stderr, "###############check exists use time %v\r\n", time.Since(startw))
 */
-			id, dispatchTime, isMutex, command, dispatchServer, err := unpack(sendData.Data)
+			id, isMutex, command, dispatchServer, err := unpack(sendData.Data)
 			if err != nil {
 				log.Errorf("%v", err)
 				return
 			}
-			fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
+			fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
 
 			//判断是否正在运行
 
@@ -296,7 +296,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			}*/
 
 
-			c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3")
+			//c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3")
 
 
 			sdata := make([]byte, 0)
@@ -311,7 +311,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			sdata = append(sdata, isMutex)
 			sdata = append(sdata, []byte(sendData.Unique)...)
 
-			c.onCommand(id, command, dispatchTime, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
+			c.onCommand(id, command, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
 				//log.Debugf("command run send %v", sendData.Unique)
 				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
 
@@ -321,7 +321,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				//	running: false,
 				//}
 			})
-			fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v,%v,%v\r\n", id, dispatchTime, isMutex, command, dispatchServer, err)
+			fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
 	case agent.CMD_CRONTAB_CHANGE:
 		//
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
@@ -409,7 +409,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		// 后续返回握手也可能加入重发机制，所以这个判断很重要
 		 {
 			//current := int64(time.Now().UnixNano() / 1000000)
-			c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务结束 - 5")
+			//c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务结束 - 5")
 			//log.Debugf("****************************command run back 4 => %v, command back time is %v", unique, time.Now().UnixNano())
 			//c.statisticsLock.Lock()
 			//st, ok := c.statistics[id]
@@ -530,9 +530,9 @@ func (c *Controller) sendService() {
 
 					//一个定时任务的运行周期从 mlog.EVENT_CRON_DISPATCH 开始到 mlog.EVENT_CRON_END 结束
 					//todo 添加关键日志
-					if d.CronId > 0 {
-						c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATCH, "定时任务分发 - 2")
-					}
+					//if d.CronId > 0 {
+					//	c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATCH, "定时任务分发 - 2")
+					//}
 
 					if d.IsMutex {
 						sdata := make([]byte, 16)

@@ -19,7 +19,7 @@ type CrontabController struct {
 	lock *sync.Mutex
 	running int64
 	onwillrun OnWillRunFunc
-	onrun OnRunFunc
+	//onrun OnRunFunc
 	pullcommand PullCommandFunc
 	fixTime int
 	runList chan *runItem
@@ -28,11 +28,14 @@ type CrontabController struct {
 	//waiting int64
 	runtimes uint64
 	usetime uint64
+
+	onBefore []OnRunFunc
+	onAfter  []OnRunFunc
 }
 type runItem struct {
 	id int64
 	command string
-	dispatchTime int64
+	//dispatchTime int64
 	dispatchServer string
 	runServer string
 	after func()
@@ -44,7 +47,7 @@ const (
 	uintMax = uint64(1) << 63
 )
 type PullCommandFunc func()
-type OnRunFunc func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
+type OnRunFunc func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
 type OnWillRunFunc func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64)
 type CrontabControllerOption func(c *CrontabController)
 
@@ -60,33 +63,43 @@ func SetPullCommand(f PullCommandFunc) CrontabControllerOption {
 	}
 }
 
-func SetOnRun(f OnRunFunc) CrontabControllerOption {
+//func SetOnRun(f OnRunFunc) CrontabControllerOption {
+//	return func(c *CrontabController) {
+//		c.onrun = f
+//	}
+//}
+
+func SetOnBefore(f ...OnRunFunc) CrontabControllerOption {
 	return func(c *CrontabController) {
-		c.onrun = f
+		c.onBefore = append(c.onBefore, f...)
+	}
+}
+
+func SetOnAfter(f ...OnRunFunc) CrontabControllerOption {
+	return func(c *CrontabController) {
+		c.onAfter = append(c.onAfter, f...)
 	}
 }
 
 func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
 	cpu := runtime.NumCPU()
-
 	c := &CrontabController{
-		handler: cronv2.New(),
-		crontabList:make(map[int64] *CronEntity),
-		lock:new(sync.Mutex),
-		running:0,
-		fixTime:0,
-		runList:make(chan *runItem, runListMaxLen),
-		pullc:make(chan struct{}, cpu * 2 + 2),
+		handler:     cronv2.New(),
+		crontabList: make(map[int64] *CronEntity),
+		lock:        new(sync.Mutex),
+		running:     0,
+		fixTime:     0,
+		runList:     make(chan *runItem, runListMaxLen),
+		pullc:       make(chan struct{}, cpu * 2 + 2),
+		onBefore:    make([]OnRunFunc, 0),
+		onAfter:     make([]OnRunFunc, 0),
 	}
 	for _, f := range opts {
 		f(c)
 	}
-
-	//log.Debugf("cpu num %v", cpu)
 	for i := 0; i < cpu + 2; i++ {
 		go c.run()
 	}
-	go c.checkCommandLen()
 	go c.asyncPullCommand()
 	return c
 }
@@ -182,7 +195,10 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 	c.Start()
 }
 
-func (c *CrontabController) runCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string) {
+func (c *CrontabController) runCommand(id int64, command string, dispatchServer string, runServer string) {
+	for _, f := range c.onBefore {
+		f(id, dispatchServer, runServer, []byte(""), 0)
+	}
 	var cmd *exec.Cmd
 	var err error
 	start := time.Now()
@@ -193,11 +209,14 @@ func (c *CrontabController) runCommand(id int64, command string, dispatchTime in
 		log.Errorf("执行命令(%v)发生错误：%+v", command, err)
 	}
 	fmt.Fprintf(os.Stderr, "##########################%+v was run: %v##########################\r\n", id, command)
-	if c.onrun == nil {
-		log.Warnf("c.onrun is nil")
-		return
+	//if c.onrun == nil {
+	//	log.Warnf("c.onrun is nil")
+	//	return
+	//}
+	//c.onrun(id, dispatchServer, runServer, res, time.Since(start))
+	for _, f := range c.onAfter {
+		f(id, dispatchServer, runServer, res, time.Since(start))
 	}
-	c.onrun(id, dispatchTime, dispatchServer, runServer, res, time.Since(start))
 }
 
 func (c *CrontabController) run() {
@@ -233,7 +252,7 @@ func (c *CrontabController) run() {
 
 				atomic.AddUint64(&c.runtimes, 1)
 				start := uint64(time.Now().UnixNano()/1000000)
-				c.runCommand(data.id, data.command , data.dispatchTime , data.dispatchServer , data.runServer)
+				c.runCommand(data.id, data.command , data.dispatchServer , data.runServer)
 				v := atomic.AddUint64(&c.usetime, uint64(time.Now().UnixNano()/1000000) - start)
 
 				if v >= uintMax {
@@ -261,6 +280,14 @@ func (c *CrontabController) run() {
 }
 
 func (c *CrontabController) asyncPullCommand() {
+	var ch = make(chan struct{})
+	cpu := int64(runtime.NumCPU() * 2)
+	go func() {
+		for {
+			ch <- struct{}{}
+			time.Sleep(time.Second)
+		}
+	}()
 	for {
 		select {
 			case _, ok := <- c.pullc:
@@ -271,41 +298,34 @@ func (c *CrontabController) asyncPullCommand() {
 					//atomic.AddInt64(&c.waiting, 1)
 					c.pullcommand()
 				}
+			case <- ch:
+				fmt.Fprintf(os.Stderr, "\r\nrun list len %v\r\n", len(c.runList))
+				if atomic.LoadInt64(&c.runListLen) < cpu {
+					c.pullc <- struct{}{}
+				}
 		}
 	}
 }
 
-func (c *CrontabController) checkCommandLen() {
-	for {
-		if c.pullcommand == nil {
-			time.Sleep(time.Second * 1)
-			continue
-		}
-		break
-	}
-	cpu := int64(runtime.NumCPU() * 2)
-	//haf := int64(runListMaxLen/2)
-	for {
-		//wait := atomic.LoadInt64(&c.waiting)
-		fmt.Fprintf(os.Stderr, "\r\nrun list len %v\r\n", len(c.runList))
-		if atomic.LoadInt64(&c.runListLen) < cpu {
-			c.pullc <- struct{}{}
-		}
-		//if wait >= cpu {
-		//	avg := int64(100)
-		//	times := atomic.LoadUint64(&c.runtimes)
-		//	if times > 0 {
-		//		avg = int64(atomic.LoadUint64(&c.usetime)/times)
-		//	}
-		//	log.Warnf("waiting num is max then %v, avg time is %vms", cpu, avg)
-		//	time.Sleep(time.Millisecond * time.Duration(avg) * time.Duration(cpu) + time.Millisecond*time.Duration(cpu*500))
-		//	atomic.StoreInt64(&c.waiting, 0)
-		//}
-		time.Sleep(time.Second * 1)
-	}
-}
+//func (c *CrontabController) checkCommandLen() {
+//	for {
+//		if c.pullcommand == nil {
+//			time.Sleep(time.Second * 1)
+//			continue
+//		}
+//		break
+//	}
+//	cpu := int64(runtime.NumCPU() * 2)
+//	for {
+//		fmt.Fprintf(os.Stderr, "\r\nrun list len %v\r\n", len(c.runList))
+//		if atomic.LoadInt64(&c.runListLen) < cpu {
+//			c.pullc <- struct{}{}
+//		}
+//		time.Sleep(time.Second * 1)
+//	}
+//}
 
-func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func()) {
+func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func()) {
 	if len(c.runList) >= cap(c.runList) {
 		log.Errorf("runlist len is max then %v", runListMaxLen)
 		return
@@ -313,7 +333,7 @@ func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTim
 	c.runList <- &runItem{
 		id:             id,
 		command:        command,
-		dispatchTime:   dispatchTime,
+		//dispatchTime:   dispatchTime,
 		dispatchServer: dispatchServer,
 		runServer:      runServer,
 		after:          after,

@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	EVENT_CRON_GEGIN    = "1"//cron_start"     //定时任务到点开始执行事件
-	EVENT_CRON_DISPATCH = "2"//cron_dispatch"  //定时任务开始分发事件
-	EVENT_CRON_RUN      = "3"//cron_run_start" //定时任务开始运行事件
-	EVENT_CRON_RUN_END  = "4"//cron_run_end"   //定时任务运行结束事件
-	EVENT_CRON_END      = "5"//cron_end"       //定时任务结束
+	EVENT_CRON_START    = "1"//cron_start"     //定时任务到点开始执行事件
+	EVENT_CRON_END = "2"//cron_dispatch"  //定时任务开始分发事件
+	//EVENT_CRON_RUN      = "3"//cron_run_start" //定时任务开始运行事件
+	//EVENT_CRON_RUN_END  = "4"//cron_run_end"   //定时任务运行结束事件
+	//EVENT_CRON_END      = "5"//cron_end"       //定时任务结束
 )
 
 type DbLog struct {

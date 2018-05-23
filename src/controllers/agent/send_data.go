@@ -19,7 +19,7 @@ type SendData struct {
 
 func newSendData(cmd int, data []byte, send sendFunc, id int64, isMutex bool) *SendData {
 	return &SendData{
-		Unique:    wstring.RandString(128),
+		Unique:    wstring.RandString(64),
 		Data:      data,
 		Status:    0,
 		Time:      0,

@@ -58,9 +58,18 @@ func main() {
 
 	cronController := models.NewCronController(ctx, handler)
 	defer cronController.Close()
-
-	crontabController := crontab.NewCrontabController()
 	logController     := models.NewLogController(ctx, handler)
+	crontabController := crontab.NewCrontabController(crontab.SetOnBefore(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
+		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
+		//start := time.Now()
+		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_START, "定时任务开始执行")
+		//log.Debugf("onrun use time %+v", time.Since(start))
+	}), crontab.SetOnAfter(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
+		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
+		//start := time.Now()
+		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务执行完成")
+		//log.Debugf("onrun use time %+v", time.Since(start))
+	}))
 
 	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, data []byte) {
 		//log.Infof("===========%+v", data)
@@ -71,7 +80,7 @@ func main() {
 			return
 		}
 		crontabController.Add(event, &e)
-	}, crontabController.ReceiveCommand, logController.Add)
+	}, crontabController.ReceiveCommand)
 	agentController.Start()
 	defer agentController.Close()
 
@@ -79,12 +88,6 @@ func main() {
 	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 
-	crontab.SetOnRun(func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
-		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
-		//start := time.Now()
-		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_RUN_END, "定时任务运行结束 - 4")
-		//log.Debugf("onrun use time %+v", time.Since(start))
-	})(crontabController)
 	//crontabController.Start()
 	//defer crontabController.Stop()
 
