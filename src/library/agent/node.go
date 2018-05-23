@@ -78,7 +78,7 @@ func (node *TcpClientNode) close() {
 	}
 }
 
-func (node *TcpClientNode) send(data []byte) (int, error) {
+func (node *TcpClientNode) Send(data []byte) (int, error) {
 	(*node.conn).SetWriteDeadline(time.Now().Add(time.Second * 3))
 	return (*node.conn).Write(data)
 }

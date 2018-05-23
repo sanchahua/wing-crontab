@@ -81,7 +81,7 @@ const (
 	maxSendQueueLen         = 64
 )
 
-type sendFunc              func(data []byte)
+type sendFunc              func(data []byte)  (int, error)
 type OnCommandFunc         func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, logId int64, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
 type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, logId int64)  (*mlog.LogEntity, error)
@@ -427,7 +427,10 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 
 // send data to leader
 func (c *Controller) SendToLeader(data []byte) {
-	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, c.client.Write, 0, false, 0)
+	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, func(data []byte) (int, error) {
+		c.client.Write(data)
+		return 0, nil
+	}, 0, false, 0)
 	c.sendQueueChan <- d
 }
 
@@ -602,7 +605,7 @@ func (c *Controller) keep() {
 				if len(mutexKeys) > 0 {
 					start := time.Now()
 					id := mutexKeys[int(gindexMutex)]
-					queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(num uint32) {
+					queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.Send, c.sendQueueChan, func(num uint32) {
 						//waitNum[id]--
 						set, ok := setNum[id]
 						if ok {
@@ -623,7 +626,7 @@ func (c *Controller) keep() {
 				if len(normalKeys) > 0 {
 					start := time.Now()
 					id := normalKeys[int(gindexNormal)]
-					queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(num uint32) {
+					queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.Send, c.sendQueueChan, func(num uint32) {
 						//waitNum[id]--
 						set, ok := setNum[id]
 						if ok {

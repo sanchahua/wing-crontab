@@ -73,5 +73,3 @@ curl http://localhost:9990/cron/delete/19
 
 curl http://localhost:9990/cron/update -X POST -d "id=1307&cronSet=*/1 * * * * *&command=php -v&remark=&stop=0&start_time=0&end_time=0"
 
-
-

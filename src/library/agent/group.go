@@ -9,7 +9,7 @@ func (c *TcpClients) append(node *TcpClientNode) {
 
 func (c *TcpClients) send(data []byte) {
 	for _, node := range *c {
-		node.send(data)
+		node.Send(data)
 	}
 }
 

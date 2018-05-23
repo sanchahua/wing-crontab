@@ -16,7 +16,7 @@ func (queueNomal *QEs) append(item *runItem) bool {
 	return ok
 }
 
-func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte), c chan *SendData, success func(num uint32)){
+func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte) (int, error), c chan *SendData, success func(num uint32)){
 	queueNormal := (*queueNomal)[id]
 	itemI, ok, _ := queueNormal.Get()
 	if !ok || itemI == nil {
