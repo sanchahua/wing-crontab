@@ -68,7 +68,7 @@ type clientExists struct {
 
 const (
 	maxQueueLen             = 64
-	dispatchChanLen         = 100000
+	dispatchChanLen         = 1000000
 	onPullChanLen           = 128
 	runningEndChanLen       = 1000
 	sendQueueChanLen        = 1000
@@ -719,6 +719,7 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum
 		log.Errorf("dispatch cache full")
 		return
 	}
+	addWaitNum()
 	item := &runItem{
 		id:      id,
 		command: command,
@@ -726,7 +727,6 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum
 		logId:   0,
 		subWaitNum:subwaitNum,
 	}
-	addWaitNum()
 	//log.Debugf("dispatch (len = %v) %+v", len(c.dispatch), *item)
 	c.dispatch <- item
 }

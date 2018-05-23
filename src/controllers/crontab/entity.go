@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"models/cron"
-	"sync"
 	"sync/atomic"
 )
 
@@ -25,7 +24,6 @@ type CronEntity struct {
 	onwillrun OnWillRunFunc `json:"-"`
 	filter IFilter          `json:"-"`
 	WaitNum int64           `json:"wait_num"`
-	lock  *sync.RWMutex      `json:"-"`
 }
 type CronEntityMiddleWare func(entity *CronEntity) IFilter
 
@@ -41,7 +39,6 @@ func newCronEntity(entity *cron.CronEntity, onwillrun OnWillRunFunc) *CronEntity
 		StartTime: entity.StartTime,
 		EndTime:   entity.EndTime,
 		IsMutex:   entity.IsMutex,
-		lock:      new(sync.RWMutex),
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
@@ -52,11 +49,8 @@ func newCronEntity(entity *cron.CronEntity, onwillrun OnWillRunFunc) *CronEntity
 }
 
 func (row *CronEntity) SubWaitNum() int64 {
-	//row.lock.Lock()
-	//row.WaitNum--
-	left := atomic.LoadInt64(&row.WaitNum)
-	if left <= 0 {
-		return left
+	if atomic.LoadInt64(&row.WaitNum) <= 0 {
+		return 0
 	}
 	return atomic.AddInt64(&row.WaitNum, -1)
 }
