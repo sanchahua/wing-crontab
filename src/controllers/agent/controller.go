@@ -11,6 +11,7 @@ import (
 	mlog "models/log"
 	"fmt"
 	"os"
+	"sync/atomic"
 )
 
 type Controller struct {
@@ -40,6 +41,7 @@ type Controller struct {
 	clientRunningSetChan chan clientSetRunning//[]byte
 	clientRunningExists  chan *clientRunningExists
 	delCacheChan chan string
+	sendQueueLen int64
 }
 
 type clientRunItem struct {
@@ -76,6 +78,7 @@ const (
 	clientRunningSetChanLen = 1000
 	clientRunningExistsLen  = 1000
 	delCacheChanLen         = 1000
+	maxSendQueueLen         = 64
 )
 
 type sendFunc              func(data []byte)
@@ -122,6 +125,7 @@ func NewController(
 				clientRunningSetChan: make(chan clientSetRunning, clientRunningSetChanLen),
 				clientRunningExists: make(chan *clientRunningExists, clientRunningExistsLen),
 				delCacheChan: make(chan string, delCacheChanLen),
+				sendQueueLen:0,
 			}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
@@ -276,6 +280,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 			//这个时候不做任何处理
 			if running.exists && running.running {
 				//log.Debugf("still running %v", sendData.Unique)
+				log.Infof("still running %v", sendData.Unique)
 				return
 			}
 
@@ -289,7 +294,7 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				sdata = append(sdata, isMutex)
 				sdata = append(sdata, []byte(sendData.Unique)...)
 				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
-				//log.Debugf("running complete %v", sendData.Unique)
+				log.Infof("running complete %v", sendData.Unique)
 				return
 			}
 
@@ -490,61 +495,33 @@ func (c *Controller) sendService() {
 
 	for {
 		select {
-		case d ,ok := <-c.sendQueueChan:
-			if !ok {
-				return
-			}
-			sendQueue[d.Unique] = d
+			case d ,ok := <-c.sendQueueChan:
+				if !ok {
+					return
+				}
+				sendQueue[d.Unique] = d
 			case _, ok:= <-checkChan:
 				if !ok {
 					return
 				}
-
-			for _, d := range sendQueue {
+				for _, d := range sendQueue {
 				start := time.Now()
-				// status > 0 is sending
-				// 发送中的数据，3秒之内不会在发送，超过3秒会进行2次重试
-				// todo ？？这里的3秒设置的是否合理，这里最好的方式应该有一个实时发送时间反馈
-				// 比如完成一次发送需要100ms，超时时间设置为 100ms + 3s 这样应该更合理
-				// 即t+3模式
-				// 默认60秒超时重试
-
-				// 这里获取运行的平均时间，假设为t， 然后 t+60*1000 毫秒为超时时间
-				//c.statisticsLock.Lock()
-				//var timeout = c.getTimeout(d.CronId)//int64 = 60 * 1000
-				//sta, ok := c.statistics[d.CronId]
-				//if ok {
-				//	avg := sta.getAvg()
-				//	if avg > 0 {
-				//		timeout = avg * 3
-				//		if timeout > avg+60*1000 {
-				//			timeout = avg + 60*1000
-				//		} else if timeout < 300 {
-				//			timeout = 1000
-				//		}
-				//	}
-				//}
-				//c.statisticsLock.Unlock()
-
 				if d.Status > 0 && (int64(time.Now().UnixNano()/1000000) - d.Time) <= 10000 {
 					fmt.Fprintf(os.Stderr, "%v is still in sending status, wait for back\r\n", d.CronId)
 					continue
 				}
 				d.Status = 1
 				d.SendTimes++
-				//
+
 				if d.SendTimes > 1 {
 					log.Warnf("send times %v, %+v", d.SendTimes, *d)
 				}
-				//
 				//// 每次延迟1秒重试，最多60次，即1分钟之内才会重试
 				if d.SendTimes >= 60 {
 					delete(sendQueue, d.Unique)
 					log.Warnf("send times max then 60, delete %+v", *d)
 					continue
 				}
-
-				//Start := int64(time.Now().UnixNano()/1000000)
 
 				d.Time    = int64(time.Now().UnixNano() / 1000000)
 				sd       := d.encode()
@@ -555,10 +532,6 @@ func (c *Controller) sendService() {
 				if d.CronId > 0 {
 					c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATCH, "定时任务分发 - 2", d.LogId)
 				}
-
-				//c.setStatistics(d.CronId)
-				//st.sendTimes++
-				//st.startTime = int64(time.Now().UnixNano() / 1000000)
 
 				if d.IsMutex {
 					sdata := make([]byte, 16)
@@ -573,11 +546,12 @@ func (c *Controller) sendService() {
 				fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 
 			}
+				atomic.StoreInt64(&c.sendQueueLen, int64(len(sendQueue)))
 			case unique, ok := <- c.delSendQueueChan:
 				if !ok {
 					return
 				}
-				fmt.Fprintf(os.Stderr, "running complete %v\r\n", unique)
+				log.Infof("running complete -server %v", unique)
 				//log.Debugf("=========================delete from send queue %v", unique)
 				_, exists := sendQueue[unique]
 				if exists {
@@ -628,46 +602,49 @@ func (c *Controller) keep() {
 				return
 			}
 
-			if len(mutexKeys) > 0 {
-				start := time.Now()
-				id := mutexKeys[int(gindexMutex)]
-				queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(num uint32){
-					//waitNum[id]--
-					set, ok := setNum[id]
-					if ok {
-						set()
-					} else {
-						log.Errorf("%v set num does not exists", id)
-					}
-				})
-				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
-				fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
+			if atomic.LoadInt64(&c.sendQueueLen) < 64 {
+				if len(mutexKeys) > 0 {
+					start := time.Now()
+					id := mutexKeys[int(gindexMutex)]
+					queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(num uint32) {
+						//waitNum[id]--
+						set, ok := setNum[id]
+						if ok {
+							set()
+						} else {
+							log.Errorf("%v set num does not exists", id)
+						}
+					})
+					//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
+					fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
 
-				gindexMutex++
-				if gindexMutex >= int64(len(mutexKeys)) {
-					gindexMutex = 0
+					gindexMutex++
+					if gindexMutex >= int64(len(mutexKeys)) {
+						gindexMutex = 0
+					}
+				}
+
+				if len(normalKeys) > 0 {
+					start := time.Now()
+					id := normalKeys[int(gindexNormal)]
+					queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(num uint32) {
+						//waitNum[id]--
+						set, ok := setNum[id]
+						if ok {
+							set()
+						} else {
+							log.Errorf("%v set num does not exists", id)
+						}
+					})
+					gindexNormal++
+					if gindexNormal >= int64(len(normalKeys)) {
+						gindexNormal = 0
+					}
+					fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
+
 				}
 			}
 
-			if len(normalKeys) > 0 {
-				start := time.Now()
-				id := normalKeys[int(gindexNormal)]
-				queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(num uint32){
-					//waitNum[id]--
-					set, ok := setNum[id]
-					if ok {
-						set()
-					} else {
-						log.Errorf("%v set num does not exists", id)
-					}
-				})
-				gindexNormal++
-				if gindexNormal >= int64(len(normalKeys)) {
-					gindexNormal = 0
-				}
-				fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
-
-			}
 		case endId, ok := <-c.runningEndChan:
 			if !ok {
 				return
