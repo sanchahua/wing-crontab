@@ -73,7 +73,7 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 }
 
 // 直接发送
-func (tcp *AgentClient) Write(data []byte) {
+func (tcp *AgentClient) AsyncWrite(data []byte) {
 	start := time.Now().Unix()
 	for {
 		if (time.Now().Unix() - start) > 1 {
@@ -97,6 +97,13 @@ func (tcp *AgentClient) Write(data []byte) {
 		//return
 	}
 	tcp.asyncWriteChan <- data
+}
+
+func (tcp *AgentClient) Write(data []byte) (int, error) {
+	if tcp.conn == nil {
+		return 0, nil
+	}
+	return tcp.conn.Write(data)
 }
 
 func (tcp *AgentClient) asyncWrite() {

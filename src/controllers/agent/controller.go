@@ -428,7 +428,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 // send data to leader
 func (c *Controller) SendToLeader(data []byte) {
 	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, func(data []byte) (int, error) {
-		c.client.Write(data)
+		c.client.AsyncWrite(data)
 		return 0, nil
 	}, 0, false, 0)
 	c.sendQueueChan <- d
@@ -446,7 +446,7 @@ func (c *Controller) SendToLeader(data []byte) {
 
 func (c *Controller) Pull() {
 	//log.Debugf("##############################pull command(%v)", agent.CMD_PULL_COMMAND)
-	c.client.Write(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
+	c.client.AsyncWrite(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
 }
 
 func (c *Controller) setStatistics(id int64) {
