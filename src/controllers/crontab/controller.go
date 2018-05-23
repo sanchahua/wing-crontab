@@ -3,7 +3,7 @@ package crontab
 import (
 	"models/cron"
 	log "github.com/sirupsen/logrus"
-	cronv2 "gopkg.in/robfig/cron.v2"
+	cronv2 "library/cron"
 	"os/exec"
 	"sync"
 	"time"

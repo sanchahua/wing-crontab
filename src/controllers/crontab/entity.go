@@ -2,7 +2,7 @@ package crontab
 
 import (
 	log "github.com/sirupsen/logrus"
-	cronv2 "gopkg.in/robfig/cron.v2"
+	cronv2 "library/cron"
 	"fmt"
 	"os"
 	"models/cron"
