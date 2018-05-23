@@ -251,12 +251,12 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 
 func (tcp *AgentClient) onMessage(msg []byte) {
 
-	defer func() {
-		if err := recover(); err != nil {
-			log.Errorf("Unpack recover##########%+v", err)
-			tcp.buffer = make([]byte, 0)
-		}
-	}()
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		log.Errorf("Unpack recover##########%+v", err)
+	//		tcp.buffer = make([]byte, 0)
+	//	}
+	//}()
 
 	tcp.buffer = append(tcp.buffer, msg...)
 	for {

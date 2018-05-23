@@ -155,12 +155,12 @@ func (node *TcpClientNode) asyncSendService() {
 }
 
 func (node *TcpClientNode) onMessage(msg []byte) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Errorf("Unpack recover##########%+v", err)
-			node.recvBuf = make([]byte, 0)
-		}
-	}()
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		log.Errorf("Unpack recover##########%+v", err)
+	//		node.recvBuf = make([]byte, 0)
+	//	}
+	//}()
 	node.recvBuf = append(node.recvBuf, msg...)
 	for {
 		cmd, content, pos, err := Unpack(node.recvBuf)
