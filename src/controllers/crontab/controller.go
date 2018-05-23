@@ -215,12 +215,15 @@ func (c *CrontabController) run() {
 				if !ok {
 					return
 				}
+
+				ll := len(c.runList)
 				//run one command, pull one
-				if len(c.pullc) < cap(c.pullc) && len(c.runList) < cpu {
+				if len(c.pullc) < cap(c.pullc) && ll < cpu {
 					c.pullc <- struct{}{}
 				}
 
-				atomic.StoreInt64(&c.runListLen, int64(len(c.runList)))
+				atomic.StoreInt64(&c.runListLen, int64(ll))
+				fmt.Fprintf(os.Stderr, "\r\nrun list len %v\r\n", ll)
 
 				// 如果非互斥模式
 				// 尽快响应
@@ -287,7 +290,7 @@ func (c *CrontabController) checkCommandLen() {
 				avg = int64(atomic.LoadUint64(&c.usetime)/times)
 			}
 			log.Warnf("waiting num is max then %v, avg time is %vms", cpu, avg)
-			time.Sleep(time.Millisecond * time.Duration(avg) * time.Duration(cpu))
+			time.Sleep(time.Millisecond * time.Duration(avg) * time.Duration(cpu) + time.Millisecond*time.Duration(cpu*500))
 			atomic.StoreInt64(&c.waiting, 0)
 		}
 		time.Sleep(time.Millisecond * 100)
