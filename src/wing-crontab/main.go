@@ -49,7 +49,7 @@ func main() {
 		//设置最大空闲连接数
 		handler.SetMaxIdleConns(8)
 		//设置最大允许打开的连接
-		handler.SetMaxOpenConns(8)
+		handler.SetMaxOpenConns(32)
 		defer handler.Close()
 	}
 
@@ -71,7 +71,7 @@ func main() {
 			return
 		}
 		crontabController.Add(event, &e)
-	}, crontabController.ReceiveCommand, logController.AsyncAdd)
+	}, crontabController.ReceiveCommand, logController.Add)
 	agentController.Start()
 	defer agentController.Close()
 

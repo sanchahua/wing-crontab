@@ -84,7 +84,7 @@ const (
 type sendFunc              func(data []byte)
 type OnCommandFunc         func(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, logId int64, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
-type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, logId int64)//  (*mlog.LogEntity, error)
+type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string, logId int64)  (*mlog.LogEntity, error)
 
 func NewController(
 	ctx *app.Context,
@@ -484,12 +484,13 @@ func (c *Controller) sendService() {
 
 	var sendQueue = make(map[string]*SendData)
 	var checkChan = make(chan struct{}, 1000)
+	var timeSingnal = int64(100)
 
 	// 信号生成，用于触发发送待发送的消息
 	go func() {
 		for {
 			checkChan <- struct{}{}
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond * time.Duration(timeSingnal))
 		}
 	}()
 
@@ -515,13 +516,17 @@ func (c *Controller) sendService() {
 
 				if d.SendTimes > 1 {
 					log.Warnf("send times %v, %+v", d.SendTimes, *d)
+					//timeSingnal = int64(timeSingnal * int64(d.SendTimes))
+					//if timeSingnal > 1000 {
+					//	timeSingnal = 1000
+					//}
 				}
 				//// 每次延迟1秒重试，最多60次，即1分钟之内才会重试
-				if d.SendTimes >= 60 {
+				/*if d.SendTimes > 2 {
 					delete(sendQueue, d.Unique)
 					log.Warnf("send times max then 60, delete %+v", *d)
 					continue
-				}
+				}*/
 
 				d.Time    = int64(time.Now().UnixNano() / 1000000)
 				sd       := d.encode()
@@ -542,7 +547,7 @@ func (c *Controller) sendService() {
 
 				//log.Debugf("#################################send %+v", *d)
 				d.send(sendData)
-				//delete(sendQueue, d.Unique)
+				delete(sendQueue, d.Unique)
 				fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 
 			}
@@ -553,12 +558,12 @@ func (c *Controller) sendService() {
 				}
 				log.Infof("running complete -server %v", unique)
 				//log.Debugf("=========================delete from send queue %v", unique)
-				_, exists := sendQueue[unique]
+				/*_, exists := sendQueue[unique]
 				if exists {
 					delete(sendQueue, unique)
 				} else {
 					log.Warnf("does not in send queue %v", unique)
-				}
+				}*/
 		}
 	}
 }
