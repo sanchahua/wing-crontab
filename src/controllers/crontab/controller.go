@@ -299,7 +299,9 @@ func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTim
 		log.Errorf("runlist len is max then %v", runListMaxLen)
 		return
 	}
-	atomic.AddInt64(&c.waiting, -1)
+	if atomic.LoadInt64(&c.waiting) > 0 {
+		atomic.AddInt64(&c.waiting, -1)
+	}
 	c.runList <- &runItem{
 		id:             id,
 		command:        command,
