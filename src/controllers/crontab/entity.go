@@ -51,10 +51,14 @@ func newCronEntity(entity *cron.CronEntity, onwillrun OnWillRunFunc) *CronEntity
 	return e
 }
 
-func (row *CronEntity) SubWaitNum() {
+func (row *CronEntity) SubWaitNum() int64 {
 	//row.lock.Lock()
 	//row.WaitNum--
-	atomic.AddInt64(&row.WaitNum, -1)
+	left := atomic.LoadInt64(&row.WaitNum)
+	if left <= 0 {
+		return left
+	}
+	return atomic.AddInt64(&row.WaitNum, -1)
 }
 
 func (row *CronEntity) AddWaitNum() {

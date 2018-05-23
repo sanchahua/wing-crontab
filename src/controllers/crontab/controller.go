@@ -43,7 +43,7 @@ const (
 )
 type PullCommandFunc func()
 type OnRunFunc func(id int64, dispatchTime int64, dispatchServer string, runServer string, output []byte, useTime time.Duration, logId int64)
-type OnWillRunFunc func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func())
+type OnWillRunFunc func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64)
 type CrontabControllerOption func(c *CrontabController)
 
 func SetOnWillRun(f OnWillRunFunc) CrontabControllerOption {

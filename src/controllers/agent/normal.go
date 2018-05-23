@@ -6,16 +6,17 @@ import (
 )
 
 type QEs map[int64]*data.EsQueue
-func (queueNomal *QEs) append(item *runItem){
+func (queueNomal *QEs) append(item *runItem) bool {
 	normal, ok := (*queueNomal)[item.id]
 	if !ok {
 		normal = data.NewQueue(maxQueueLen)
 		(*queueNomal)[item.id] = normal
 	}
-	normal.Put(item)
+	ok , _ = normal.Put(item)
+	return ok
 }
 
-func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte), c chan *SendData, success func()){
+func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte), c chan *SendData, success func(num uint32)){
 	queueNormal := (*queueNomal)[id]
 	itemI, ok, _ := queueNormal.Get()
 	if !ok || itemI == nil {
@@ -24,6 +25,6 @@ func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte)
 	}
 	item := itemI.(*runItem)
 	sendData := pack(item, address)//c.ctx.Config.BindAddress)
-	success()
+	success(queueNormal.Quantity())
 	c <- newSendData(agent.CMD_RUN_COMMAND, sendData, send, item.id, item.isMutex, item.logId)
 }

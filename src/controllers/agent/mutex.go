@@ -16,7 +16,7 @@ type Mutex struct {
 }
 
 type QMutex map[int64]*Mutex
-func (queueMutex *QMutex) append(item *runItem) {
+func (queueMutex *QMutex) append(item *runItem) bool {
 	mutex, ok := (*queueMutex)[item.id]
 	if !ok {
 		mutex = &Mutex{
@@ -28,10 +28,11 @@ func (queueMutex *QMutex) append(item *runItem) {
 		}
 		(*queueMutex)[item.id] = mutex
 	}
-	mutex.queue.Put(item)
+	ok, _ = mutex.queue.Put(item)
+	return ok
 }
 
-func (queueMutex *QMutex) dispatch(id int64, address string, send func(data []byte), c chan *SendData, success func()) {
+func (queueMutex *QMutex) dispatch(id int64, address string, send func(data []byte), c chan *SendData, success func(num uint32)) {
 	queue := (*queueMutex)[id]
 	var timeout = queue.getTimeout()
 	tn := int64(time.Now().UnixNano()/1000000)
@@ -49,7 +50,7 @@ func (queueMutex *QMutex) dispatch(id int64, address string, send func(data []by
 	item := itemI.(*runItem)
 	//分发互斥定时任务
 	sendData := pack(item, address)//c.ctx.Config.BindAddress)
-	success()
+	success(queue.queue.Quantity())
 	c <- newSendData(agent.CMD_RUN_COMMAND, sendData, /*node.AsyncSend*/send, item.id, item.isMutex, item.logId)
 }
 

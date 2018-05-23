@@ -615,7 +615,7 @@ func (c *Controller) keep() {
 	var gindexMutex  = int64(0)
 	var gindexNormal = int64(0)
 	//var waitNum      = make(map[int64] int64)
-	var setNum       = make(map[int64] func())
+	var setNum       = make(map[int64] func() int64)
 
 	// indexs
 	var mutexKeys    = make([]int64, 0)
@@ -631,7 +631,7 @@ func (c *Controller) keep() {
 			if len(mutexKeys) > 0 {
 				start := time.Now()
 				id := mutexKeys[int(gindexMutex)]
-				queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(){
+				queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(num uint32){
 					//waitNum[id]--
 					set, ok := setNum[id]
 					if ok {
@@ -652,7 +652,7 @@ func (c *Controller) keep() {
 			if len(normalKeys) > 0 {
 				start := time.Now()
 				id := normalKeys[int(gindexNormal)]
-				queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(){
+				queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.AsyncSend, c.sendQueueChan, func(num uint32){
 					//waitNum[id]--
 					set, ok := setNum[id]
 					if ok {
@@ -720,13 +720,17 @@ func (c *Controller) keep() {
 					mutexKeys = append(mutexKeys, item.id)
 				}
 				//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
-				queueMutex.append(item)
+				if !queueMutex.append(item) {
+					item.subWaitNum()
+				}
 			} else {
 				//log.Errorf("###############################normalKeys %+v\r\n\r\n", normalKeys)
 				if _, ok := queueNomal[item.id]; !ok {
 					normalKeys = append(normalKeys, item.id)
 				}
-				queueNomal.append(item)
+				if !queueNomal.append(item) {
+					item.subWaitNum()
+				}
 			}
 			//waitNum[item.id]++
 			//item.setWaitNum(waitNum[item.id])
@@ -734,7 +738,7 @@ func (c *Controller) keep() {
 	}
 }
 
-func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum func(), subwaitNum func()) {
+func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum func(), subwaitNum func() int64) {
 	if len(c.dispatch) >= cap(c.dispatch) {
 		log.Errorf("dispatch cache full")
 		return
