@@ -474,14 +474,14 @@ func (c *Controller) setStatisticsTime(id int64) {
 func (c *Controller) sendService() {
 
 	var sendQueue = make(map[string]*SendData)
-	var checkChan = make(chan struct{}, 1000)
-	var timeSingnal = int64(100)
+	var checkChan = make(chan struct{})
+	//var timeSingnal = int64(100)
 
 	// 信号生成，用于触发发送待发送的消息
 	go func() {
 		for {
 			checkChan <- struct{}{}
-			time.Sleep(time.Millisecond * time.Duration(timeSingnal))
+			time.Sleep(time.Millisecond * 10)
 		}
 	}()
 
