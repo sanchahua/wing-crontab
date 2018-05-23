@@ -205,21 +205,21 @@ func NewController(
 //	}
 //}
 
-func (c *Controller) checkClientUniqueExists(runningChan chan *clientExists)  *clientExists {
-	to := time.NewTimer(time.Second*6)
-	//var running *clientExists// := &clientExists{exists:false, running:false}
-	select {
-	case ex, ok := <- runningChan:
-		if ok {
-			return ex
-		}
-	case <-to.C:
-		//running =
-		log.Warnf("check exists timeout")
-		return &clientExists{exists:false, running:false}
-	}
-	return &clientExists{exists:false, running:false}
-}
+//func (c *Controller) checkClientUniqueExists(runningChan chan *clientExists)  *clientExists {
+//	to := time.NewTimer(time.Second*6)
+//	//var running *clientExists// := &clientExists{exists:false, running:false}
+//	select {
+//	case ex, ok := <- runningChan:
+//		if ok {
+//			return ex
+//		}
+//	case <-to.C:
+//		//running =
+//		log.Warnf("check exists timeout")
+//		return &clientExists{exists:false, running:false}
+//	}
+//	return &clientExists{exists:false, running:false}
+//}
 
 func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []byte) {
 
@@ -551,7 +551,7 @@ func (c *Controller) sendService() {
 				if !ok {
 					return
 				}
-				log.Infof("running complete -server %v", unique)
+				fmt.Fprintf(os.Stderr, "running complete -server %v\r\n", unique)
 				//log.Debugf("=========================delete from send queue %v", unique)
 				/*_, exists := sendQueue[unique]
 				if exists {
