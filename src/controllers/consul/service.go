@@ -55,13 +55,13 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 		lock.Unlock()
 		lock.Delete()
 
-		se := rand.NewSource(time.Now().UnixNano())
+		se := rand.NewSource(time.Now().Unix())
 		r  := rand.New(se)
 		r1 := r.Intn(1000)
 		se  = rand.NewSource(time.Now().UnixNano())
 		r   = rand.New(se)
 		r2 := r.Intn(2000)
-		se  = rand.NewSource(time.Now().UnixNano())
+		se  = rand.NewSource(int64(time.Now().Nanosecond()))
 		r   = rand.New(se)
 		r3 := r.Intn(3000)
 		rn := r1 + r2 + r3
