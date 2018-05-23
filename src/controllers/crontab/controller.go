@@ -306,13 +306,10 @@ func (c *CrontabController) checkCommandLen() {
 }
 
 func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchTime int64, dispatchServer string, runServer string, isMutex byte, after func()) {
-	if len(c.runList) >= runListMaxLen {
+	if len(c.runList) >= cap(c.runList) {
 		log.Errorf("runlist len is max then %v", runListMaxLen)
 		return
 	}
-	//if atomic.LoadInt64(&c.waiting) > 0 {
-	//	atomic.AddInt64(&c.waiting, -1)
-	//}
 	c.runList <- &runItem{
 		id:             id,
 		command:        command,
