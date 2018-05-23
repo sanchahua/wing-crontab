@@ -1,15 +1,8 @@
 package agent
 
-import (
-	"library/file"
-	"github.com/BurntSushi/toml"
-	log "github.com/sirupsen/logrus"
-	"app"
-)
-
 const (
-	CMD_ERROR = iota          // 错误响应
-	CMD_TICK           // 心跳包
+	CMD_ERROR = iota + 1    // 错误响应
+	CMD_TICK                // 心跳包
 	CMD_AGENT
 	CMD_STOP
 	CMD_RELOAD
@@ -36,35 +29,19 @@ const (
 const MAX_PACKAGE_LEN = 10240
 
 
-type NodeFunc func(n *TcpClientNode)
+type NodeFunc   func(n *TcpClientNode)
 type NodeOption func(n *TcpClientNode)
 type TcpClients []*TcpClientNode
 
-
-type OnPosFunc func(r []byte)
 var (
-	packDataTickOk     = Pack(CMD_TICK, []byte("keepalive res ok"))
+	packDataTickOk     = Pack(CMD_TICK, []byte("keepalive response ok"))
 )
 
 type AgentConfig struct {
-	Enable bool `toml:"enable"`
-	Type string `toml:"type"`
-	Lock string `toml:"lock"`
-	AgentListen string `toml:"agent_listen"`
+	Enable bool          `toml:"enable"`
+	Type string          `toml:"type"`
+	Lock string          `toml:"lock"`
+	AgentListen string   `toml:"agent_listen"`
 	ConsulAddress string `toml:"consul_address"`
-}
-
-func getConfig() (*AgentConfig, error) {
-	var config AgentConfig
-	configFile := app.ConfigPath + "/agent.toml"
-	if !file.Exists(configFile) {
-		log.Errorf("config file not found: %s", configFile)
-		return nil, app.ErrorFileNotFound
-	}
-	if _, err := toml.DecodeFile(configFile, &config); err != nil {
-		log.Println(err)
-		return nil, app.ErrorFileParse
-	}
-	return &config, nil
 }
 

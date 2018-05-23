@@ -155,94 +155,32 @@ func (node *TcpClientNode) asyncSendService() {
 }
 
 func (node *TcpClientNode) onMessage(msg []byte) {
-	//node.recvBufLock.Lock()
-	node.recvBuf = append(node.recvBuf, msg...)
-	//node.recvBufLock.Unlock()
-	//log.Debugf("data: %+v", node.recvBuf)
-
-	for {
-		if node.recvBuf == nil || len(node.recvBuf) < 6 {
-			//log.Errorf("node.recvBuf len error %v", len(node.recvBuf))
-			return
-		}
-
-		if len(node.recvBuf) > MAX_PACKAGE_LEN {
-			log.Errorf("max len error")
-			//node.recvBufLock.Lock()
-
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("Unpack recover##########%+v", err)
 			node.recvBuf = make([]byte, 0)
-			//node.recvBufLock.Unlock()
-
-			return
 		}
-///////////////////////////////////////////////////
-
-
-		//clen := int(binary.LittleEndian.Uint32(node.recvBuf[:4]))
-		//log.Debugf("clen=%+v", clen)
-		//if len(node.recvBuf) < clen + 4 {
-		//	log.Warnf("content len error")
-		//	return //0, nil, 0, DataLenError
-		//}
-		//log.Debugf("cmd=%+v", node.recvBuf[4:6])
-		//cmd     := int(binary.LittleEndian.Uint16(node.recvBuf[4:6]))
-		//log.Debugf("content=%+v === %v", node.recvBuf[6 : clen + 4], string(node.recvBuf[6 : clen + 4]))
-		//content := node.recvBuf[6 : clen + 4]
-		////data  = append(data[:0], data[clen+4:]...)
-		//log.Debugf("return(%+v)(%+v)(%+v)", cmd, content, nil)
-		//node.recvBufLock.Lock()
-
-		cmd, content, err := Unpack(&node.recvBuf)
-		//node.recvBufLock.Unlock()
+	}()
+	node.recvBuf = append(node.recvBuf, msg...)
+	for {
+		cmd, content, pos, err := Unpack(node.recvBuf)
 		if err != nil {
+			node.recvBuf = make([]byte, 0)
 			log.Errorf("node.recvBuf error %v", err)
 			return
 		}
-		//end:= clen+4//, nil
-		//if content == nil {
-		//	return
-		//}
-		/////////////////////////////////////////
+		if cmd <= 0 {
+			return
+		}
+		node.recvBuf = append(node.recvBuf[:0], node.recvBuf[pos:]...)
 		if !hasCmd(cmd) {
-			//node.recvBufLock.Lock()
-
 			node.recvBuf = make([]byte, 0)
-			//node.recvBufLock.Unlock()
-
 			log.Errorf("cmd（%v）does not exists", cmd)
 			return
 		}
-//log.Debugf("agent node:%+v",content)
-		//start := time.Now()
 		for _, f := range node.onServerEvents {
 			f(node, cmd, content)
 		}
-		//fmt.Fprintf(os.Stderr, "node.onServerEvents use time %v\r\n", time.Since(start))
-		//switch cmd {
-		//case CMD_TICK:
-		//	node.AsyncSend(packDataTickOk)
-		//case CMD_CRONTAB_CHANGE:
-		//	//var data SendData
-		//	//err := json.Unmarshal(content, &data)
-		//	//if err != nil {
-		//	//	log.Errorf("%+v", err)
-		//	//} else {
-		//	//	event := binary.LittleEndian.Uint32(data.Data[:4])
-		//	//	go node.eventFired(int(event), data.Data[4:])
-		//	//	//log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
-		//	//	node.AsyncSend(Pack(CMD_CRONTAB_CHANGE, []byte(data.Unique)))
-		//	//}
-		//case CMD_PULL_COMMAND:
-		//	//start := time.Now()
-		//	//node.o nPullCommand(node)
-		//	//log.Debugf("###############PullCommand use time %+v", time.Since(start))
-		//case CMD_RUN_COMMAND:
-		//default:
-		//	node.AsyncSend(Pack(CMD_ERROR, []byte(fmt.Sprintf("tcp service does not support cmd: %d", cmd))))
-		//	node.recvBuf = make([]byte, 0)
-		//	return
-		//}
-		//node.recvBuf = append( node.recvBuf[:0],  node.recvBuf[end:]...)
 	}
 }
 

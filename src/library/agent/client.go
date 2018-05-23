@@ -250,38 +250,31 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 }
 
 func (tcp *AgentClient) onMessage(msg []byte) {
-	//tcp.bufferLock.Lock()
-	tcp.buffer = append(tcp.buffer, msg...)
-	//tcp.bufferLock.Unlock()
 
-	for {
-		bufferLen := len(tcp.buffer)
-		if bufferLen < 6 {
-			return
-		}
-		if bufferLen > MAX_PACKAGE_LEN {
-			log.Errorf("buffer len is max then the limit %+v", MAX_PACKAGE_LEN)
-			//tcp.bufferLock.Lock()
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("Unpack recover##########%+v", err)
 			tcp.buffer = make([]byte, 0)
-			//tcp.bufferLock.Unlock()
-			return
 		}
-		//tcp.bufferLock.Lock()
-		cmd, content, err := Unpack(&tcp.buffer)
-		//tcp.bufferLock.Unlock()
+	}()
+
+	tcp.buffer = append(tcp.buffer, msg...)
+	for {
+		cmd, content, pos, err := Unpack(tcp.buffer)
 		if err != nil {
 			log.Errorf("%v", err)
+			tcp.buffer = make([]byte, 0)
 			return
 		}
-
+		if cmd <= 0 {
+			return
+		}
+		tcp.buffer  = append(tcp.buffer[:0], tcp.buffer[pos:]...)
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)
-			//tcp.bufferLock.Lock()
 			tcp.buffer = make([]byte, 0)
-			//tcp.bufferLock.Unlock()
 			return
 		}
-
 		for _, f := range tcp.onEvents {
 			f(tcp, cmd, content)
 		}
