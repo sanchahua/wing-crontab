@@ -420,7 +420,7 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 			//c.statisticsLock.Unlock()
 			//c.setStatisticsTime(id)
 		}
-		node.AsyncSend(agent.Pack(agent.CMD_DEL_CACHE, []byte(unique)))
+		//node.AsyncSend(agent.Pack(agent.CMD_DEL_CACHE, []byte(unique)))
 
 	}
 }
