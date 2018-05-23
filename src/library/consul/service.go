@@ -194,8 +194,8 @@ func (sev *Service) Close() {
 	}
 }
 
-func (sev *Service) GetServices() ([]*ServiceMember, error) {
-	members, _, err := sev.health.Service(sev.ServiceName, "", false, nil)
+func (sev *Service) GetServices(passingOnly bool) ([]*ServiceMember, error) {
+	members, _, err := sev.health.Service(sev.ServiceName, "", passingOnly, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,7 @@ func (sev *Service) SelectLeader() error {
 
 
 func (sev *Service) GetLeader() (string, int, error) {
-	members, _ := sev.GetServices()
+	members, _ := sev.GetServices(true)
 	if members == nil {
 		return "", 0, membersEmpty
 	}
