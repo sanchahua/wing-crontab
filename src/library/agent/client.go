@@ -17,7 +17,6 @@ const dataChannelLen=10000
 type AgentClient struct {
 	ctx context.Context
 	buffer  []byte
-	bufferLock *sync.Mutex
 	conn     *net.TCPConn
 	connLock *sync.Mutex
 	statusLock *sync.Mutex
@@ -58,7 +57,6 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		conn:          nil,
 		statusLock:    new(sync.Mutex),
 		status:        0,
-		bufferLock:    new(sync.Mutex),
 		dataChannel:   make(chan *dataItem, dataChannelLen),
 		onEvents:      make([]OnClientEventFunc, 0),
 		asyncWriteChan:make(chan []byte, asyncWriteChanLen),
@@ -113,7 +111,6 @@ func (tcp *AgentClient) asyncWrite() {
 			if !ok {
 				return
 			}
-			//tcp.connLock.Lock()
 			if tcp.conn != nil {
 				//log.Debugf("##########send data: %+v", data)
 				n, err := tcp.conn.Write(data)
@@ -125,7 +122,6 @@ func (tcp *AgentClient) asyncWrite() {
 
 				}
 			}
-			//tcp.connLock.Unlock()
 		}
 	}
 }
@@ -258,12 +254,12 @@ func (tcp *AgentClient) start(serviceIp string, port int) {
 
 func (tcp *AgentClient) onMessage(msg []byte) {
 
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		log.Errorf("Unpack recover##########%+v", err)
-	//		tcp.buffer = make([]byte, 0)
-	//	}
-	//}()
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("Unpack recover##########%+v, %+v", err, tcp.buffer)
+			tcp.buffer = make([]byte, 0)
+		}
+	}()
 
 	tcp.buffer = append(tcp.buffer, msg...)
 	for {
@@ -276,7 +272,13 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 		if cmd <= 0 {
 			return
 		}
-		tcp.buffer  = append(tcp.buffer[:0], tcp.buffer[pos:]...)
+		if len(tcp.buffer) >= pos {
+			tcp.buffer = append(tcp.buffer[:0], tcp.buffer[pos:]...)
+		} else {
+			tcp.buffer = make([]byte, 0)
+			log.Errorf("pos %v error, len is %v, data is: %+v", pos, len(tcp.buffer), tcp.buffer)
+			return
+		}
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)
 			tcp.buffer = make([]byte, 0)
