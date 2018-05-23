@@ -489,7 +489,7 @@ func (c *Controller) sendService() {
 	go func() {
 		for {
 			checkChan <- struct{}{}
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 
