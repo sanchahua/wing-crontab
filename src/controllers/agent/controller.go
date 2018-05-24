@@ -24,7 +24,7 @@ type Controller struct {
 	runningEndChan   chan int64
 	sendQueueChan    chan *SendData
 	delSendQueueChan chan string
-	statisticsStartChan   chan []byte
+	statisticsStartChan chan []byte
 	statisticsEndChan   chan []byte
 
 	ctx              *app.Context
@@ -33,7 +33,7 @@ type Controller struct {
 	onCommand        OnCommandFunc
 	statistics       map[int64]*Statistics
 	statisticsLock   *sync.Mutex
-	sendQueueLen int64
+	sendQueueLen     int64
 }
 
 const (
@@ -418,12 +418,11 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum
 	}
 	addWaitNum()
 	item := &runItem{
-		id:      id,
-		command: command,
-		isMutex: isMutex,
-		subWaitNum:subwaitNum,
+		id:         id,
+		command:    command,
+		isMutex:    isMutex,
+		subWaitNum: subwaitNum,
 	}
-	//log.Debugf("dispatch (len = %v) %+v", len(c.dispatch), *item)
 	c.dispatch <- item
 }
 
