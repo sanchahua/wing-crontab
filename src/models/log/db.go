@@ -13,6 +13,11 @@ const (
 	//EVENT_CRON_RUN      = "3"//cron_run_start" //定时任务开始运行事件
 	//EVENT_CRON_RUN_END  = "4"//cron_run_end"   //定时任务运行结束事件
 	//EVENT_CRON_END      = "5"//cron_end"       //定时任务结束
+	Step_1 = "1"
+	Step_2 = "2"
+	Step_3 = "3"
+	Step_4 = "4"
+	Step_5 = "5"
 )
 
 type DbLog struct {

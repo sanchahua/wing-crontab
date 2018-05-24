@@ -62,12 +62,12 @@ func main() {
 	crontabController := crontab.NewCrontabController(crontab.SetOnBefore(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
 		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
 		//start := time.Now()
-		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_START, "定时任务开始执行")
+		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.Step_2, "定时任务开始执行")
 		//log.Debugf("onrun use time %+v", time.Since(start))
 	}), crontab.SetOnAfter(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
 		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
 		//start := time.Now()
-		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务执行完成")
+		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.Step_3, "定时任务执行完成")
 		//log.Debugf("onrun use time %+v", time.Since(start))
 	}))
 
@@ -85,7 +85,10 @@ func main() {
 	defer agentController.Close()
 
 
-	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
+	crontab.SetOnWillRun(func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64) {
+		logController.Add(id, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
+		agentController.Dispatch(id, command, isMutex, addWaitNum, subWaitNum)
+	})(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 
 	//crontabController.Start()
