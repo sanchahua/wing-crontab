@@ -58,6 +58,7 @@ func main() {
 
 	cronController := models.NewCronController(ctx, handler)
 	defer cronController.Close()
+
 	logController     := models.NewLogController(ctx, handler)
 	crontabController := crontab.NewCrontabController(crontab.SetOnBefore(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
 		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
