@@ -134,25 +134,6 @@ func (tcp *AgentClient) keepalive() {
 	}
 }
 
-func (tcp *AgentClient) OnLeader(leader bool) {
-	go func() {
-		log.Debugf("==============agent client OnLeader %v===============", leader)
-		var ip string
-		var port int
-		for {
-			ip, port, _ = tcp.getLeader()
-			if ip == "" || port <= 0 {
-				log.Warnf("ip or port empty: %v, %v, wait for init", ip, port)
-				time.Sleep(time.Second * 1)
-				continue
-			}
-			break
-		}
-		log.Infof("leader %v:%v", ip, port)
-		tcp.start(ip, port)
-	}()
-}
-
 func (tcp *AgentClient) connect(ip string, port int) {
 	//tcp.connLock.Lock()
 	//defer tcp.connLock.Unlock()
@@ -176,7 +157,7 @@ func (tcp *AgentClient) connect(ip string, port int) {
 	tcp.conn = conn
 }
 
-func (tcp *AgentClient) start(serviceIp string, port int) {
+func (tcp *AgentClient) Start(serviceIp string, port int) {
 	go func() {
 		if serviceIp == "" || port == 0 {
 			log.Warnf("ip or port empty %s:%d", serviceIp, port)

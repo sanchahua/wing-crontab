@@ -34,6 +34,7 @@ type Controller struct {
 	statistics       map[int64]*Statistics
 	statisticsLock   *sync.Mutex
 	sendQueueLen     int64
+	getLeader        agent.GetLeaderFunc
 }
 
 const (
@@ -84,7 +85,8 @@ func NewController(
 			//	addlog:         addlog,
 			statistics:     make(map[int64]*Statistics),
 			statisticsLock: new(sync.Mutex),
-			sendQueueLen:0,
+			sendQueueLen:   0,
+			getLeader:      getLeader,
 		}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
@@ -428,7 +430,23 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum
 
 // set on leader select callback
 func (c *Controller) OnLeader(isLeader bool) {
-	c.client.OnLeader(isLeader)
+	//c.client.OnLeader(isLeader)
+	go func() {
+		log.Debugf("==============agent client OnLeader %v===============", isLeader)
+		var ip string
+		var port int
+		for {
+			ip, port, _ = c.getLeader()
+			if ip == "" || port <= 0 {
+				log.Warnf("ip or port empty: %v, %v, wait for init", ip, port)
+				time.Sleep(time.Second * 1)
+				continue
+			}
+			break
+		}
+		log.Infof("leader %v:%v", ip, port)
+		c.client.Start(ip, port)
+	}()
 }
 
 // start agent
