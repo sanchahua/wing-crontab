@@ -159,6 +159,25 @@ func (tcp *AgentClient) Start(serviceIp string, port int) {
 	}
 
 	go func() {
+		//check leader ip, port chang
+		for {
+			s, p, _ := tcp.getLeader()
+			if serviceIp == "" || port <= 0 {
+				log.Warnf("ip or port empty: %v, %v, wait for init", serviceIp, port)
+			} else {
+				if s != serviceIp || port != p {
+					//leader change ?
+					log.Debugf("leader change, new is %v:%v", s,p)
+					tcp.disconnect()
+					serviceIp = s
+					port = p
+				}
+			}
+			time.Sleep(time.Second * 10)
+		}
+	} ()
+
+	go func() {
 		for {
 			select {
 				case <-tcp.ctx.Done():
