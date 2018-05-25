@@ -231,7 +231,7 @@ func (sev *Service) check() {
 		sev.Register()
 	}
 	for {
-		log.Debugf("onleader num %v ", len(sev.onleader))
+		//log.Debugf("onleader num %v ", len(sev.onleader))
 		success, err := sev.consulLock.Lock()
 		if err == nil {
 			if success != sev.leader {
@@ -254,7 +254,7 @@ func (sev *Service) GetLeader() (string, int, error) {
 		return "", 0, membersEmpty
 	}
 	for _, v := range members {
-		log.Debugf("getLeader: %+v", *v)
+		//log.Debugf("getLeader: %+v", *v)
 		if v.IsLeader {
 			return v.ServiceIp, v.Port, nil
 		}
