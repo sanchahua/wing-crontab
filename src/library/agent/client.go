@@ -162,6 +162,7 @@ func (tcp *AgentClient) check() {
 
 			if serviceIp != "" && port > 0 {
 				if serviceIp != ad.ip || port != ad.port {
+					log.Warnf("leader change found")
 					//如果服务地址端口发生改变
 					tcp.disconnect()
 					serviceIp = ad.ip
@@ -177,6 +178,7 @@ func (tcp *AgentClient) check() {
 			s, p, _ := tcp.getLeader()
 			if serviceIp != "" && port > 0 {
 				if serviceIp != s || port != p {
+					log.Warnf("self check, leader change found")
 					//如果服务地址端口发生改变
 					tcp.disconnect()
 					serviceIp = s//ad.ip
