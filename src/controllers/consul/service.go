@@ -28,9 +28,7 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 		log.Panicf("%v", err)
 	}
 
-	c := &ConsulController{
-		//onLeader: make([]consul.OnLeaderFunc, 0),
-	}
+	c := &ConsulController{}
 	c.service = consul.NewService(
 		ctx.Config.ConsulAddress,
 		ctx.Config.LockKey,

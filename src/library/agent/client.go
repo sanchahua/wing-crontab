@@ -26,9 +26,12 @@ type AgentClient struct {
 	dataChannel chan *dataItem
 	onEvents []OnClientEventFunc
 	asyncWriteChan chan []byte
-	checkChan chan string
+	checkChan chan address
 }
-
+type address struct {
+	ip string
+	port int
+}
 type GetLeaderFunc     func()(string, int, error)
 type ClientOption      func(tcp *AgentClient)
 type OnCommandFunc     func(content []byte)
@@ -63,7 +66,7 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		onEvents:      make([]OnClientEventFunc, 0),
 		asyncWriteChan:make(chan []byte, asyncWriteChanLen),
 		connLock:      new(sync.Mutex),
-		checkChan:     make(chan string, 10),
+		checkChan:     make(chan address),
 	}
 	for _, f := range opts {
 		f(c)
@@ -76,28 +79,6 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 
 // 直接发送
 func (tcp *AgentClient) AsyncWrite(data []byte) {
-	//start := time.Now().Unix()
-	//for {
-	//	if (time.Now().Unix() - start) > 1 {
-	//		log.Errorf("asyncWriteChan full, wait timeout")
-	//		return
-	//	}
-	//	if len(tcp.asyncWriteChan) < cap(tcp.asyncWriteChan) {
-	//		break
-	//	}
-	//	log.Warnf("asyncWriteChan full")
-	//	// 如果异步发送缓冲区满，直接同步发送
-	//	// 发送完return
-	//	//n, err := tcp.conn.Write(data)
-	//	//if err != nil {
-	//	//	log.Errorf("send failure: %+v", err)
-	//	//}
-	//	//if n < len(data) {
-	//	//	log.Errorf("send not complete")
-	//	//
-	//	//}
-	//	//return
-	//}
 	tcp.asyncWriteChan <- data
 }
 
@@ -160,58 +141,62 @@ func (tcp *AgentClient) connect(ip string, port int) {
 }
 
 func (tcp *AgentClient) check() {
-	var cc = ""
+	//var cc = ""
 	var c = make(chan struct{})
 	go func() {
 		for {
 			c <- struct{}{}
-			time.Sleep(time.Second * 10)
+			time.Sleep(time.Second * 3)
 		}
 	}()
+
+	var serviceIp = ""
+	var port = 0
+
 	for {
 		select {
-		case adress, ok := <- tcp.checkChan:
+		case ad, ok := <- tcp.checkChan:
 			if !ok {
 				return
 			}
-			cc = adress
+
+			if serviceIp != "" && port > 0 {
+				if serviceIp != ad.ip || port != ad.port {
+					//如果服务地址端口发生改变
+					tcp.disconnect()
+					serviceIp = ad.ip
+					port = ad.port
+				}
+			} else {
+				serviceIp = ad.ip
+				port = ad.port
+				tcp.start()
+			}
+
 		case <- c :
 			s, p, _ := tcp.getLeader()
-			if cc != "" {
-				if fmt.Sprintf("%v:%v", s, p) != cc {
-					//leader change ?
-					log.Debugf("leader change, new is %v:%v", s,p)
+			if serviceIp != "" && port > 0 {
+				if serviceIp != s || port != p {
+					//如果服务地址端口发生改变
 					tcp.disconnect()
+					serviceIp = s//ad.ip
+					port = p//ad.port
 				}
 			}
+
 		}
 
 	}
 }
 
-func (tcp *AgentClient) Start(serviceIp string, port int) {
+func (tcp *AgentClient) Start(serviceIp string, port int)  {
+	tcp.checkChan <- address{serviceIp, port}
+}
+
+func (tcp *AgentClient) start() {
 	if tcp.status & agentStatusConnect > 0 {
 		return
 	}
-
-	//go func() {
-	//	//check leader ip, port chang
-	//	for {
-	//		s, p, _ := tcp.getLeader()
-	//		if serviceIp == "" || port <= 0 {
-	//			log.Warnf("ip or port empty: %v, %v, wait for init", serviceIp, port)
-	//		} else {
-	//			if s != serviceIp || port != p {
-	//				//leader change ?
-	//				log.Debugf("leader change, new is %v:%v", s,p)
-	//				tcp.disconnect()
-	//				serviceIp = s
-	//				port = p
-	//			}
-	//		}
-	//		time.Sleep(time.Second * 10)
-	//	}
-	//} ()
 
 	go func() {
 		for {
@@ -220,7 +205,7 @@ func (tcp *AgentClient) Start(serviceIp string, port int) {
 					return
 				default:
 			}
-			serviceIp, port, _ = tcp.getLeader()
+			serviceIp, port, _ := tcp.getLeader()
 			tcp.connect(serviceIp, port)
 			if tcp.status & agentStatusConnect <= 0 {
 				time.Sleep(time.Second * 3)
@@ -237,7 +222,7 @@ func (tcp *AgentClient) Start(serviceIp string, port int) {
 				continue
 			}
 
-			tcp.checkChan <- fmt.Sprintf("%v:%v", serviceIp, port)
+			//tcp.checkChan <- fmt.Sprintf("%v:%v", serviceIp, port)
 
 			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
 

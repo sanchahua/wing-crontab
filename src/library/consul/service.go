@@ -221,6 +221,7 @@ func (sev *Service) GetServices(passingOnly bool) ([]*ServiceMember, error) {
 }
 
 func (sev *Service) check() {
+	time.Sleep(time.Second)
 	success, err := sev.consulLock.Lock()
 	if err == nil {
 		sev.leader = success
