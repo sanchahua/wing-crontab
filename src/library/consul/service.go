@@ -186,7 +186,7 @@ func (sev *Service) Register() error {
 }
 
 func (sev *Service) Close() {
-	log.Infof("%v[%v] deregister", sev.ServiceName, sev.ServiceID)
+	log.Infof("######################%v[%v] deregister", sev.ServiceName, sev.ServiceID)
 	sev.Deregister()
 	if sev.leader {
 		sev.consulLock.Unlock()
@@ -225,17 +225,18 @@ func (sev *Service) check() {
 	if err == nil {
 		sev.leader = success
 		for _, f := range sev.onleader {
-			f(success)
+			go f(success)
 		}
 		sev.Register()
 	}
 	for {
+		log.Debugf("onleader num %v ", len(sev.onleader))
 		success, err := sev.consulLock.Lock()
 		if err == nil {
 			if success != sev.leader {
 				sev.leader = success
 				for _, f := range sev.onleader {
-					f(success)
+					go f(success)
 				}
 				sev.Register()
 			}

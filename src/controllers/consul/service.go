@@ -10,13 +10,12 @@ import (
 
 type ConsulController struct {
 	service *consul.Service
-	onLeader []consul.OnLeaderFunc
 }
 
 type ConsulOption func(c *ConsulController)
 func SetOnleader(f ...consul.OnLeaderFunc) ConsulOption {
 	return func(c *ConsulController) {
-		c.onLeader = append(c.onLeader, f...)
+		consul.SetOnLeader(f...)(c.service)
 	}
 }
 
@@ -30,7 +29,7 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 	}
 
 	c := &ConsulController{
-		onLeader: make([]consul.OnLeaderFunc, 0),
+		//onLeader: make([]consul.OnLeaderFunc, 0),
 	}
 	c.service = consul.NewService(
 		ctx.Config.ConsulAddress,
@@ -38,7 +37,6 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 		ctx.Config.ServiceName,
 		host,
 		int(port),
-		consul.SetOnLeader(c.onLeader...),
 	)
 	return c
 }

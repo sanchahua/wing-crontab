@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"fmt"
 	mlog "models/log"
+	"os"
 )
 
 func main() {
@@ -87,8 +88,6 @@ func main() {
 	agentController.Start()
 	defer agentController.Close()
 
-
-
 	crontab.SetOnWillRun(func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64) {
 		logController.Add(id, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
 		agentController.Dispatch(id, command, isMutex, addWaitNum, subWaitNum)
@@ -100,6 +99,7 @@ func main() {
 
 	consul.SetOnleader(agentController.OnLeader)(consulControl)
 	consul.SetOnleader(func(isLeader bool) {
+		fmt.Fprintf(os.Stderr, "==============on leader %v=====================", isLeader)
 		if !isLeader {
 			crontabController.Stop()
 		} else {
