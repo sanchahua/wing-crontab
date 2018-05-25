@@ -238,6 +238,7 @@ func (tcp *Client) onMessage(msg []byte) {
 
 	tcp.buffer = append(tcp.buffer, msg...)
 	for {
+		olen := len(tcp.buffer)
 		cmd, content, pos, err := Unpack(tcp.buffer)
 		if err != nil {
 			log.Errorf("%v", err)
@@ -251,8 +252,9 @@ func (tcp *Client) onMessage(msg []byte) {
 			tcp.buffer = append(tcp.buffer[:0], tcp.buffer[pos:]...)
 		} else {
 			tcp.buffer = make([]byte, 0)
-			log.Errorf("pos %v error, len is %v, data is: %+v", pos, len(tcp.buffer), tcp.buffer)
-			return
+			//log.Errorf("pos %v error, len is %v, data is: %+v", pos, len(tcp.buffer), tcp.buffer)
+			log.Errorf("pos %v (olen=%v) error, cmd=%v, content=%v(%v) len is %v, data is: %+v", pos, olen, cmd, content, string(content), len(tcp.buffer), tcp.buffer)
+			//return
 		}
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)

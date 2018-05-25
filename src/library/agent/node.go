@@ -163,6 +163,7 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 	}()
 	node.recvBuf = append(node.recvBuf, msg...)
 	for {
+		olen := len(node.recvBuf)
 		cmd, content, pos, err := Unpack(node.recvBuf)
 		if err != nil {
 			node.recvBuf = make([]byte, 0)
@@ -176,8 +177,8 @@ func (node *TcpClientNode) onMessage(msg []byte) {
 			node.recvBuf = append(node.recvBuf[:0], node.recvBuf[pos:]...)
 		} else {
 			node.recvBuf = make([]byte, 0)
-			log.Errorf("pos %v error, len is %v, data is: %+v", pos, len(node.recvBuf), node.recvBuf)
-			return
+			log.Errorf("pos %v(olen=%v) error, cmd=%v, content=%v(%v) len is %v, data is: %+v", pos,olen, cmd, content, string(content), len(node.recvBuf), node.recvBuf)
+			//return
 		}
 		if !hasCmd(cmd) {
 			node.recvBuf = make([]byte, 0)
