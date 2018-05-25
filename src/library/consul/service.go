@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 	"errors"
+	"strings"
+	"strconv"
 )
 
 // 服务注册
@@ -19,7 +21,6 @@ const (
 )
 var membersEmpty   = errors.New("members is empty")
 var leaderNotFound = errors.New("leader not found")
-var EmptyLockKey   = errors.New("lock key can not empty")
 
 type ServiceMember struct {
 	IsLeader bool
@@ -80,13 +81,6 @@ func SetInterval(interval time.Duration) ServiceOption {
 	}
 }
 
-// set service ip
-//func ServiceIp(serviceIp string) ServiceOption {
-//	return func(s *Service){
-//		s.ServiceIp = serviceIp
-//	}
-//}
-
 // new a service
 // name: service name
 // host: service host like 0.0.0.0 or 127.0.0.1
@@ -95,14 +89,21 @@ func SetInterval(interval time.Duration) ServiceOption {
 // opts: ServiceOption, like ServiceIp("127.0.0.1")
 // return new service pointer
 func NewService(
-	c *api.Client,
-	session *Session,
-	kv *api.KV,
+	address string, //127.0.0.1:8500
 	name string,
 	host string,
 	port int,
 	opts ...ServiceOption,
 ) *Service {
+
+	consulConfig        := api.DefaultConfig()
+	consulConfig.Address = address//ctx.Config.ConsulAddress
+	c, err         := api.NewClient(consulConfig)
+
+	if err != nil {
+		log.Panicf("%v", err)
+	}
+
 	sev := &Service{
 		ServiceName : name,
 		ServiceHost : host,
@@ -115,8 +116,8 @@ func NewService(
 		consulLock  : nil,
 	}
 	sev.client    = c
-	sev.Kv        = kv//c.KV()
-	sev.session   = session//NewSession(c.Session(), 0)
+	sev.Kv        = c.KV()
+	sev.session   = NewSession(c.Session(), 15)
 	for _, opt := range opts {
 		opt(sev)
 	}
@@ -141,7 +142,7 @@ func (sev *Service) Deregister() error {
 	return err
 }
 
-func (sev *Service) UpdateTtl() {
+func (sev *Service) updateTtl() {
 	if sev.status & Registered <= 0 {
 		return
 	}
@@ -219,97 +220,31 @@ func (sev *Service) GetServices(passingOnly bool) ([]*ServiceMember, error) {
 	}
 	return data, nil
 }
-//func (sev *Service) Leader(leader bool){
-//	sev.leader = leader
-//}
 
 func (sev *Service) check() {
+	success, err := sev.consulLock.Lock()
+	if err == nil {
+		sev.leader = success
+		for _, f := range sev.onleader {
+			f(success)
+		}
+		sev.Register()
+	}
 	for {
 		success, err := sev.consulLock.Lock()
 		if err == nil {
-			sev.leader = success
-			for _, f := range sev.onleader {
-				f(success)
+			if success != sev.leader {
+				for _, f := range sev.onleader {
+					f(success)
+				}
+				sev.Register()
 			}
-			sev.Register()
 		}
-
 		sev.session.Renew()
+		sev.updateTtl()
 		time.Sleep(time.Second * 3)
 	}
 }
-
-func (sev *Service) SelectLeader() error {
-	return nil
-	/*if sev.consulLock == nil {
-		log.Errorf("lock key can not empty")
-		return EmptyLockKey
-	}
-	log.Debugf("====start select leader====")
-	success := sev.consulLock.Lock()
-
-	//if success {
-		for i := 0; i < 3; i++ {
-			success = sev.consulLock.Lock()
-			time.Sleep(time.Second)
-		}
-	//}
-
-	//if err != nil {
-	//	log.Errorf("select leader with error: %v", err)
-	//	return
-	//}
-	sev.leader = success
-	//register for set tags isleader:true
-	sev.Register()
-
-	// 如果不是leader，然后检测当前的leader是否存在，如果不存在
-	// 可以认为某些情况下发生了死锁，可以尝试强制解锁
-	if !success {
-		_, _, err := sev.GetLeader()
-		if err == leaderNotFound{
-			log.Debugf("check deadlock......please wait\n\n")
-			time.Sleep(time.Second * 3)
-		}
-		_, _, err = sev.GetLeader()
-		//如果没有leader
-		if err == leaderNotFound {
-			log.Warnf("deadlock found, try to unlock")
-			sev.consulLock.Unlock()
-			sev.consulLock.Delete()
-			log.Infof("select leader again")
-			success = sev.consulLock.Lock()
-			sev.leader = success
-			//register for set tags isleader:true
-			sev.Register()
-		}
-	}
-
-	if success {
-		// 如果选leader成功
-		// 但是这个时候leader仍然不存在，可以认为网络问题造成注册服务失败
-		// 这里尝试等待并重新注册
-		for {
-			_, _, err := sev.GetLeader()
-			if err == leaderNotFound {
-				log.Warnf("leader not fund, try register")
-				sev.Register()
-				time.Sleep(time.Millisecond * 10)
-				continue
-			}
-			break
-		}
-	}
-
-	log.Debugf("select leader: %+v", success)
-	// 触发选leader成功相关事件回调
-	log.Debugf("leader on select fired")
-	for _, f := range sev.onleader {
-		f(success)
-	}
-	return nil*/
-}
-
 
 func (sev *Service) GetLeader() (string, int, error) {
 	members, _ := sev.GetServices(true)
@@ -324,42 +259,3 @@ func (sev *Service) GetLeader() (string, int, error) {
 	}
 	return "", 0, leaderNotFound
 }
-
-//func (sev *Service) getLeader() (string, int, error) {
-//	members := sev.getMembers()
-//	if members == nil {
-//		return "", 0, membersEmpty
-//	}
-//	for _, v := range members {
-//		log.Debugf("getLeader: %+v", *v)
-//		if v.IsLeader {
-//			return v.ServiceIp, v.Port, nil
-//		}
-//	}
-//	return "", 0, leaderNotFound
-//}
-
-//func (sev *Service) ShowMembers() string {
-//	data := sev.getMembers()
-//	if data == nil {
-//		return ""
-//	}
-//	hostname, err := os.Hostname()
-//	if err != nil {
-//		hostname = ""
-//	}
-//	res := fmt.Sprintf("current node: %s(%s:%d)\r\n", hostname, sev.ServiceIp, sev.ServicePort)
-//	res += fmt.Sprintf("cluster size: %d node(s)\r\n", len(data))
-//	res += fmt.Sprintf("======+=============================================+==========+===============\r\n")
-//	res += fmt.Sprintf("%-6s| %-43s | %-8s | %s\r\n", "index", "node", "role", "status")
-//	res += fmt.Sprintf("------+---------------------------------------------+----------+---------------\r\n")
-//	for i, member := range data {
-//		role := "follower"
-//		if member.IsLeader {
-//			role = "leader"
-//		}
-//		res += fmt.Sprintf("%-6d| %-43s | %-8s | %s\r\n", i, fmt.Sprintf("%s(%s:%d)", member.Hostname, member.ServiceIp, member.Port), role, member.Status)
-//	}
-//	res += fmt.Sprintf("------+---------------------------------------------+----------+---------------\r\n")
-//	return res
-//}
