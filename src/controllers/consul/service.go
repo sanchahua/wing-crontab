@@ -33,7 +33,7 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 	}
 
 	c       := &ConsulController{}
-	session := consul.NewSession(client.Session(), 0)
+	session := consul.NewSession(client.Session(), 10)
 	kv      := client.KV()
 	lock    := consul.NewLock(session, kv, ctx.Config.LockKey)
 
@@ -77,6 +77,7 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 			time.Sleep(c.service.Interval)
 		}
 	}()
+	go c.check(session, lock)
 	return c
 }
 
@@ -105,4 +106,29 @@ func (c *ConsulController) Close() {
 
 func (c *ConsulController) GetLeader() (string, int, error) {
 	return c.service.GetLeader()
+}
+
+func (c *ConsulController) check(session *consul.Session, lock *consul.Lock) {
+	//var ip string
+	//var port int
+	//for {
+	//	time.Sleep(time.Second * 10)
+	//	ip, port, _ = c.GetLeader()
+	//	if ip == "" || port <= 0 {
+	//		log.Errorf("not leader found")
+	//	}
+	//	log.Infof("#################### leader not found, reselect a new leader #######################")
+	//	lock.Unlock()
+	//	lock.Delete()
+	//	i := 0
+	//	for {
+	//		lock.Lock()
+	//		i++
+	//		if i > 10 {
+	//			break
+	//		}
+	//		time.Sleep(time.Second)
+	//	}
+	//	c.service.SelectLeader()
+	//}
 }

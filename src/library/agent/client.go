@@ -7,6 +7,7 @@ import (
 	"time"
 	"sync"
 	"context"
+	"errors"
 )
 
 type dataItem struct {
@@ -72,34 +73,36 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 
 // 直接发送
 func (tcp *AgentClient) AsyncWrite(data []byte) {
-	start := time.Now().Unix()
-	for {
-		if (time.Now().Unix() - start) > 1 {
-			log.Errorf("asyncWriteChan full, wait timeout")
-			return
-		}
-		if len(tcp.asyncWriteChan) < cap(tcp.asyncWriteChan) {
-			break
-		}
-		log.Warnf("asyncWriteChan full")
-		// 如果异步发送缓冲区满，直接同步发送
-		// 发送完return
-		//n, err := tcp.conn.Write(data)
-		//if err != nil {
-		//	log.Errorf("send failure: %+v", err)
-		//}
-		//if n < len(data) {
-		//	log.Errorf("send not complete")
-		//
-		//}
-		//return
-	}
+	//start := time.Now().Unix()
+	//for {
+	//	if (time.Now().Unix() - start) > 1 {
+	//		log.Errorf("asyncWriteChan full, wait timeout")
+	//		return
+	//	}
+	//	if len(tcp.asyncWriteChan) < cap(tcp.asyncWriteChan) {
+	//		break
+	//	}
+	//	log.Warnf("asyncWriteChan full")
+	//	// 如果异步发送缓冲区满，直接同步发送
+	//	// 发送完return
+	//	//n, err := tcp.conn.Write(data)
+	//	//if err != nil {
+	//	//	log.Errorf("send failure: %+v", err)
+	//	//}
+	//	//if n < len(data) {
+	//	//	log.Errorf("send not complete")
+	//	//
+	//	//}
+	//	//return
+	//}
 	tcp.asyncWriteChan <- data
 }
 
+var notConnect = errors.New("not connect")
+
 func (tcp *AgentClient) Write(data []byte) (int, error) {
-	if tcp.conn == nil {
-		return 0, nil
+	if tcp.status & agentStatusConnect <= 0 {
+		return 0, notConnect
 	}
 	return tcp.conn.Write(data)
 }
@@ -111,16 +114,14 @@ func (tcp *AgentClient) asyncWrite() {
 			if !ok {
 				return
 			}
-			if tcp.conn != nil {
-				//log.Debugf("##########send data: %+v", data)
-				n, err := tcp.conn.Write(data)
-				if err != nil {
-					log.Errorf("send failure: %+v", err)
-				}
-				if n < len(data) {
-					log.Errorf("send not complete")
 
-				}
+			n, err := tcp.Write(data)
+			if err != nil {
+				log.Errorf("send failure: %+v", err)
+			}
+			if n < len(data) {
+				log.Errorf("send not complete")
+
 			}
 		}
 	}
@@ -135,42 +136,29 @@ func (tcp *AgentClient) keepalive() {
 }
 
 func (tcp *AgentClient) connect(ip string, port int) {
-	//tcp.connLock.Lock()
-	//defer tcp.connLock.Unlock()
-	if tcp.conn != nil {
-		tcp.statusLock.Lock()
-		tcp.disconnect()
-		tcp.statusLock.Unlock()
-	}
+	tcp.disconnect()
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
 		log.Errorf("start agent with error: %+v", err)
-		tcp.conn = nil
 		return
 	}
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		log.Errorf("start agent with error: %+v", err)
-		tcp.conn = nil
 		return
+	}
+	if tcp.status & agentStatusConnect <= 0 {
+		tcp.status |= agentStatusConnect
 	}
 	tcp.conn = conn
 }
 
 func (tcp *AgentClient) Start(serviceIp string, port int) {
+	if tcp.status & agentStatusConnect > 0 {
+		return
+	}
+
 	go func() {
-		if serviceIp == "" || port == 0 {
-			log.Warnf("ip or port empty %s:%d", serviceIp, port)
-			return
-		}
-
-		tcp.statusLock.Lock()
-		if tcp.status & agentStatusConnect > 0 {
-			tcp.statusLock.Unlock()
-			return
-		}
-		tcp.statusLock.Unlock()
-
 		for {
 			select {
 				case <-tcp.ctx.Done():
@@ -179,7 +167,7 @@ func (tcp *AgentClient) Start(serviceIp string, port int) {
 			}
 
 			tcp.connect(serviceIp, port)
-			if tcp.conn == nil {
+			if tcp.status & agentStatusConnect <= 0 {
 				time.Sleep(time.Second * 3)
 				// if connect error, try to get leader agein
 				for {
@@ -193,31 +181,18 @@ func (tcp *AgentClient) Start(serviceIp string, port int) {
 				}
 				continue
 			}
-			tcp.statusLock.Lock()
-			if tcp.status & agentStatusConnect <= 0 {
-				tcp.status |= agentStatusConnect
-			}
-			tcp.statusLock.Unlock()
-
 			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
 
 			for {
-				//start := time.Now()
-				if tcp.conn == nil {
-					log.Errorf("============================tcp conn nil")
+				if tcp.status & agentStatusConnect <= 0  {
 					break
 				}
-				//start3 := time.Now()
 				readBuffer := make([]byte, 4096)
-
-				size, err := tcp.conn.Read(readBuffer)
-				//fmt.Fprintf(os.Stderr, "read use time %v\n", time.Since(start3))
+				size, err  := tcp.conn.Read(readBuffer)
 
 				if err != nil || size <= 0 {
 					log.Warnf("agent read with error: %+v", err)
-					tcp.statusLock.Lock()
 					tcp.disconnect()
-					tcp.statusLock.Unlock()
 					break
 				}
 				tcp.onMessage(readBuffer[:size])
@@ -227,7 +202,6 @@ func (tcp *AgentClient) Start(serviceIp string, port int) {
 					return
 				default:
 				}
-				//fmt.Fprintf(os.Stderr, "read message use time %v\n", time.Since(start))
 			}
 		}
 	}()
@@ -272,13 +246,12 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 }
 
 func (tcp *AgentClient) disconnect() {
-	if tcp.conn == nil || tcp.status & agentStatusConnect <= 0 {
+	if tcp.status & agentStatusConnect <= 0 {
 		log.Debugf("agent is in disconnect status")
 		return
 	}
 	log.Warnf("====================agent disconnect====================")
 	tcp.conn.Close()
-	tcp.conn = nil
 	if tcp.status & agentStatusConnect > 0 {
 		tcp.status ^= agentStatusConnect
 	}

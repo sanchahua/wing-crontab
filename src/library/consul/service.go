@@ -218,7 +218,9 @@ func (sev *Service) GetServices(passingOnly bool) ([]*ServiceMember, error) {
 	}
 	return data, nil
 }
-
+func (sev *Service) Leader(leader bool){
+	sev.leader = leader
+}
 func (sev *Service) SelectLeader() error {
 	if sev.consulLock == nil {
 		log.Errorf("lock key can not empty")
