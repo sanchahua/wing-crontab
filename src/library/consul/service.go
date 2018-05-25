@@ -226,6 +226,14 @@ func (sev *Service) SelectLeader() error {
 	}
 	log.Debugf("====start select leader====")
 	success := sev.consulLock.Lock()
+
+	//if success {
+		for i := 0; i < 3; i++ {
+			success = sev.consulLock.Lock()
+			time.Sleep(time.Second)
+		}
+	//}
+
 	//if err != nil {
 	//	log.Errorf("select leader with error: %v", err)
 	//	return
