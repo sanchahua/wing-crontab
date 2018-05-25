@@ -26,6 +26,7 @@ type AgentClient struct {
 	dataChannel chan *dataItem
 	onEvents []OnClientEventFunc
 	asyncWriteChan chan []byte
+	checkChan chan string
 }
 
 type GetLeaderFunc     func()(string, int, error)
@@ -62,12 +63,14 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 		onEvents:      make([]OnClientEventFunc, 0),
 		asyncWriteChan:make(chan []byte, asyncWriteChanLen),
 		connLock:      new(sync.Mutex),
+		checkChan:     make(chan string, 10),
 	}
 	for _, f := range opts {
 		f(c)
 	}
 	go c.keepalive()
 	go c.asyncWrite()
+	go c.check()
 	return c
 }
 
@@ -136,6 +139,9 @@ func (tcp *AgentClient) keepalive() {
 }
 
 func (tcp *AgentClient) connect(ip string, port int) {
+	if ip == "" || port <= 0 {
+		return
+	}
 	tcp.disconnect()
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
@@ -153,29 +159,59 @@ func (tcp *AgentClient) connect(ip string, port int) {
 	tcp.conn = conn
 }
 
+func (tcp *AgentClient) check() {
+	var cc = ""
+	var c = make(chan struct{})
+	go func() {
+		for {
+			c <- struct{}{}
+			time.Sleep(time.Second * 10)
+		}
+	}()
+	for {
+		select {
+		case adress, ok := <- tcp.checkChan:
+			if !ok {
+				return
+			}
+			cc = adress
+		case <- c :
+			s, p, _ := tcp.getLeader()
+			if cc != "" {
+				if fmt.Sprintf("%v:%v", s, p) != cc {
+					//leader change ?
+					log.Debugf("leader change, new is %v:%v", s,p)
+					tcp.disconnect()
+				}
+			}
+		}
+
+	}
+}
+
 func (tcp *AgentClient) Start(serviceIp string, port int) {
 	if tcp.status & agentStatusConnect > 0 {
 		return
 	}
 
-	go func() {
-		//check leader ip, port chang
-		for {
-			s, p, _ := tcp.getLeader()
-			if serviceIp == "" || port <= 0 {
-				log.Warnf("ip or port empty: %v, %v, wait for init", serviceIp, port)
-			} else {
-				if s != serviceIp || port != p {
-					//leader change ?
-					log.Debugf("leader change, new is %v:%v", s,p)
-					tcp.disconnect()
-					serviceIp = s
-					port = p
-				}
-			}
-			time.Sleep(time.Second * 10)
-		}
-	} ()
+	//go func() {
+	//	//check leader ip, port chang
+	//	for {
+	//		s, p, _ := tcp.getLeader()
+	//		if serviceIp == "" || port <= 0 {
+	//			log.Warnf("ip or port empty: %v, %v, wait for init", serviceIp, port)
+	//		} else {
+	//			if s != serviceIp || port != p {
+	//				//leader change ?
+	//				log.Debugf("leader change, new is %v:%v", s,p)
+	//				tcp.disconnect()
+	//				serviceIp = s
+	//				port = p
+	//			}
+	//		}
+	//		time.Sleep(time.Second * 10)
+	//	}
+	//} ()
 
 	go func() {
 		for {
@@ -184,7 +220,7 @@ func (tcp *AgentClient) Start(serviceIp string, port int) {
 					return
 				default:
 			}
-
+			serviceIp, port, _ = tcp.getLeader()
 			tcp.connect(serviceIp, port)
 			if tcp.status & agentStatusConnect <= 0 {
 				time.Sleep(time.Second * 3)
@@ -200,6 +236,9 @@ func (tcp *AgentClient) Start(serviceIp string, port int) {
 				}
 				continue
 			}
+
+			tcp.checkChan <- fmt.Sprintf("%v:%v", serviceIp, port)
+
 			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
 
 			for {
