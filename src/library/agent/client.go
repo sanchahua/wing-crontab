@@ -28,8 +28,9 @@ type address struct {
 }
 type GetLeaderFunc     func()(string, int, error)
 type ClientOption      func(tcp *Client)
-type OnCommandFunc     func(content []byte)
 type OnClientEventFunc func(tcp *Client, event int, content []byte)
+const asyncWriteChanLen = 10000
+var notConnect = errors.New("not connect")
 
 func SetGetLeader(f GetLeaderFunc) ClientOption {
 	return func(tcp *Client) {
@@ -42,8 +43,6 @@ func SetOnClientEvent(f ...OnClientEventFunc) ClientOption {
 		tcp.onEvents = append(tcp.onEvents, f...)
 	}
 }
-
-const asyncWriteChanLen = 10000
 
 // client 用来接收 agent server 分发的定时任务事件
 // 接收到事件后执行指定的定时任务
@@ -64,9 +63,7 @@ func NewClient(ctx context.Context, opts ...ClientOption) *Client {
 	for _, f := range opts {
 		f(c)
 	}
-	go c.keepalive()
-	go c.asyncWrite()
-	go c.check()
+	go c.keep()
 	return c
 }
 
@@ -75,41 +72,12 @@ func (tcp *Client) AsyncWrite(data []byte) {
 	tcp.asyncWriteChan <- data
 }
 
-var notConnect = errors.New("not connect")
 
 func (tcp *Client) Write(data []byte) (int, error) {
 	if tcp.status & agentStatusConnect <= 0 {
 		return 0, notConnect
 	}
 	return tcp.conn.Write(data)
-}
-
-func (tcp *Client) asyncWrite() {
-	for {
-		select {
-		case data, ok := <- tcp.asyncWriteChan:
-			if !ok {
-				return
-			}
-
-			n, err := tcp.Write(data)
-			if err != nil {
-				log.Errorf("send failure: %+v", err)
-			}
-			if n < len(data) {
-				log.Errorf("send not complete")
-
-			}
-		}
-	}
-}
-
-func (tcp *Client) keepalive() {
-	data := Pack(CMD_TICK, []byte(""))
-	for {
-		tcp.Write(data)
-		time.Sleep(3 * time.Second)
-	}
 }
 
 func (tcp *Client) connect(ip string, port int) {
@@ -133,8 +101,10 @@ func (tcp *Client) connect(ip string, port int) {
 	tcp.conn = conn
 }
 
-func (tcp *Client) check() {
+func (tcp *Client) keep() {
 	//var cc = ""
+	data := Pack(CMD_TICK, []byte(""))
+
 	var c = make(chan struct{})
 	go func() {
 		for {
@@ -164,7 +134,7 @@ func (tcp *Client) check() {
 			} else {
 				serviceIp = ad.ip
 				port = ad.port
-				tcp.start()
+				tcp.run()
 			}
 
 		case <- c :
@@ -178,9 +148,21 @@ func (tcp *Client) check() {
 					port = p//ad.port
 				}
 			}
+			tcp.Write(data)
+		case sendData, ok := <- tcp.asyncWriteChan:
+			if !ok {
+				return
+			}
 
+			n, err := tcp.Write(sendData)
+			if err != nil {
+				log.Errorf("send failure: %+v", err)
+			}
+			if n < len(sendData) {
+				log.Errorf("send not complete")
+
+			}
 		}
-
 	}
 }
 
@@ -188,7 +170,7 @@ func (tcp *Client) Start(serviceIp string, port int)  {
 	tcp.checkChan <- address{serviceIp, port}
 }
 
-func (tcp *Client) start() {
+func (tcp *Client) run() {
 	if tcp.status & agentStatusConnect > 0 {
 		return
 	}
