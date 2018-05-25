@@ -21,14 +21,14 @@ func NewLock(session *Session, Kv *api.KV, key string) *Lock {
 }
 
 // timeOut seconds
-func (con *Lock) Lock() bool {
+func (con *Lock) Lock() (bool, error) {
 	p := &api.KVPair{Key: con.Key, Value: nil, Session: con.session.ID}
 	success, _, err := con.Kv.Acquire(p, nil)
 	if err != nil {
 		log.Errorf("lock error: %+v", err)
-		return false
+		return false, err
 	}
-	return success
+	return success, nil
 
 }
 

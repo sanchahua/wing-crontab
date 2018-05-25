@@ -33,7 +33,7 @@ func NewConsulController(ctx *app.Context) *ConsulController {
 	}
 
 	c       := &ConsulController{}
-	session := consul.NewSession(client.Session(), 10)
+	session := consul.NewSession(client.Session(), 15)
 	kv      := client.KV()
 	lock    := consul.NewLock(session, kv, ctx.Config.LockKey)
 

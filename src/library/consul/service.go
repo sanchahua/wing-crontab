@@ -44,7 +44,7 @@ type Service struct {
 	session *Session
 	Kv *api.KV
 	health *api.Health
-	leader bool
+	leader int
 	onleader []OnLeaderFunc
 	//lockKey string
 	consulLock *Lock
@@ -110,7 +110,7 @@ func NewService(
 		Interval    : time.Second * 3,
 		Ttl         : 15,
 		status      : 0,
-		leader      : false,
+		leader      : 0,
 		lock        : new(sync.Mutex),
 		consulLock  : nil,
 	}
@@ -124,6 +124,7 @@ func NewService(
 	sev.ServiceID = fmt.Sprintf("%s-%s-%d", name, host, port)
 	sev.agent     = sev.client.Agent()
 	sev.health    = sev.client.Health()
+	go sev.check()
 	return sev
 }
 
@@ -145,7 +146,7 @@ func (sev *Service) UpdateTtl() {
 		return
 	}
 	//log.Debugf("current node %v:%v is leader=%v", sev.ServiceIp, sev.ServicePort, sev.leader)
-	err := sev.agent.UpdateTTL(sev.ServiceID, fmt.Sprintf("isleader:%v", sev.leader), "passing")
+	err := sev.agent.UpdateTTL(sev.ServiceID, fmt.Sprintf("isleader:%v", sev.leader == 1), "passing")
 	if err != nil {
 		log.Errorf("update ttl of service error: ", err.Error())
 	}
@@ -163,7 +164,7 @@ func (sev *Service) Register() error {
 		Name:    sev.ServiceName,
 		Address: sev.ServiceHost,
 		Port:    sev.ServicePort,
-		Tags:    []string{fmt.Sprintf("isleader:%v", sev.leader)},
+		Tags:    []string{fmt.Sprintf("isleader:%v", sev.leader == 1)},
 	}
 	//log.Debugf("service register")
 	err := sev.agent.ServiceRegister(regis)
@@ -187,10 +188,10 @@ func (sev *Service) Register() error {
 func (sev *Service) Close() {
 	log.Infof("%v[%v] deregister", sev.ServiceName, sev.ServiceID)
 	sev.Deregister()
-	if sev.leader {
+	if sev.leader == 1 {
 		sev.consulLock.Unlock()
 		sev.consulLock.Delete()
-		sev.leader = false
+		sev.leader = 0
 	}
 }
 
@@ -218,11 +219,50 @@ func (sev *Service) GetServices(passingOnly bool) ([]*ServiceMember, error) {
 	}
 	return data, nil
 }
-func (sev *Service) Leader(leader bool){
-	sev.leader = leader
+//func (sev *Service) Leader(leader bool){
+//	sev.leader = leader
+//}
+
+func (sev *Service) check() {
+	for {
+		success, err := sev.consulLock.Lock()
+		if err == nil {
+			if sev.leader == 0 {
+				// first
+				if success {
+					sev.leader = 1
+				} else {
+					sev.leader = 2
+				}
+				for _, f := range sev.onleader {
+					f(success)
+				}
+				sev.Register()
+			} else {
+				if success != (sev.leader == 1) {
+					log.Errorf("leader change")
+					//change
+					if success {
+						sev.leader = 1
+					} else {
+						sev.leader = 2
+					}
+					for _, f := range sev.onleader {
+						f(success)
+					}
+					sev.Register()
+				}
+			}
+		}
+
+		sev.session.Renew()
+		time.Sleep(time.Second * 3)
+	}
 }
+
 func (sev *Service) SelectLeader() error {
-	if sev.consulLock == nil {
+	return nil
+	/*if sev.consulLock == nil {
 		log.Errorf("lock key can not empty")
 		return EmptyLockKey
 	}
@@ -288,7 +328,7 @@ func (sev *Service) SelectLeader() error {
 	for _, f := range sev.onleader {
 		f(success)
 	}
-	return nil
+	return nil*/
 }
 
 
