@@ -59,18 +59,18 @@ func SetTtl(ttl int) ServiceOption {
 	}
 }
 
-func SetOnLeader(f OnLeaderFunc) ServiceOption {
+func SetOnLeader(f ...OnLeaderFunc) ServiceOption {
 	return func(s *Service) {
-		s.onleader = append(s.onleader, f)
+		s.onleader = append(s.onleader, f...)
 	}
 }
 
-func SetLockKey(lock *Lock) ServiceOption  {
-	return func(s *Service) {
-		s.consulLock = lock//NewLock(s.session, s.Kv, lockKey)
-		//s.lockKey = lockKey
-	}
-}
+//func SetLockKey(lock *Lock) ServiceOption  {
+//	return func(s *Service) {
+//		s.consulLock = lock//NewLock(s.session, s.Kv, lockKey)
+//		//s.lockKey = lockKey
+//	}
+//}
 
 // set interval
 func SetInterval(interval time.Duration) ServiceOption {
@@ -88,6 +88,7 @@ func SetInterval(interval time.Duration) ServiceOption {
 // return new service pointer
 func NewService(
 	address string, //127.0.0.1:8500
+	lockKey string,
 	name string,
 	host string,
 	port int,
@@ -111,15 +112,15 @@ func NewService(
 		status      : 0,
 		leader      : false,
 		lock        : new(sync.Mutex),
-		consulLock  : nil,
+		consulLock  : nil,//NewLock(),
 	}
 	sev.client    = c
 	sev.Kv        = c.KV()
-	sev.session   = NewSession(c.Session(), 15)
+	sev.session   = NewSession(c.Session(), 10)
 	for _, opt := range opts {
 		opt(sev)
 	}
-
+	sev.consulLock = NewLock(sev.session, sev.Kv, lockKey)
 	sev.ServiceID = fmt.Sprintf("%s-%s-%d", name, host, port)
 	sev.agent     = sev.client.Agent()
 	sev.health    = sev.client.Health()
@@ -232,6 +233,7 @@ func (sev *Service) check() {
 		success, err := sev.consulLock.Lock()
 		if err == nil {
 			if success != sev.leader {
+				sev.leader = success
 				for _, f := range sev.onleader {
 					f(success)
 				}

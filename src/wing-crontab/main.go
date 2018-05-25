@@ -53,8 +53,7 @@ func main() {
 		defer handler.Close()
 	}
 
-	consulControl := consul.NewConsulController(ctx)
-	defer consulControl.Close()
+
 
 	cronController := models.NewCronController(ctx, handler)
 	defer cronController.Close()
@@ -72,17 +71,8 @@ func main() {
 		//log.Debugf("onrun use time %+v", time.Since(start))
 	}))
 
-	go func() {
-		list, err := cronController.GetList()
-		if err != nil {
-			log.Errorf("%+v", err)
-			return
-		}
-		log.Debugf("==============init crontab list==============")
-		for _, e := range list  {
-			crontabController.Add(cron.EVENT_ADD, e)
-		}
-	}()
+	consulControl := consul.NewConsulController(ctx)
+	defer consulControl.Close()
 
 	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, data []byte) {
 		//log.Infof("===========%+v", data)
@@ -96,6 +86,7 @@ func main() {
 	}, crontabController.ReceiveCommand)
 	agentController.Start()
 	defer agentController.Close()
+
 
 
 	crontab.SetOnWillRun(func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64) {
@@ -112,6 +103,17 @@ func main() {
 		if !isLeader {
 			crontabController.Stop()
 		} else {
+			go func() {
+				list, err := cronController.GetList()
+				if err != nil {
+					log.Errorf("%+v", err)
+					return
+				}
+				log.Debugf("==============init crontab list==============")
+				for _, e := range list  {
+					crontabController.Add(cron.EVENT_ADD, e)
+				}
+			}()
 			crontabController.Start()
 		}
 	})(consulControl)
