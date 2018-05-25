@@ -10,12 +10,7 @@ import (
 	"errors"
 )
 
-type dataItem struct {
-	cmd int
-	content []byte
-}
-const dataChannelLen=10000
-type AgentClient struct {
+type Client struct {
 	ctx context.Context
 	buffer  []byte
 	conn     *net.TCPConn
@@ -23,7 +18,6 @@ type AgentClient struct {
 	statusLock *sync.Mutex
 	status int
 	getLeader GetLeaderFunc
-	dataChannel chan *dataItem
 	onEvents []OnClientEventFunc
 	asyncWriteChan chan []byte
 	checkChan chan address
@@ -33,18 +27,18 @@ type address struct {
 	port int
 }
 type GetLeaderFunc     func()(string, int, error)
-type ClientOption      func(tcp *AgentClient)
+type ClientOption      func(tcp *Client)
 type OnCommandFunc     func(content []byte)
-type OnClientEventFunc func(tcp *AgentClient, event int, content []byte)
+type OnClientEventFunc func(tcp *Client, event int, content []byte)
 
 func SetGetLeader(f GetLeaderFunc) ClientOption {
-	return func(tcp *AgentClient) {
+	return func(tcp *Client) {
 		tcp.getLeader = f
 	}
 }
 
 func SetOnClientEvent(f ...OnClientEventFunc) ClientOption {
-	return func(tcp *AgentClient) {
+	return func(tcp *Client) {
 		tcp.onEvents = append(tcp.onEvents, f...)
 	}
 }
@@ -55,14 +49,13 @@ const asyncWriteChanLen = 10000
 // 接收到事件后执行指定的定时任务
 // onleader 触发后，如果是leader，client停止
 // 如果不是leader，client查询到leader的服务地址，连接到server
-func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
-	c := &AgentClient{
+func NewClient(ctx context.Context, opts ...ClientOption) *Client {
+	c := &Client{
 		ctx:           ctx,
 		buffer:        make([]byte, 0),
 		conn:          nil,
 		statusLock:    new(sync.Mutex),
 		status:        0,
-		dataChannel:   make(chan *dataItem, dataChannelLen),
 		onEvents:      make([]OnClientEventFunc, 0),
 		asyncWriteChan:make(chan []byte, asyncWriteChanLen),
 		connLock:      new(sync.Mutex),
@@ -78,20 +71,20 @@ func NewAgentClient(ctx context.Context, opts ...ClientOption) *AgentClient {
 }
 
 // 直接发送
-func (tcp *AgentClient) AsyncWrite(data []byte) {
+func (tcp *Client) AsyncWrite(data []byte) {
 	tcp.asyncWriteChan <- data
 }
 
 var notConnect = errors.New("not connect")
 
-func (tcp *AgentClient) Write(data []byte) (int, error) {
+func (tcp *Client) Write(data []byte) (int, error) {
 	if tcp.status & agentStatusConnect <= 0 {
 		return 0, notConnect
 	}
 	return tcp.conn.Write(data)
 }
 
-func (tcp *AgentClient) asyncWrite() {
+func (tcp *Client) asyncWrite() {
 	for {
 		select {
 		case data, ok := <- tcp.asyncWriteChan:
@@ -111,7 +104,7 @@ func (tcp *AgentClient) asyncWrite() {
 	}
 }
 
-func (tcp *AgentClient) keepalive() {
+func (tcp *Client) keepalive() {
 	data := Pack(CMD_TICK, []byte(""))
 	for {
 		tcp.Write(data)
@@ -119,7 +112,7 @@ func (tcp *AgentClient) keepalive() {
 	}
 }
 
-func (tcp *AgentClient) connect(ip string, port int) {
+func (tcp *Client) connect(ip string, port int) {
 	if ip == "" || port <= 0 {
 		return
 	}
@@ -140,7 +133,7 @@ func (tcp *AgentClient) connect(ip string, port int) {
 	tcp.conn = conn
 }
 
-func (tcp *AgentClient) check() {
+func (tcp *Client) check() {
 	//var cc = ""
 	var c = make(chan struct{})
 	go func() {
@@ -191,11 +184,11 @@ func (tcp *AgentClient) check() {
 	}
 }
 
-func (tcp *AgentClient) Start(serviceIp string, port int)  {
+func (tcp *Client) Start(serviceIp string, port int)  {
 	tcp.checkChan <- address{serviceIp, port}
 }
 
-func (tcp *AgentClient) start() {
+func (tcp *Client) start() {
 	if tcp.status & agentStatusConnect > 0 {
 		return
 	}
@@ -252,7 +245,7 @@ func (tcp *AgentClient) start() {
 	}()
 }
 
-func (tcp *AgentClient) onMessage(msg []byte) {
+func (tcp *Client) onMessage(msg []byte) {
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -290,7 +283,7 @@ func (tcp *AgentClient) onMessage(msg []byte) {
 	}
 }
 
-func (tcp *AgentClient) disconnect() {
+func (tcp *Client) disconnect() {
 	if tcp.status & agentStatusConnect <= 0 {
 		log.Debugf("agent is in disconnect status")
 		return

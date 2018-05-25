@@ -14,7 +14,7 @@ import (
 )
 
 type Controller struct {
-	client           *agent.AgentClient
+	client           *agent.Client
 	server           *agent.TcpService
 	indexNormal      int64
 	indexMutex       int64
@@ -89,16 +89,15 @@ func NewController(
 			getLeader:      getLeader,
 		}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
-	c.client = agent.NewAgentClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
+	c.client = agent.NewClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
 	go c.sendService()
 	go c.keep()
 	return c
 }
 
-func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []byte) {
-
-	start :=time.Now()
-	defer fmt.Fprintf(os.Stderr, "onClientEvent use time %v\r\n", time.Since(start))
+func (c *Controller) onClientEvent(tcp *agent.Client, cmd int , content []byte) {
+	//start := time.Now()
+	//defer fmt.Fprintf(os.Stderr, "onClientEvent use time %v\r\n", time.Since(start))
 
 	switch cmd {
 	case agent.CMD_RUN_COMMAND:
