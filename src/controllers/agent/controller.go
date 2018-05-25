@@ -164,8 +164,8 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		if err != nil {
 			log.Errorf("%+v", err)
 		} else {
-			event := binary.LittleEndian.Uint32(sdata.Data[:4])
-			go c.onCronChange(int(event), sdata.Data[4:])
+			//event := binary.LittleEndian.Uint32(sdata.Data[:4])
+			//go c.onCronChange(int(event), sdata.Data[4:])
 			//log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
 			node.AsyncSend(agent.Pack(agent.CMD_CRONTAB_CHANGE_OK, []byte(sdata.Unique)))
 		}
