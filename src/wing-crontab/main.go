@@ -89,7 +89,7 @@ func main() {
 	defer agentController.Close()
 
 	crontab.SetOnWillRun(func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64) {
-		logController.Add(id, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
+		//logController.Add(id, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
 		agentController.Dispatch(id, command, isMutex, addWaitNum, subWaitNum)
 	})(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
