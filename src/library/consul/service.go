@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 	"errors"
-	"strings"
-	"strconv"
 )
 
 // 服务注册
@@ -52,7 +50,7 @@ type Service struct {
 }
 
 type ServiceOption func(s *Service)
-type OnLeaderFunc func(isLeader bool)
+type OnLeaderFunc  func(isLeader bool)
 
 // set ttl
 func SetTtl(ttl int) ServiceOption {
