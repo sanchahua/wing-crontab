@@ -44,7 +44,7 @@ type Service struct {
 	session *Session
 	Kv *api.KV
 	health *api.Health
-	leader int
+	leader bool
 	onleader []OnLeaderFunc
 	//lockKey string
 	consulLock *Lock
@@ -110,7 +110,7 @@ func NewService(
 		Interval    : time.Second * 3,
 		Ttl         : 15,
 		status      : 0,
-		leader      : 0,
+		leader      : false,
 		lock        : new(sync.Mutex),
 		consulLock  : nil,
 	}
@@ -146,7 +146,7 @@ func (sev *Service) UpdateTtl() {
 		return
 	}
 	//log.Debugf("current node %v:%v is leader=%v", sev.ServiceIp, sev.ServicePort, sev.leader)
-	err := sev.agent.UpdateTTL(sev.ServiceID, fmt.Sprintf("isleader:%v", sev.leader == 1), "passing")
+	err := sev.agent.UpdateTTL(sev.ServiceID, fmt.Sprintf("isleader:%v", sev.leader), "passing")
 	if err != nil {
 		log.Errorf("update ttl of service error: ", err.Error())
 	}
@@ -164,7 +164,7 @@ func (sev *Service) Register() error {
 		Name:    sev.ServiceName,
 		Address: sev.ServiceHost,
 		Port:    sev.ServicePort,
-		Tags:    []string{fmt.Sprintf("isleader:%v", sev.leader == 1)},
+		Tags:    []string{fmt.Sprintf("isleader:%v", sev.leader)},
 	}
 	//log.Debugf("service register")
 	err := sev.agent.ServiceRegister(regis)
@@ -188,10 +188,10 @@ func (sev *Service) Register() error {
 func (sev *Service) Close() {
 	log.Infof("%v[%v] deregister", sev.ServiceName, sev.ServiceID)
 	sev.Deregister()
-	if sev.leader == 1 {
+	if sev.leader {
 		sev.consulLock.Unlock()
 		sev.consulLock.Delete()
-		sev.leader = 0
+		sev.leader = false
 	}
 }
 
@@ -227,32 +227,11 @@ func (sev *Service) check() {
 	for {
 		success, err := sev.consulLock.Lock()
 		if err == nil {
-			if sev.leader == 0 {
-				// first
-				if success {
-					sev.leader = 1
-				} else {
-					sev.leader = 2
-				}
-				for _, f := range sev.onleader {
-					f(success)
-				}
-				sev.Register()
-			} else {
-				if success != (sev.leader == 1) {
-					log.Errorf("leader change")
-					//change
-					if success {
-						sev.leader = 1
-					} else {
-						sev.leader = 2
-					}
-					for _, f := range sev.onleader {
-						f(success)
-					}
-					sev.Register()
-				}
+			sev.leader = success
+			for _, f := range sev.onleader {
+				f(success)
 			}
+			sev.Register()
 		}
 
 		sev.session.Renew()

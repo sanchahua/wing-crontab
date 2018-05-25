@@ -130,9 +130,19 @@ func (c *Controller) onClientEvent(tcp *agent.AgentClient, cmd int , content []b
 				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
 			})
 			fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
-	case agent.CMD_CRONTAB_CHANGE:
+	case agent.CMD_CRONTAB_CHANGE_OK:
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
 		c.delSendQueueChan <-  string(content)
+
+	case agent.CMD_CRONTAB_CHANGE:
+		var sdata SendData
+		err := json.Unmarshal(content, &sdata)
+		if err != nil {
+			log.Errorf("%+v", err)
+		} else {
+			event := binary.LittleEndian.Uint32(sdata.Data[:4])
+			go c.onCronChange(int(event), sdata.Data[4:])
+		}
 	}
 }
 
@@ -157,8 +167,9 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 			event := binary.LittleEndian.Uint32(sdata.Data[:4])
 			go c.onCronChange(int(event), sdata.Data[4:])
 			//log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
-			node.AsyncSend(agent.Pack(agent.CMD_CRONTAB_CHANGE, []byte(sdata.Unique)))
+			node.AsyncSend(agent.Pack(agent.CMD_CRONTAB_CHANGE_OK, []byte(sdata.Unique)))
 		}
+		c.server.Broadcast(agent.Pack(agent.CMD_CRONTAB_CHANGE, content))
 	case agent.CMD_RUN_COMMAND:
 
 		//
