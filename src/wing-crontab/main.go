@@ -25,6 +25,9 @@ func main() {
 	//		log.Errorf("%+v", err)
 	//	}
 	//}()
+	// 初始化相关环境
+	// 这里传入的参数为配置文件目录
+	// 后续增加命令行参数支持，可以指定配置文件目录
 	app.Init(path.CurrentPath + "/config")
 	defer app.Release()
 
@@ -32,6 +35,7 @@ func main() {
 	var err error
 
 	// init database
+	// 数据库资源
 	var handler *sql.DB
 	{
 		dataSource := fmt.Sprintf(
@@ -54,29 +58,30 @@ func main() {
 		defer handler.Close()
 	}
 
-
-
+	// cronController负责对完成定时任务db的增删改查操作
 	cronController := models.NewCronController(ctx, handler)
 	defer cronController.Close()
 
+	// logController负责记录执行日志
 	logController     := models.NewLogController(ctx, handler)
+
+	// 负责定时任务管理，主要是解析定时任务、分发和执行
 	crontabController := crontab.NewCrontabController(crontab.SetOnBefore(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
-		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
-		//start := time.Now()
+		// 定时任务开始执行
 		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.Step_2, "定时任务开始执行")
-		//log.Debugf("onrun use time %+v", time.Since(start))
 	}), crontab.SetOnAfter(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
-		//log.Infof("run %v in server(%v), use time:%v, output: %+v", id, runServer, useTime, string(output))
-		//start := time.Now()
+		// 定时任务执行完毕
 		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.Step_3, "定时任务执行完成")
-		//log.Debugf("onrun use time %+v", time.Since(start))
 	}))
 
+	// consulControl 实现选leader
 	consulControl := consul.NewConsulController(ctx)
 	defer consulControl.Close()
 
+	//agentController负责集群内部的通信
 	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, data []byte) {
-		//log.Infof("===========%+v", data)
+		// client端收到http请求后，转发给server（leader）端
+		// leader 端解析后，把变化的的定时任务追加到定时任务列表
 		var e cron.CronEntity
 		err := json.Unmarshal(data, &e)
 		if err != nil {
@@ -84,19 +89,20 @@ func main() {
 			return
 		}
 		crontabController.Add(event, &e)
-	}, crontabController.ReceiveCommand)
+	}, crontabController.ReceiveCommand, func(cronId int64) {
+		//定时任务被发送出去
+		logController.Add(cronId, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
+	}, func(cronId int64, dispatchServer string) {
+		//定时任务发送完成响应回到server端（leader）
+		logController.Add(cronId, "", 0, dispatchServer, "", int64(time.Now().UnixNano() / 1000000), mlog.Step_4, "")
+	})
 	agentController.Start()
 	defer agentController.Close()
 
-	crontab.SetOnWillRun(func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64) {
-		//logController.Add(id, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
-		agentController.Dispatch(id, command, isMutex, addWaitNum, subWaitNum)
-	})(crontabController)
+	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
 	crontab.SetPullCommand(agentController.Pull)(crontabController)
 
-	//crontabController.Start()
-	//defer crontabController.Stop()
-
+	// 这里设定选leader后的相应操作
 	consul.SetOnleader(agentController.OnLeader)(consulControl)
 	consul.SetOnleader(func(isLeader bool) {
 		fmt.Fprintf(os.Stderr, "==============on leader %v=====================", isLeader)
@@ -119,6 +125,7 @@ func main() {
 	})(consulControl)
 	consulControl.Start()
 
+	// httpController负责对应提供http api服务
 	httpController := http.NewHttpController(ctx, cronController, logController, http.SetCronHook(func(event int, row *cron.CronEntity) {
 		var e = make([]byte, 4)
 		binary.LittleEndian.PutUint32(e, uint32(event))

@@ -35,6 +35,8 @@ type Controller struct {
 	statisticsLock   *sync.Mutex
 	sendQueueLen     int64
 	getLeader        agent.GetLeaderFunc
+	onDispatch       OnDispatchFunc
+	OnCommandBack    OnCommandBackFunc
 }
 
 const (
@@ -47,6 +49,8 @@ const (
 	statisticsChanLen       = 1000
 )
 
+type OnDispatchFunc        func(cronId int64)
+type OnCommandBackFunc     func(cronId int64, dispatchServer string)
 type sendFunc              func(data []byte)  (int, error)
 type OnCommandFunc         func(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
@@ -65,6 +69,8 @@ func NewController(
 	//最终接收的api是crontabController.ReceiveCommand
 	onCommand OnCommandFunc,
 	//addlog AddLogFunc,
+	onDispatch OnDispatchFunc,
+	OnCommandBack    OnCommandBackFunc,
 ) *Controller {
 	c := &Controller{
 			indexNormal:    0,
@@ -87,6 +93,8 @@ func NewController(
 			statisticsLock: new(sync.Mutex),
 			sendQueueLen:   0,
 			getLeader:      getLeader,
+			onDispatch:	    onDispatch,
+			OnCommandBack:  OnCommandBack,
 		}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
@@ -196,7 +204,8 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 		}
 
 		c.delSendQueueChan <- unique
-
+		//定时任务运行完返回server端（leader）
+		c.OnCommandBack(id, c.ctx.Config.BindAddress)
 		//current := int64(time.Now().UnixNano() / 1000000)
 		//c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务结束 - 5")
 	}
@@ -325,13 +334,15 @@ func (c *Controller) keep() {
 				if len(mutexKeys) > 0 {
 					start := time.Now()
 					id := mutexKeys[int(gindexMutex)]
-					queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.Send, c.sendQueueChan, func(num uint32) {
+					queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.Send, c.sendQueueChan, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
 							set()
 						} else {
 							log.Errorf("%v set num does not exists", id)
 						}
+						// add log 这里代表定时任务被发出去了
+						c.onDispatch(item.id)
 					})
 					//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
 					fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
@@ -345,13 +356,15 @@ func (c *Controller) keep() {
 				if len(normalKeys) > 0 {
 					start := time.Now()
 					id := normalKeys[int(gindexNormal)]
-					queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.Send, c.sendQueueChan, func(num uint32) {
+					queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.Send, c.sendQueueChan, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
 							set()
 						} else {
 							log.Errorf("%v set num does not exists", id)
 						}
+						// add log 这里代表定时任务被发出去了
+						c.onDispatch(item.id)
 					})
 					gindexNormal++
 					if gindexNormal >= int64(len(normalKeys)) {
