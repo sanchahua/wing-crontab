@@ -14,29 +14,23 @@ import (
 )
 
 type Controller struct {
-	client           *agent.Client
-	server           *agent.TcpService
-	indexNormal      int64
-	indexMutex       int64
-
-	dispatch         chan *runItem
-	onPullChan       chan *agent.TcpClientNode
-	runningEndChan   chan int64
-	sendQueueChan    chan *SendData
-	delSendQueueChan chan string
+	client              *agent.Client
+	server              *agent.TcpService
+	dispatch            chan *runItem
+	onPullChan          chan *agent.TcpClientNode
+	runningEndChan      chan int64
+	sendQueueChan       chan *SendData
+	delSendQueueChan    chan string
 	statisticsStartChan chan []byte
 	statisticsEndChan   chan []byte
-
-	ctx              *app.Context
-	lock             *sync.Mutex
-	onCronChange     OnCronChangeEventFunc
-	onCommand        OnCommandFunc
-	statistics       map[int64]*Statistics
-	statisticsLock   *sync.Mutex
-	sendQueueLen     int64
-	getLeader        agent.GetLeaderFunc
-	onDispatch       OnDispatchFunc
-	OnCommandBack    OnCommandBackFunc
+	ctx                 *app.Context
+	lock                *sync.Mutex
+	onCronChange        OnCronChangeEventFunc
+	onCommand           OnCommandFunc
+	sendQueueLen        int64
+	getLeader           agent.GetLeaderFunc
+	onDispatch          OnDispatchFunc
+	OnCommandBack       OnCommandBackFunc
 }
 
 const (
@@ -54,7 +48,6 @@ type OnCommandBackFunc     func(cronId int64, dispatchServer string)
 type sendFunc              func(data []byte)  (int, error)
 type OnCommandFunc         func(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
-//type AddLogFunc            func(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string)  (*mlog.LogEntity, error)
 
 func NewController(
 	ctx *app.Context,
@@ -73,9 +66,6 @@ func NewController(
 	OnCommandBack    OnCommandBackFunc,
 ) *Controller {
 	c := &Controller{
-			indexNormal:    0,
-			indexMutex:     0,
-
 			dispatch:            make(chan *runItem, dispatchChanLen),
 			onPullChan:          make(chan *agent.TcpClientNode, onPullChanLen),
 			runningEndChan:      make(chan int64, runningEndChanLen),
@@ -83,18 +73,14 @@ func NewController(
 			delSendQueueChan:    make(chan string, delSendQueueChanLen),
 			statisticsStartChan: make(chan []byte, statisticsChanLen),
 			statisticsEndChan:   make(chan []byte, statisticsChanLen),
-
-			ctx:            ctx,
-			lock:           new(sync.Mutex),
-			onCronChange:   onCronChange,
-			onCommand:      onCommand,
-			//	addlog:         addlog,
-			statistics:     make(map[int64]*Statistics),
-			statisticsLock: new(sync.Mutex),
-			sendQueueLen:   0,
-			getLeader:      getLeader,
-			onDispatch:	    onDispatch,
-			OnCommandBack:  OnCommandBack,
+			ctx:                ctx,
+			lock:               new(sync.Mutex),
+			onCronChange:       onCronChange,
+			onCommand:          onCommand,
+			sendQueueLen:       0,
+			getLeader:          getLeader,
+			onDispatch:	        onDispatch,
+			OnCommandBack:      OnCommandBack,
 		}
 	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.client = agent.NewClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
@@ -104,43 +90,33 @@ func NewController(
 }
 
 func (c *Controller) onClientEvent(tcp *agent.Client, cmd int , content []byte) {
-	//start := time.Now()
-	//defer fmt.Fprintf(os.Stderr, "onClientEvent use time %v\r\n", time.Since(start))
-
 	switch cmd {
 	case agent.CMD_RUN_COMMAND:
-			var sendData SendData
-			err := json.Unmarshal(content, &sendData)
-			if err != nil {
-				log.Errorf("json.Unmarshal with %v", err)
-				return
-			}
-
-			id, isMutex, command, dispatchServer, err := unpack(sendData.Data)
-			if err != nil {
-				log.Errorf("%v", err)
-				return
-			}
-			fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
-
-			//c.addlog(id, "", 0, dispatchServer, c.ctx.Config.BindAddress, int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_RUN, "定时任务开始运行 - 3")
-
-			sdata := make([]byte, 0)
-			sid   := make([]byte, 8)
-			binary.LittleEndian.PutUint64(sid, uint64(id))
-
-			sdata = append(sdata, sid...)
-			sdata = append(sdata, isMutex)
-			sdata = append(sdata, []byte(sendData.Unique)...)
-
-			c.onCommand(id, command, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
-				tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
-			})
-			fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
+		var sendData SendData
+		err := json.Unmarshal(content, &sendData)
+		if err != nil {
+			log.Errorf("json.Unmarshal with %v", err)
+			return
+		}
+		id, isMutex, command, dispatchServer, err := unpack(sendData.Data)
+		if err != nil {
+			log.Errorf("%v", err)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
+		sdata := make([]byte, 0)
+		sid   := make([]byte, 8)
+		binary.LittleEndian.PutUint64(sid, uint64(id))
+		sdata = append(sdata, sid...)
+		sdata = append(sdata, isMutex)
+		sdata = append(sdata, []byte(sendData.Unique)...)
+		c.onCommand(id, command, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
+			tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
+		})
+		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
 	case agent.CMD_CRONTAB_CHANGE_OK:
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
 		c.delSendQueueChan <-  string(content)
-
 	case agent.CMD_CRONTAB_CHANGE:
 		var sdata SendData
 		err := json.Unmarshal(content, &sdata)
@@ -154,42 +130,22 @@ func (c *Controller) onClientEvent(tcp *agent.Client, cmd int , content []byte) 
 }
 
 func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content []byte) {
-	start :=time.Now()
-	defer fmt.Fprintf(os.Stderr, "onServerEvent use time %v\r\n", time.Since(start))
-
-	//log.Debugf("###################server receive:%v, %v==CMD_PULL_COMMAND=%v", event, content,agent.CMD_PULL_COMMAND)
 	switch event {
 	case agent.CMD_PULL_COMMAND:
-		//start := time.Now()
 		if len(c.onPullChan) < 32 {
 			c.onPullChan <- node
 		}
-		//fmt.Fprintf(os.Stderr, "OnPullCommand use time %v\n", time.Since(start))
 	case agent.CMD_CRONTAB_CHANGE:
 		var sdata SendData
 		err := json.Unmarshal(content, &sdata)
 		if err != nil {
 			log.Errorf("%+v", err)
 		} else {
-			//event := binary.LittleEndian.Uint32(sdata.Data[:4])
-			//go c.onCronChange(int(event), sdata.Data[4:])
-			//log.Infof("receive event[%v] %+v", event, string(data.Data[4:]))
 			node.AsyncSend(agent.Pack(agent.CMD_CRONTAB_CHANGE_OK, []byte(sdata.Unique)))
 		}
 		c.server.Broadcast(agent.Pack(agent.CMD_CRONTAB_CHANGE, content))
 	case agent.CMD_RUN_COMMAND:
-
-		//
-
-		//sdata := make([]byte, 0)
-		//sid := make([]byte, 8)
-		//binary.LittleEndian.PutUint64(sid, uint64(id))
-		//sdata = append(sdata, sid...)
-		//sdata = append(sdata, isMutex)
-		//sdata = append(sdata, []byte(sendData.Unique)...)
 		id      := int64(binary.LittleEndian.Uint64(content[:8]))
-		/*logId*///int64(binary.LittleEndian.Uint64(content[8:16]))
-
 		isMutex := content[8]
 		unique  := string(content[9:])
 		fmt.Fprintf(os.Stderr, "receive run command end %v, %v, %v\r\n", id, isMutex, unique)
@@ -198,21 +154,17 @@ func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content
 			sdata := make([]byte, 16)
 			binary.LittleEndian.PutUint64(sdata[:8], uint64(id))
 			binary.LittleEndian.PutUint64(sdata[8:], uint64(int64(time.Now().UnixNano() / 1000000)))
-
 			c.statisticsEndChan <- sdata
 			c.runningEndChan <- id
 		}
-
 		c.delSendQueueChan <- unique
 		//定时任务运行完返回server端（leader）
 		c.OnCommandBack(id, c.ctx.Config.BindAddress)
-		//current := int64(time.Now().UnixNano() / 1000000)
-		//c.addlog(id, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano() / 1000000), mlog.EVENT_CRON_END, "定时任务结束 - 5")
 	}
 }
 
 // send data to leader
-func (c *Controller) SendToLeader(data []byte) {
+func (c *Controller) SyncToLeader(data []byte) {
 	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, func(data []byte) (int, error) {
 		c.client.AsyncWrite(data)
 		return 0, nil
@@ -221,16 +173,12 @@ func (c *Controller) SendToLeader(data []byte) {
 }
 
 func (c *Controller) Pull() {
-	//log.Debugf("##############################pull command(%v)", agent.CMD_PULL_COMMAND)
 	c.client.AsyncWrite(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
 }
 
 func (c *Controller) sendService() {
-
 	var sendQueue = make(map[string]*SendData)
 	var checkChan = make(chan struct{})
-	//var timeSingnal = int64(100)
-
 	// 信号生成，用于触发发送待发送的消息
 	go func() {
 		for {
@@ -238,7 +186,6 @@ func (c *Controller) sendService() {
 			time.Sleep(time.Millisecond * 10)
 		}
 	}()
-
 	for {
 		select {
 			case d ,ok := <-c.sendQueueChan:
@@ -261,36 +208,16 @@ func (c *Controller) sendService() {
 
 					if d.SendTimes > 1 {
 						log.Warnf("send times %v, %+v", d.SendTimes, *d)
-						//timeSingnal = int64(timeSingnal * int64(d.SendTimes))
-						//if timeSingnal > 1000 {
-						//	timeSingnal = 1000
-						//}
 					}
-					//// 每次延迟1秒重试，最多60次，即1分钟之内才会重试
-					/*if d.SendTimes > 2 {
-						delete(sendQueue, d.Unique)
-						log.Warnf("send times max then 60, delete %+v", *d)
-						continue
-					}*/
-
 					d.Time    = int64(time.Now().UnixNano() / 1000000)
 					sd       := d.encode()
 					sendData := agent.Pack(d.Cmd, sd)
-
-					//一个定时任务的运行周期从 mlog.EVENT_CRON_DISPATCH 开始到 mlog.EVENT_CRON_END 结束
-					//todo 添加关键日志
-					//if d.CronId > 0 {
-					//	c.addlog(d.CronId, "", 0, c.ctx.Config.BindAddress, "", int64(time.Now().UnixNano()/1000000), mlog.EVENT_CRON_DISPATCH, "定时任务分发 - 2")
-					//}
-
 					if d.IsMutex {
 						sdata := make([]byte, 16)
 						binary.LittleEndian.PutUint64(sdata[:8], uint64(d.CronId))
 						binary.LittleEndian.PutUint64(sdata[8:], uint64(int64(time.Now().UnixNano()/1000000)))
 						c.statisticsStartChan <- sdata
 					}
-
-					//log.Debugf("#################################send %+v", *d)
 					d.send(sendData)
 					delete(sendQueue, d.Unique)
 					fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
@@ -301,13 +228,6 @@ func (c *Controller) sendService() {
 					return
 				}
 				fmt.Fprintf(os.Stderr, "running complete -server %v\r\n", unique)
-				//log.Debugf("=========================delete from send queue %v", unique)
-				/*_, exists := sendQueue[unique]
-				if exists {
-					delete(sendQueue, unique)
-				} else {
-					log.Warnf("does not in send queue %v", unique)
-				}*/
 		}
 	}
 }
@@ -317,9 +237,8 @@ func (c *Controller) keep() {
 	var queueNomal   = make(QEs)
 	var gindexMutex  = int64(0)
 	var gindexNormal = int64(0)
+	// subnum for wait queue len
 	var setNum       = make(map[int64] func() int64)
-
-	// indexs
 	var mutexKeys    = make([]int64, 0)
 	var normalKeys   = make([]int64, 0)
 
@@ -329,7 +248,6 @@ func (c *Controller) keep() {
 			if !ok {
 				return
 			}
-
 			if atomic.LoadInt64(&c.sendQueueLen) < 32 {
 				if len(mutexKeys) > 0 {
 					start := time.Now()
@@ -344,9 +262,7 @@ func (c *Controller) keep() {
 						// add log 这里代表定时任务被发出去了
 						c.onDispatch(item.id)
 					})
-					//log.Errorf("###############################mutexKeys %+v\r\n\r\n", mutexKeys)
 					fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
-
 					gindexMutex++
 					if gindexMutex >= int64(len(mutexKeys)) {
 						gindexMutex = 0
@@ -371,7 +287,6 @@ func (c *Controller) keep() {
 						gindexNormal = 0
 					}
 					fmt.Fprintf(os.Stderr, "OnPullCommand normal use time %v\n", time.Since(start))
-
 				}
 			}
 
@@ -384,11 +299,8 @@ func (c *Controller) keep() {
 			if !ok {
 				return
 			}
-
 			id := int64(binary.LittleEndian.Uint64(sdata[:8]))
-			t := int64(binary.LittleEndian.Uint64(sdata[8:])) //, uint64(int64(time.Now().UnixNano() / 1000000)))
-
-			//log.Debugf(" %v start at %v", id, t)
+			t  := int64(binary.LittleEndian.Uint64(sdata[8:])) //, uint64(int64(time.Now().UnixNano() / 1000000)))
 			sta, ok := queueMutex[id]
 			if ok {
 				sta.sta.sendTimes++
@@ -400,15 +312,11 @@ func (c *Controller) keep() {
 			if !ok {
 				return
 			}
-
 			id := int64(binary.LittleEndian.Uint64(sdata[:8]))
 			t  := int64(binary.LittleEndian.Uint64(sdata[8:])) //, uint64(int64(time.Now().UnixNano() / 1000000)))
-			//log.Debugf(" %v end at %v", id, t)
-
 			sta, ok := queueMutex[id]
 			if ok {
 				sta.sta.totalUseTime += t - sta.sta.startTime
-				//log.Debugf("#############avg=%v", sta.sta.getAvg())
 			} else {
 				log.Errorf("%v does not exists", id)
 			}
@@ -453,7 +361,6 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum
 
 // set on leader select callback
 func (c *Controller) OnLeader(isLeader bool) {
-	//c.client.OnLeader(isLeader)
 	go func() {
 		log.Debugf("==============agent client OnLeader %v===============", isLeader)
 		var ip string

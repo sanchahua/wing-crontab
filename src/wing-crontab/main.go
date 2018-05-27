@@ -134,7 +134,7 @@ func main() {
 			return
 		}
 		e = append(e, data...)
-		agentController.SendToLeader(e)
+		agentController.SyncToLeader(e)
 	}))
 	httpController.Start()
 	defer httpController.Close()
