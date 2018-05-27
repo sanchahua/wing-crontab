@@ -11,16 +11,16 @@ import (
 )
 
 type Client struct {
-	ctx context.Context
-	buffer  []byte
-	conn     *net.TCPConn
-	connLock *sync.Mutex
-	statusLock *sync.Mutex
-	status int
-	getLeader GetLeaderFunc
-	onEvents []OnClientEventFunc
+	ctx            context.Context
+	buffer         []byte
+	conn           *net.TCPConn
+	connLock       *sync.Mutex
+	statusLock     *sync.Mutex
+	status         int
+	getLeader      GetLeaderFunc
+	onEvents       []OnClientEventFunc
 	asyncWriteChan chan []byte
-	checkChan chan address
+	checkChan      chan address
 }
 type address struct {
 	ip string
@@ -29,8 +29,9 @@ type address struct {
 type GetLeaderFunc     func()(string, int, error)
 type ClientOption      func(tcp *Client)
 type OnClientEventFunc func(tcp *Client, event int, content []byte)
+
 const asyncWriteChanLen = 10000
-var notConnect = errors.New("not connect")
+var notConnect          = errors.New("not connect")
 
 func SetGetLeader(f GetLeaderFunc) ClientOption {
 	return func(tcp *Client) {
@@ -44,10 +45,6 @@ func SetOnClientEvent(f ...OnClientEventFunc) ClientOption {
 	}
 }
 
-// client 用来接收 agent server 分发的定时任务事件
-// 接收到事件后执行指定的定时任务
-// onleader 触发后，如果是leader，client停止
-// 如果不是leader，client查询到leader的服务地址，连接到server
 func NewClient(ctx context.Context, opts ...ClientOption) *Client {
 	c := &Client{
 		ctx:           ctx,
@@ -67,11 +64,9 @@ func NewClient(ctx context.Context, opts ...ClientOption) *Client {
 	return c
 }
 
-// 直接发送
 func (tcp *Client) AsyncWrite(data []byte) {
 	tcp.asyncWriteChan <- data
 }
-
 
 func (tcp *Client) Write(data []byte) (int, error) {
 	if tcp.status & agentStatusConnect <= 0 {
@@ -102,10 +97,11 @@ func (tcp *Client) connect(ip string, port int) {
 }
 
 func (tcp *Client) keep() {
-	//var cc = ""
-	data := Pack(CMD_TICK, []byte(""))
+	data         := Pack(CMD_TICK, []byte(""))
+	var c         = make(chan struct{})
+	var serviceIp = ""
+	var port      = 0
 
-	var c = make(chan struct{})
 	go func() {
 		for {
 			c <- struct{}{}
@@ -113,16 +109,12 @@ func (tcp *Client) keep() {
 		}
 	}()
 
-	var serviceIp = ""
-	var port = 0
-
 	for {
 		select {
 		case ad, ok := <- tcp.checkChan:
 			if !ok {
 				return
 			}
-
 			if serviceIp != "" && port > 0 {
 				if serviceIp != ad.ip || port != ad.port {
 					log.Warnf("leader change found")
@@ -136,7 +128,6 @@ func (tcp *Client) keep() {
 				port = ad.port
 				tcp.run()
 			}
-
 		case <- c :
 			s, p, _ := tcp.getLeader()
 			if serviceIp != "" && port > 0 {
@@ -153,7 +144,6 @@ func (tcp *Client) keep() {
 			if !ok {
 				return
 			}
-
 			n, err := tcp.Write(sendData)
 			if err != nil {
 				log.Errorf("send failure: %+v", err)
@@ -174,7 +164,6 @@ func (tcp *Client) run() {
 	if tcp.status & agentStatusConnect > 0 {
 		return
 	}
-
 	go func() {
 		for {
 			select {
@@ -186,7 +175,6 @@ func (tcp *Client) run() {
 			tcp.connect(serviceIp, port)
 			if tcp.status & agentStatusConnect <= 0 {
 				time.Sleep(time.Second * 3)
-				// if connect error, try to get leader agein
 				for {
 					serviceIp, port, _ = tcp.getLeader()
 					if serviceIp == "" || port <= 0 {
@@ -198,11 +186,7 @@ func (tcp *Client) run() {
 				}
 				continue
 			}
-
-			//tcp.checkChan <- fmt.Sprintf("%v:%v", serviceIp, port)
-
 			log.Debugf("====================agent client connect to leader %s:%d====================", serviceIp, port)
-
 			for {
 				if tcp.status & agentStatusConnect <= 0  {
 					break
@@ -216,7 +200,6 @@ func (tcp *Client) run() {
 					break
 				}
 				tcp.onMessage(readBuffer[:size])
-
 				select {
 				case <-tcp.ctx.Done():
 					return
@@ -228,14 +211,12 @@ func (tcp *Client) run() {
 }
 
 func (tcp *Client) onMessage(msg []byte) {
-
 	defer func() {
 		if err := recover(); err != nil {
 			log.Errorf("Unpack recover##########%+v, %+v", err, tcp.buffer)
 			tcp.buffer = make([]byte, 0)
 		}
 	}()
-
 	tcp.buffer = append(tcp.buffer, msg...)
 	for {
 		olen := len(tcp.buffer)
@@ -252,9 +233,7 @@ func (tcp *Client) onMessage(msg []byte) {
 			tcp.buffer = append(tcp.buffer[:0], tcp.buffer[pos:]...)
 		} else {
 			tcp.buffer = make([]byte, 0)
-			//log.Errorf("pos %v error, len is %v, data is: %+v", pos, len(tcp.buffer), tcp.buffer)
 			log.Errorf("pos %v (olen=%v) error, cmd=%v, content=%v(%v) len is %v, data is: %+v", pos, olen, cmd, content, string(content), len(tcp.buffer), tcp.buffer)
-			//return
 		}
 		if !hasCmd(cmd) {
 			log.Errorf("cmd %d dos not exists", cmd)
