@@ -37,6 +37,7 @@ echo "installing... github.com/Shopify/sarama"
 go get github.com/Shopify/sarama
 go get github.com/orcaman/concurrent-map
 go get gopkg.in/robfig/cron.v2
+go get github.com/jilieryuyi/wing-go
 
 find $vendor_path -name '*.git*' | xargs rm -rf
 ##cp -rf $vendor_path/src/* $vendor_path
