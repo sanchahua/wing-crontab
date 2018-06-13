@@ -18,7 +18,7 @@ type Controller struct {
 	client              *agent.Client
 	server              *tcp.Server//*agent.TcpService
 	dispatch            chan *runItem
-	onPullChan          chan *agent.TcpClientNode
+	onPullChan          chan *tcp.ClientNode//*agent.TcpClientNode
 	runningEndChan      chan int64
 	sendQueueChan       chan *SendData
 	delSendQueueChan    chan string
@@ -32,6 +32,12 @@ type Controller struct {
 	getLeader           agent.GetLeaderFunc
 	onDispatch          OnDispatchFunc
 	OnCommandBack       OnCommandBackFunc
+	codec ICodec
+}
+
+type Package struct {
+	Event int
+	Data interface{}
 }
 
 const (
@@ -82,9 +88,10 @@ func NewController(
 			getLeader:          getLeader,
 			onDispatch:	        onDispatch,
 			OnCommandBack:      OnCommandBack,
+			codec:              &Codec{},
 		}
 	//c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
-	c.server = tcp.NewServer(ctx.Context(), ctx.Config.BindAddress, tcp.SetOnServerMessage(c.onServerEvent))
+	c.server = tcp.NewServer(ctx.Context(), ctx.Config.BindAddress, tcp.SetOnServerMessage(c.OnServerMessage))
 	c.client = agent.NewClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
 	go c.sendService()
 	go c.keep()
@@ -131,21 +138,34 @@ func (c *Controller) onClientEvent(tcp *agent.Client, cmd int , content []byte) 
 	}
 }
 
-func (c *Controller) onServerEvent(node *tcp.ClientNode, msgId int, content []byte) {
-	switch event {
+func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content []byte) {
+	// content 二次解析后得到event
+	// 这里的content全部使用json格式发送
+	dataRaw, err := c.codec.Decode(content)
+	if err != nil {
+		return
+	}
+	data := dataRaw.(Package)
+	switch data.Event {
 	case agent.CMD_PULL_COMMAND:
 		if len(c.onPullChan) < 32 {
 			c.onPullChan <- node
 		}
 	case agent.CMD_CRONTAB_CHANGE:
-		var sdata SendData
-		err := json.Unmarshal(content, &sdata)
-		if err != nil {
-			log.Errorf("%+v", err)
-		} else {
-			node.AsyncSend(agent.Pack(agent.CMD_CRONTAB_CHANGE_OK, []byte(sdata.Unique)))
+		sdata := data.Data.(SendData)
+		//err := json.Unmarshal(content, &sdata)
+		//if err != nil {
+		//	log.Errorf("%+v", err)
+		//} else {
+		sd, err := c.codec.Encode(Package{agent.CMD_CRONTAB_CHANGE_OK, []byte(sdata.Unique)})
+		if err == nil {
+			node.AsyncSend(msgId, sd)
 		}
-		c.server.Broadcast(agent.Pack(agent.CMD_CRONTAB_CHANGE, content))
+		sd, err = c.codec.Encode(Package{agent.CMD_CRONTAB_CHANGE, content})
+		if err == nil {
+			c.server.Broadcast(msgId, sd)
+		}
+		//}
 	case agent.CMD_RUN_COMMAND:
 		id      := int64(binary.LittleEndian.Uint64(content[:8]))
 		isMutex := content[8]
