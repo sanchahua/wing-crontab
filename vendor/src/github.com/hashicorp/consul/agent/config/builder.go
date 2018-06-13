@@ -511,14 +511,6 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 		}
 	}
 
-	// Add a filter rule if needed for enabling the deprecated metric names
-	enableDeprecatedNames := b.boolVal(c.Telemetry.EnableDeprecatedNames)
-	if enableDeprecatedNames {
-		telemetryAllowedPrefixes = append(telemetryAllowedPrefixes, "consul.consul.")
-	} else {
-		telemetryBlockedPrefixes = append(telemetryBlockedPrefixes, "consul.consul.")
-	}
-
 	// raft performance scaling
 	performanceRaftMultiplier := b.intVal(c.Performance.RaftMultiplier)
 	if performanceRaftMultiplier < 1 || uint(performanceRaftMultiplier) > consul.MaxRaftMultiplier {
@@ -681,15 +673,17 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 		RPCProtocol:                 b.intVal(c.RPCProtocol),
 		RPCRateLimit:                rate.Limit(b.float64Val(c.Limits.RPCRate)),
 		RaftProtocol:                b.intVal(c.RaftProtocol),
+		RaftSnapshotThreshold:       b.intVal(c.RaftSnapshotThreshold),
+		RaftSnapshotInterval:        b.durationVal("raft_snapshot_interval", c.RaftSnapshotInterval),
 		ReconnectTimeoutLAN:         b.durationVal("reconnect_timeout", c.ReconnectTimeoutLAN),
 		ReconnectTimeoutWAN:         b.durationVal("reconnect_timeout_wan", c.ReconnectTimeoutWAN),
 		RejoinAfterLeave:            b.boolVal(c.RejoinAfterLeave),
 		RetryJoinIntervalLAN:        b.durationVal("retry_interval", c.RetryJoinIntervalLAN),
 		RetryJoinIntervalWAN:        b.durationVal("retry_interval_wan", c.RetryJoinIntervalWAN),
-		RetryJoinLAN:                c.RetryJoinLAN,
+		RetryJoinLAN:                b.expandAllOptionalAddrs("retry_join", c.RetryJoinLAN),
 		RetryJoinMaxAttemptsLAN:     b.intVal(c.RetryJoinMaxAttemptsLAN),
 		RetryJoinMaxAttemptsWAN:     b.intVal(c.RetryJoinMaxAttemptsWAN),
-		RetryJoinWAN:                c.RetryJoinWAN,
+		RetryJoinWAN:                b.expandAllOptionalAddrs("retry_join_wan", c.RetryJoinWAN),
 		SegmentName:                 b.stringVal(c.SegmentName),
 		Segments:                    segments,
 		SerfAdvertiseAddrLAN:        serfAdvertiseAddrLAN,
@@ -704,8 +698,8 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 		Services:                    services,
 		SessionTTLMin:               b.durationVal("session_ttl_min", c.SessionTTLMin),
 		SkipLeaveOnInt:              skipLeaveOnInt,
-		StartJoinAddrsLAN:           c.StartJoinAddrsLAN,
-		StartJoinAddrsWAN:           c.StartJoinAddrsWAN,
+		StartJoinAddrsLAN:           b.expandAllOptionalAddrs("start_join", c.StartJoinAddrsLAN),
+		StartJoinAddrsWAN:           b.expandAllOptionalAddrs("start_join_wan", c.StartJoinAddrsWAN),
 		SyslogFacility:              b.stringVal(c.SyslogFacility),
 		TLSCipherSuites:             b.tlsCipherSuites("tls_cipher_suites", c.TLSCipherSuites),
 		TLSMinVersion:               b.stringVal(c.TLSMinVersion),
@@ -967,7 +961,6 @@ func (b *Builder) checkVal(v *CheckDefinition) *structs.CheckDefinition {
 		ServiceID:         b.stringVal(v.ServiceID),
 		Token:             b.stringVal(v.Token),
 		Status:            b.stringVal(v.Status),
-		Script:            b.stringVal(v.Script),
 		ScriptArgs:        v.ScriptArgs,
 		HTTP:              b.stringVal(v.HTTP),
 		Header:            v.Header,
@@ -1130,6 +1123,43 @@ func (b *Builder) expandAddrs(name string, s *string) []net.Addr {
 	}
 
 	return addrs
+}
+
+// expandOptionalAddrs expands the go-sockaddr template in s and returns the
+// result as a list of strings. If s does not contain a go-sockaddr template,
+// the result list will contain the input string as a single element with no
+// error set. In contrast to expandAddrs, expandOptionalAddrs does not validate
+// if the result contains valid addresses and returns a list of strings.
+// However, if the expansion of the go-sockaddr template fails an error is set.
+func (b *Builder) expandOptionalAddrs(name string, s *string) []string {
+	if s == nil || *s == "" {
+		return nil
+	}
+
+	x, err := template.Parse(*s)
+	if err != nil {
+		b.err = multierror.Append(b.err, fmt.Errorf("%s: error parsing %q: %s", name, s, err))
+		return nil
+	}
+
+	if x != *s {
+		// A template has been expanded, split the results from go-sockaddr
+		return strings.Fields(x)
+	} else {
+		// No template has been expanded, pass through the input
+		return []string{*s}
+	}
+}
+
+func (b *Builder) expandAllOptionalAddrs(name string, addrs []string) []string {
+	out := make([]string, 0, len(addrs))
+	for _, a := range addrs {
+		expanded := b.expandOptionalAddrs(name, &a)
+		if expanded != nil {
+			out = append(out, expanded...)
+		}
+	}
+	return out
 }
 
 // expandIPs expands the go-sockaddr template in s and returns a list of

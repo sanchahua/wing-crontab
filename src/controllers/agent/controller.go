@@ -11,11 +11,12 @@ import (
 	"fmt"
 	"os"
 	"sync/atomic"
+	"github.com/jilieryuyi/wing-go/tcp"
 )
 
 type Controller struct {
 	client              *agent.Client
-	server              *agent.TcpService
+	server              *tcp.Server//*agent.TcpService
 	dispatch            chan *runItem
 	onPullChan          chan *agent.TcpClientNode
 	runningEndChan      chan int64
@@ -82,7 +83,8 @@ func NewController(
 			onDispatch:	        onDispatch,
 			OnCommandBack:      OnCommandBack,
 		}
-	c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
+	//c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
+	c.server = tcp.NewServer(ctx.Context(), ctx.Config.BindAddress, tcp.SetOnServerMessage(c.onServerEvent))
 	c.client = agent.NewClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
 	go c.sendService()
 	go c.keep()
@@ -129,7 +131,7 @@ func (c *Controller) onClientEvent(tcp *agent.Client, cmd int , content []byte) 
 	}
 }
 
-func (c *Controller) onServerEvent(node *agent.TcpClientNode, event int, content []byte) {
+func (c *Controller) onServerEvent(node *tcp.ClientNode, msgId int, content []byte) {
 	switch event {
 	case agent.CMD_PULL_COMMAND:
 		if len(c.onPullChan) < 32 {
