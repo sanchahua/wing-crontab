@@ -15,10 +15,10 @@ import (
 )
 
 type Controller struct {
-	client              *tcp.Client//agent.Client
-	server              *tcp.Server//*agent.TcpService
+	client              *tcp.Client
+	server              *tcp.Server
 	dispatch            chan *runItem
-	onPullChan          chan *tcp.ClientNode//*agent.TcpClientNode
+	onPullChan          chan *tcp.ClientNode
 	runningEndChan      chan int64
 	sendQueueChan       chan *SendData
 	delSendQueueChan    chan string
@@ -29,7 +29,7 @@ type Controller struct {
 	onCronChange        OnCronChangeEventFunc
 	onCommand           OnCommandFunc
 	sendQueueLen        int64
-	getLeader           agent.GetLeaderFunc
+	getLeader           GetLeaderFunc
 	onDispatch          OnDispatchFunc
 	OnCommandBack       OnCommandBackFunc
 	codec ICodec
@@ -50,13 +50,14 @@ type OnCommandBackFunc     func(cronId int64, dispatchServer string)
 type sendFunc              func(data []byte)  (int, error)
 type OnCommandFunc         func(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
+type GetLeaderFunc         func()(string, int, error)
 
 func NewController(
 	ctx *app.Context,
 	//这个参数提供了查询leader的服务ip和端口
-	//最终用于agent client连接leader时使用
+	//最终用于 client连接leader时使用
 	//来源于consulControl.GetLeader
-	getLeader agent.GetLeaderFunc,
+	getLeader GetLeaderFunc,
 	//http api增删改查定时任务会触发这个事件，最终这个事件影响到leader的定时任务
 	//最终落入这个api crontabController.Add
 	onCronChange OnCronChangeEventFunc,
@@ -85,16 +86,14 @@ func NewController(
 			OnCommandBack:      OnCommandBack,
 			codec:              &Codec{},
 		}
-	//c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.server = tcp.NewServer(ctx.Context(), ctx.Config.BindAddress, tcp.SetOnServerMessage(c.OnServerMessage))
-	//c.client = agent.NewClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
 	c.client = tcp.NewClient(ctx.Context())
 	go c.sendService()
 	go c.keep()
 	return c
 }
 
-func (c *Controller) onClientEvent(tcp *agent.Client, cmd int , content []byte) {
+func (c *Controller) onClientEvent(tcp *tcp.Client, cmd int , content []byte) {
 	switch cmd {
 	case agent.CMD_RUN_COMMAND:
 		var sendData SendData
@@ -116,7 +115,8 @@ func (c *Controller) onClientEvent(tcp *agent.Client, cmd int , content []byte) 
 		sdata = append(sdata, isMutex)
 		sdata = append(sdata, []byte(sendData.Unique)...)
 		c.onCommand(id, command, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
-			tcp.Write(agent.Pack(agent.CMD_RUN_COMMAND, sdata))
+			sd, _ := c.codec.Encode(agent.CMD_RUN_COMMAND, sdata)
+			tcp.Send(sd)
 		})
 		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
 	case agent.CMD_CRONTAB_CHANGE_OK:
@@ -184,7 +184,7 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 // send data to leader
 func (c *Controller) SyncToLeader(data []byte) {
 	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, func(data []byte) (int, error) {
-		c.client.AsyncWrite(data)
+		c.client.AsyncSend(data)
 		return 0, nil
 	}, 0, false)
 	c.sendQueueChan <- d
@@ -195,7 +195,7 @@ func (c *Controller) SyncToLeader(data []byte) {
 // 一旦crontab执行完一定程度的定时任务，变得空闲就会主动获取新的定时任务
 // 这个api就是发起主动获取请求
 func (c *Controller) Pull() {
-	sd, _ := c.codec.Encode(Package{agent.CMD_PULL_COMMAND, []byte("")})
+	sd, _ := c.codec.Encode(agent.CMD_PULL_COMMAND, "")
 	c.client.AsyncSend(sd)
 }
 
@@ -275,7 +275,10 @@ func (c *Controller) keep() {
 				if len(mutexKeys) > 0 {
 					start := time.Now()
 					id := mutexKeys[int(gindexMutex)]
-					queueMutex.dispatch(id, c.ctx.Config.BindAddress, node.Send, c.sendQueueChan, func(item *runItem) {
+					queueMutex.dispatch(id, c.ctx.Config.BindAddress, func(data []byte) (int, error) {
+						node.Send(1, data)
+						return len(data), nil
+					}, c.sendQueueChan, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
 							set()
@@ -295,7 +298,10 @@ func (c *Controller) keep() {
 				if len(normalKeys) > 0 {
 					start := time.Now()
 					id := normalKeys[int(gindexNormal)]
-					queueNomal.dispatch(id, c.ctx.Config.BindAddress, node.Send, c.sendQueueChan, func(item *runItem) {
+					queueNomal.dispatch(id, c.ctx.Config.BindAddress, func(data []byte) (int, error) {
+						node.Send(1, data)
+						return len(data), nil
+					}, c.sendQueueChan, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
 							set()
