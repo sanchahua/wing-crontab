@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"library/agent"
+	//"library/agent"
 	"app"
 	"encoding/binary"
 	"sync"
@@ -44,7 +44,19 @@ const (
 	delSendQueueChanLen     = 1000
 	statisticsChanLen       = 1000
 )
-
+const (
+	CMD_ERROR = iota + 1    // 错误响应
+	CMD_TICK                // 心跳包
+	CMD_AGENT
+	CMD_STOP
+	CMD_RELOAD
+	CMD_SHOW_MEMBERS
+	CMD_CRONTAB_CHANGE
+	CMD_RUN_COMMAND
+	CMD_PULL_COMMAND
+	CMD_DEL_CACHE
+	CMD_CRONTAB_CHANGE_OK
+)
 type OnDispatchFunc        func(cronId int64)
 type OnCommandBackFunc     func(cronId int64, dispatchServer string)
 type sendFunc              func(data []byte)  (int, error)
@@ -95,7 +107,7 @@ func NewController(
 
 func (c *Controller) onClientEvent(tcp *tcp.Client, cmd int , content []byte) {
 	switch cmd {
-	case agent.CMD_RUN_COMMAND:
+	case CMD_RUN_COMMAND:
 		var sendData SendData
 		err := json.Unmarshal(content, &sendData)
 		if err != nil {
@@ -115,14 +127,14 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, cmd int , content []byte) {
 		sdata = append(sdata, isMutex)
 		sdata = append(sdata, []byte(sendData.Unique)...)
 		c.onCommand(id, command, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
-			sd, _ := c.codec.Encode(agent.CMD_RUN_COMMAND, sdata)
+			sd, _ := c.codec.Encode(CMD_RUN_COMMAND, sdata)
 			tcp.Send(sd)
 		})
 		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
-	case agent.CMD_CRONTAB_CHANGE_OK:
+	case CMD_CRONTAB_CHANGE_OK:
 		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
 		c.delSendQueueChan <-  string(content)
-	case agent.CMD_CRONTAB_CHANGE:
+	case CMD_CRONTAB_CHANGE:
 		var sdata SendData
 		err := json.Unmarshal(content, &sdata)
 		if err != nil {
@@ -143,26 +155,26 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 	}
 	//data := dataRaw.(Package)
 	switch event {
-	case agent.CMD_PULL_COMMAND:
+	case CMD_PULL_COMMAND:
 		if len(c.onPullChan) < 32 {
 			c.onPullChan <- node
 		}
-	case agent.CMD_CRONTAB_CHANGE:
+	case CMD_CRONTAB_CHANGE:
 		sdata := data.(SendData)
 		//err := json.Unmarshal(content, &sdata)
 		//if err != nil {
 		//	log.Errorf("%+v", err)
 		//} else {
-		sd, err := c.codec.Encode(agent.CMD_CRONTAB_CHANGE_OK, sdata.Unique)
+		sd, err := c.codec.Encode(CMD_CRONTAB_CHANGE_OK, sdata.Unique)
 		if err == nil {
 			node.AsyncSend(msgId, sd)
 		}
-		sd, err = c.codec.Encode(agent.CMD_CRONTAB_CHANGE, content)
+		sd, err = c.codec.Encode(CMD_CRONTAB_CHANGE, content)
 		if err == nil {
 			c.server.Broadcast(msgId, sd)
 		}
 		//}
-	case agent.CMD_RUN_COMMAND:
+	case CMD_RUN_COMMAND:
 		id      := int64(binary.LittleEndian.Uint64(content[:8]))
 		isMutex := content[8]
 		unique  := string(content[9:])
@@ -183,7 +195,7 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 
 // send data to leader
 func (c *Controller) SyncToLeader(data []byte) {
-	d := newSendData(agent.CMD_CRONTAB_CHANGE, data, func(data []byte) (int, error) {
+	d := newSendData(CMD_CRONTAB_CHANGE, data, func(data []byte) (int, error) {
 		c.client.AsyncSend(data)
 		return 0, nil
 	}, 0, false)
@@ -195,7 +207,7 @@ func (c *Controller) SyncToLeader(data []byte) {
 // 一旦crontab执行完一定程度的定时任务，变得空闲就会主动获取新的定时任务
 // 这个api就是发起主动获取请求
 func (c *Controller) Pull() {
-	sd, _ := c.codec.Encode(agent.CMD_PULL_COMMAND, "")
+	sd, _ := c.codec.Encode(CMD_PULL_COMMAND, "")
 	c.client.AsyncSend(sd)
 }
 
@@ -233,8 +245,9 @@ func (c *Controller) sendService() {
 						log.Warnf("send times %v, %+v", d.SendTimes, *d)
 					}
 					d.Time    = int64(time.Now().UnixNano() / 1000000)
-					sd       := d.encode()
-					sendData := agent.Pack(d.Cmd, sd)
+					//sd       := d.encode()
+					//sendData := agent.Pack(d.Cmd, sd)
+					sendData, _:= c.codec.Encode(d.Cmd, d)
 					if d.IsMutex {
 						sdata := make([]byte, 16)
 						binary.LittleEndian.PutUint64(sdata[:8], uint64(d.CronId))
@@ -391,7 +404,7 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum
 // set on leader select callback
 func (c *Controller) OnLeader(isLeader bool) {
 	go func() {
-		log.Debugf("==============agent client OnLeader %v===============", isLeader)
+		log.Debugf("==============client OnLeader %v===============", isLeader)
 		var ip string
 		var port int
 		for {
@@ -408,12 +421,12 @@ func (c *Controller) OnLeader(isLeader bool) {
 	}()
 }
 
-// start agent
+// start
 func (c *Controller) Start() {
 	c.server.Start()
 }
 
-// close agent
+// close
 func (c *Controller) Close() {
 	c.server.Close()
 }
