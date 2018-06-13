@@ -35,14 +35,6 @@ type Controller struct {
 	codec ICodec
 }
 
-// 发送数据包的基本构成
-// Event代表对应的事件
-// Data对应基本的数据
-type Package struct {
-	Event int
-	Data interface{}
-}
-
 const (
 	maxQueueLen             = 64
 	dispatchChanLen         = 1000000
@@ -145,27 +137,27 @@ func (c *Controller) onClientEvent(tcp *agent.Client, cmd int , content []byte) 
 func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content []byte) {
 	// content 二次解析后得到event
 	// 这里的content全部使用json格式发送
-	dataRaw, err := c.codec.Decode(content)
+	event, data, err := c.codec.Decode(content)
 	if err != nil {
 		return
 	}
-	data := dataRaw.(Package)
-	switch data.Event {
+	//data := dataRaw.(Package)
+	switch event {
 	case agent.CMD_PULL_COMMAND:
 		if len(c.onPullChan) < 32 {
 			c.onPullChan <- node
 		}
 	case agent.CMD_CRONTAB_CHANGE:
-		sdata := data.Data.(SendData)
+		sdata := data.(SendData)
 		//err := json.Unmarshal(content, &sdata)
 		//if err != nil {
 		//	log.Errorf("%+v", err)
 		//} else {
-		sd, err := c.codec.Encode(Package{agent.CMD_CRONTAB_CHANGE_OK, []byte(sdata.Unique)})
+		sd, err := c.codec.Encode(agent.CMD_CRONTAB_CHANGE_OK, sdata.Unique)
 		if err == nil {
 			node.AsyncSend(msgId, sd)
 		}
-		sd, err = c.codec.Encode(Package{agent.CMD_CRONTAB_CHANGE, content})
+		sd, err = c.codec.Encode(agent.CMD_CRONTAB_CHANGE, content)
 		if err == nil {
 			c.server.Broadcast(msgId, sd)
 		}
