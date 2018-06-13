@@ -15,7 +15,7 @@ import (
 )
 
 type Controller struct {
-	client              *agent.Client
+	client              *tcp.Client//agent.Client
 	server              *tcp.Server//*agent.TcpService
 	dispatch            chan *runItem
 	onPullChan          chan *tcp.ClientNode//*agent.TcpClientNode
@@ -35,6 +35,9 @@ type Controller struct {
 	codec ICodec
 }
 
+// 发送数据包的基本构成
+// Event代表对应的事件
+// Data对应基本的数据
 type Package struct {
 	Event int
 	Data interface{}
@@ -74,7 +77,7 @@ func NewController(
 ) *Controller {
 	c := &Controller{
 			dispatch:            make(chan *runItem, dispatchChanLen),
-			onPullChan:          make(chan *agent.TcpClientNode, onPullChanLen),
+			onPullChan:          make(chan *tcp.ClientNode, onPullChanLen),
 			runningEndChan:      make(chan int64, runningEndChanLen),
 			sendQueueChan:       make(chan *SendData, sendQueueChanLen),
 			delSendQueueChan:    make(chan string, delSendQueueChanLen),
@@ -92,7 +95,8 @@ func NewController(
 		}
 	//c.server = agent.NewAgentServer(ctx.Context(), ctx.Config.BindAddress, agent.SetOnServerEvents(c.onServerEvent), )
 	c.server = tcp.NewServer(ctx.Context(), ctx.Config.BindAddress, tcp.SetOnServerMessage(c.OnServerMessage))
-	c.client = agent.NewClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
+	//c.client = agent.NewClient(ctx.Context(), agent.SetGetLeader(getLeader), agent.SetOnClientEvent(c.onClientEvent), )
+	c.client = tcp.NewClient(ctx.Context())
 	go c.sendService()
 	go c.keep()
 	return c
@@ -194,8 +198,13 @@ func (c *Controller) SyncToLeader(data []byte) {
 	c.sendQueueChan <- d
 }
 
+// 这个api用来发送获取需要执行的定时任务
+// 由crontab调用
+// 一旦crontab执行完一定程度的定时任务，变得空闲就会主动获取新的定时任务
+// 这个api就是发起主动获取请求
 func (c *Controller) Pull() {
-	c.client.AsyncWrite(agent.Pack(agent.CMD_PULL_COMMAND, []byte("")))
+	sd, _ := c.codec.Encode(Package{agent.CMD_PULL_COMMAND, []byte("")})
+	c.client.AsyncSend(sd)
 }
 
 func (c *Controller) sendService() {
@@ -397,7 +406,7 @@ func (c *Controller) OnLeader(isLeader bool) {
 			break
 		}
 		log.Infof("leader %v:%v", ip, port)
-		c.client.Start(ip, port)
+		c.client.Connect(fmt.Sprintf("%v:%v", ip, port), time.Second * 3)
 	}()
 }
 
