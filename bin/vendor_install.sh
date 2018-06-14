@@ -35,9 +35,13 @@ echo "installing... github.com/go-redis/redis"
 go get github.com/go-redis/redis
 echo "installing... github.com/Shopify/sarama"
 go get github.com/Shopify/sarama
+echo "installing... github.com/orcaman/concurrent-map"
 go get github.com/orcaman/concurrent-map
+echo "installing... gopkg.in/robfig/cron.v2"
 go get gopkg.in/robfig/cron.v2
-go get github.com/jilieryuyi/wing-go
+echo "installing... github.com/jilieryuyi/wing-go"
+go get -u github.com/jilieryuyi/wing-go
+echo "installing... go get github.com/emicklei/go-restful"
 go get github.com/emicklei/go-restful
 
 find $vendor_path -name '*.git*' | xargs rm -rf
