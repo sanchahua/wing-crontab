@@ -31,7 +31,7 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
 			isMutex = byte(1)
 		}
 		c.onCommand(item.Id, item.Command, sendData.Address, c.ctx.Config.BindAddress, isMutex, func() {
-			tcp.Send(data)
+			tcp.Write(data)
 		})
 	}
 }
