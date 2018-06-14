@@ -16,16 +16,16 @@ type Mutex struct {
 
 type QMutex map[int64]*Mutex
 func (queueMutex *QMutex) append(item *runItem) bool {
-	mutex, ok := (*queueMutex)[item.id]
+	mutex, ok := (*queueMutex)[item.Id]
 	if !ok {
 		mutex = &Mutex{
 			isRuning: false,
 			queue:    data.NewQueue(maxQueueLen),
 			start:    0,
 			sta:      &Statistics{},
-			isMutex:  item.isMutex,
+			isMutex:  item.IsMutex,
 		}
-		(*queueMutex)[item.id] = mutex
+		(*queueMutex)[item.Id] = mutex
 	}
 	ok, _ = mutex.queue.Put(item)
 	return ok

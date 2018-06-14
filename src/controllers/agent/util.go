@@ -28,23 +28,23 @@ func unpack(data []byte) (id int64, isMutex byte, command string, dispatchServer
 func pack(item *runItem, bindAddress string) []byte {
 	//json.Marshal(item)
 	sendData := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sendData, uint64(item.id))
+	binary.LittleEndian.PutUint64(sendData, uint64(item.Id))
 
 	dataCommendLen := make([]byte, 8)
-	binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.command)))
+	binary.LittleEndian.PutUint64(dataCommendLen, uint64(len(item.Command)))
 
 	//currentTime := make([]byte, 8)
 	//binary.LittleEndian.PutUint64(currentTime, uint64(time.Now().Unix()))
 	//sendData = append(sendData, currentTime...)
 
-	if item.isMutex {
+	if item.IsMutex {
 		sendData = append(sendData, byte(1))
 	} else {
 		sendData = append(sendData, byte(0))
 	}
 
 	sendData = append(sendData, dataCommendLen...)
-	sendData = append(sendData, []byte(item.command)...)
+	sendData = append(sendData, []byte(item.Command)...)
 
 	sendData = append(sendData, []byte(bindAddress)...)//c.ctx.Config.BindAddress)...)
 	return sendData

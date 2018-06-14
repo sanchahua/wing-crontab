@@ -6,10 +6,10 @@ import (
 
 type QEs map[int64]*data.EsQueue
 func (queueNomal *QEs) append(item *runItem) bool {
-	normal, ok := (*queueNomal)[item.id]
+	normal, ok := (*queueNomal)[item.Id]
 	if !ok {
 		normal = data.NewQueue(maxQueueLen)
-		(*queueNomal)[item.id] = normal
+		(*queueNomal)[item.Id] = normal
 	}
 	ok , _ = normal.Put(item)
 	return ok

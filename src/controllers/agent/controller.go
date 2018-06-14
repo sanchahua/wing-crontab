@@ -11,7 +11,6 @@ import (
 	"os"
 	"sync/atomic"
 	"github.com/jilieryuyi/wing-go/tcp"
-	"encoding/json"
 )
 
 type Controller struct {
@@ -67,10 +66,7 @@ type message struct {
 	node *tcp.ClientNode
 	msgId int64
 }
-type rowData struct {
-	event int
-	row *cron.CronEntity
-}
+
 
 func NewController(
 	ctx *app.Context,
@@ -148,7 +144,7 @@ func (c *Controller) sendService() {
 					}
 					d.Time    = int64(time.Now().UnixNano() / 1000000)
 					log.Infof("try to send crontab: %+v", d)
-					jd, _ := json.Marshal(d)
+					jd := d.encode()//json.Marshal(d)
 					sendData, _:= c.codec.Encode(d.Cmd, jd)
 					if d.IsMutex {
 						sdata := make([]byte, 16)
@@ -200,8 +196,9 @@ func (c *Controller) keep() {
 						} else {
 							log.Errorf("%v set num does not exists", id)
 						}
-						c.onDispatch(item.id)
-						c.sendQueueChan <- newSendData(node.msgId, CMD_RUN_COMMAND, item, node.node.Send, item.id, item.isMutex, c.ctx.Config.BindAddress)
+						c.onDispatch(item.Id)
+						itemData, _ := item.encode()
+						c.sendQueueChan <- newSendData(node.msgId, CMD_RUN_COMMAND, itemData, node.node.Send, item.Id, item.IsMutex, c.ctx.Config.BindAddress)
 					})
 					fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
 					gindexMutex++
@@ -221,8 +218,9 @@ func (c *Controller) keep() {
 						} else {
 							log.Errorf("%v set num does not exists", id)
 						}
-						c.onDispatch(item.id)
-						c.sendQueueChan <- newSendData(node.msgId, CMD_RUN_COMMAND, item, node.node.Send, item.id, item.isMutex, c.ctx.Config.BindAddress)
+						c.onDispatch(item.Id)
+						itemData, _ := item.encode()
+						c.sendQueueChan <- newSendData(node.msgId, CMD_RUN_COMMAND, itemData, node.node.Send, item.Id, item.IsMutex, c.ctx.Config.BindAddress)
 					})
 					gindexNormal++
 					if gindexNormal >= int64(len(normalKeys)) {
@@ -266,20 +264,20 @@ func (c *Controller) keep() {
 			if !ok {
 				return
 			}
-			setNum[item.id] = item.subWaitNum
-			if item.isMutex {
-				if _, ok := queueMutex[item.id]; !ok {
-					mutexKeys = append(mutexKeys, item.id)
+			setNum[item.Id] = item.SubWaitNum
+			if item.IsMutex {
+				if _, ok := queueMutex[item.Id]; !ok {
+					mutexKeys = append(mutexKeys, item.Id)
 				}
 				if !queueMutex.append(item) {
-					item.subWaitNum()
+					item.SubWaitNum()
 				}
 			} else {
-				if _, ok := queueNomal[item.id]; !ok {
-					normalKeys = append(normalKeys, item.id)
+				if _, ok := queueNomal[item.Id]; !ok {
+					normalKeys = append(normalKeys, item.Id)
 				}
 				if !queueNomal.append(item) {
-					item.subWaitNum()
+					item.SubWaitNum()
 				}
 			}
 		}
@@ -293,10 +291,10 @@ func (c *Controller) Dispatch(id int64, command string, isMutex bool, addWaitNum
 	}
 	addWaitNum()
 	item := &runItem{
-		id:         id,
-		command:    command,
-		isMutex:    isMutex,
-		subWaitNum: subwaitNum,
+		Id:         id,
+		Command:    command,
+		IsMutex:    isMutex,
+		SubWaitNum: subwaitNum,
 	}
 	c.dispatch <- item
 }

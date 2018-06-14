@@ -6,20 +6,20 @@ import (
 )
 
 type SendData struct {
-	CronId int64  `json:"cron_id"`
-	Unique string `json:"unique"`
-	Data interface{} `json:"data"`
-	Status int `json:"status"`
-	Time int64 `json:"time"`
-	SendTimes int `json:"send_times"`
-	Cmd int `json:"cmd"`
-	send sendFunc `json:"-"`
-	IsMutex bool `json:"is_mutex"`
-	MsgId int64 `json:"msg_id"`
-	Address string `json:"address"`
+	CronId int64     `json:"cron_id"`
+	Unique string    `json:"unique"`
+	Data []byte      `json:"data"`
+	Status int       `json:"status"`
+	Time int64       `json:"time"`
+	SendTimes int    `json:"send_times"`
+	Cmd int          `json:"cmd"`
+	send sendFunc    `json:"-"`
+	IsMutex bool     `json:"is_mutex"`
+	MsgId int64      `json:"msg_id"`
+	Address string   `json:"address"`
 }
 
-func newSendData(msgId int64, cmd int, data interface{}, send sendFunc, id int64, isMutex bool, address string) *SendData {
+func newSendData(msgId int64, cmd int, data []byte, send sendFunc, id int64, isMutex bool, address string) *SendData {
 	return &SendData{
 		Unique:    wstring.RandString(64),
 		Data:      data,
@@ -42,5 +42,11 @@ func (d *SendData) encode() []byte {
 		return nil
 	}
 	return b
+}
+
+func decodeSendData(data []byte) (*SendData, error) {
+	var d SendData
+	err := json.Unmarshal(data, &d)
+	return &d, err
 }
 

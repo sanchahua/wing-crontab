@@ -25,17 +25,17 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 			c.onPullChan <- message{node, msgId}
 		}
 	case CMD_CRONTAB_CHANGE:
-		sdata := data.(SendData)
+		sdata, _ := decodeSendData(data)//data.(SendData)
 		// 响应给客户端的请求
 		// CMD_CRONTAB_CHANGE_OK客户端同步处理
-		sd, err := c.codec.Encode(CMD_CRONTAB_CHANGE_OK, sdata.Unique)
+		sd, err := c.codec.Encode(CMD_CRONTAB_CHANGE_OK, []byte(sdata.Unique))
 		if err == nil {
 			node.AsyncSend(msgId, sd)
 		}
 		// todo 如有必要，这里可以加一个广播，这样所有的节点都会收到定时任务改变事件
 		// 触发定时任务改变事件
-		row := sdata.Data.(*rowData)
-		go c.onCronChange(row.event, row.row)
+		row, _ := decodeRowData(sdata.Data)
+		go c.onCronChange(row.Event, row.Row)
 		//}
 	case CMD_RUN_COMMAND:
 		id      := int64(binary.LittleEndian.Uint64(content[:8]))
