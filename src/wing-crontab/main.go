@@ -9,8 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"controllers/agent"
 	"models/cron"
-	"encoding/binary"
-	"encoding/json"
 	"time"
 	"controllers/models"
 	"database/sql"
@@ -80,20 +78,15 @@ func main() {
 
 	//agentController负责集群内部的通信
 	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, row *cron.CronEntity) {
-		// client端收到http请求后，转发给server（leader）端
+		// http -> client -> server(leader)
 		// leader 端解析后，把变化的的定时任务追加到定时任务列表
-		//var e cron.CronEntity
-		//err := json.Unmarshal(data, &e)
-		//if err != nil {
-		//	log.Errorf("%+v", err)
-		//	return
-		//}
 		crontabController.Add(event, row)
 	}, crontabController.ReceiveCommand, func(cronId int64) {
-		//定时任务被发送出去
+		// 定时任务被分发出去
+		// 所有的定时任务由leader负责分发
 		logController.Add(cronId, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
 	}, func(cronId int64, dispatchServer string) {
-		//定时任务发送完成响应回到server端（leader）
+		// 定时分发到client端，client收到响应后的回调
 		logController.Add(cronId, "", 0, dispatchServer, "", int64(time.Now().UnixNano() / 1000000), mlog.Step_4, "")
 	})
 	agentController.Start()
