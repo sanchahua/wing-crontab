@@ -52,6 +52,7 @@ func (row *CronEntity) SubWaitNum() int64 {
 	if atomic.LoadInt64(&row.WaitNum) <= 0 {
 		return 0
 	}
+	log.Infof("=================%v sub num", row.Id)
 	return atomic.AddInt64(&row.WaitNum, -1)
 }
 

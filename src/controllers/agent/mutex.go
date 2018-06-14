@@ -32,11 +32,12 @@ func (queueMutex *QMutex) append(item *runItem) bool {
 }
 
 func (queueMutex *QMutex) dispatch(id int64, success func(*runItem)) {
+	log.Infof("%+v mutex dispatch", id)
 	queue := (*queueMutex)[id]
 	var timeout = queue.getTimeout()
 	tn := int64(time.Now().UnixNano()/1000000)
 	if queue.isRuning && (tn - queue.start) < timeout {
-		//log.Debugf("================%v still running", id)
+		log.Debugf("================%v still running", id)
 		return
 	}
 	itemI, ok, _ := queue.queue.Get()

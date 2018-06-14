@@ -157,11 +157,11 @@ func (c *Controller) sendService() {
 					fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 				}
 				atomic.StoreInt64(&c.sendQueueLen, int64(len(sendQueue)))
-			case unique, ok := <- c.delSendQueueChan:
-				if !ok {
-					return
-				}
-				fmt.Fprintf(os.Stderr, "running complete -server %v\r\n", unique)
+			//case unique, ok := <- c.delSendQueueChan:
+			//	if !ok {
+			//		return
+			//	}
+			//	fmt.Fprintf(os.Stderr, "running complete -server %v\r\n", unique)
 		}
 	}
 }
