@@ -15,7 +15,7 @@ func (queueNomal *QEs) append(item *runItem) bool {
 	return ok
 }
 
-func (queueNomal *QEs) dispatch(msgId int64, id int64, address string, send sendFunc, c chan *SendData, success func(item *runItem)){
+func (queueNomal *QEs) dispatch(id int64, success func(item *runItem)){
 	queueNormal := (*queueNomal)[id]
 	itemI, ok, _ := queueNormal.Get()
 	if !ok || itemI == nil {
@@ -23,5 +23,4 @@ func (queueNomal *QEs) dispatch(msgId int64, id int64, address string, send send
 	}
 	item := itemI.(*runItem)
 	success(item)
-	c <- newSendData(msgId, CMD_RUN_COMMAND, item, send, item.id, item.isMutex, address)
 }

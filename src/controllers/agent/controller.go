@@ -193,7 +193,7 @@ func (c *Controller) keep() {
 					// 分发互斥任务
 					start := time.Now()
 					id    := mutexKeys[int(gindexMutex)]
-					queueMutex.dispatch(node.msgId, id, c.ctx.Config.BindAddress, node.node.Send, c.sendQueueChan, func(item *runItem) {
+					queueMutex.dispatch(id, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
 							set()
@@ -201,6 +201,7 @@ func (c *Controller) keep() {
 							log.Errorf("%v set num does not exists", id)
 						}
 						c.onDispatch(item.id)
+						c.sendQueueChan <- newSendData(node.msgId, CMD_RUN_COMMAND, item, node.node.Send, item.id, item.isMutex, c.ctx.Config.BindAddress)
 					})
 					fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
 					gindexMutex++
@@ -213,7 +214,7 @@ func (c *Controller) keep() {
 					// 分发普通任务
 					start := time.Now()
 					id    := normalKeys[int(gindexNormal)]
-					queueNomal.dispatch(node.msgId, id, c.ctx.Config.BindAddress, node.node.Send, c.sendQueueChan, func(item *runItem) {
+					queueNomal.dispatch(id, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
 							set()
@@ -221,6 +222,7 @@ func (c *Controller) keep() {
 							log.Errorf("%v set num does not exists", id)
 						}
 						c.onDispatch(item.id)
+						c.sendQueueChan <- newSendData(node.msgId, CMD_RUN_COMMAND, item, node.node.Send, item.id, item.isMutex, c.ctx.Config.BindAddress)
 					})
 					gindexNormal++
 					if gindexNormal >= int64(len(normalKeys)) {

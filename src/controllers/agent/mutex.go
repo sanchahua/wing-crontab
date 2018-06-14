@@ -31,7 +31,7 @@ func (queueMutex *QMutex) append(item *runItem) bool {
 	return ok
 }
 
-func (queueMutex *QMutex) dispatch(msgId int64, id int64, address string, send sendFunc, c chan *SendData, success func(*runItem)) {
+func (queueMutex *QMutex) dispatch(id int64, success func(*runItem)) {
 	queue := (*queueMutex)[id]
 	var timeout = queue.getTimeout()
 	tn := int64(time.Now().UnixNano()/1000000)
@@ -50,7 +50,7 @@ func (queueMutex *QMutex) dispatch(msgId int64, id int64, address string, send s
 	//分发互斥定时任务
 	//sendData := pack(item, address)//c.ctx.Config.BindAddress)
 	success(item)
-	c <- newSendData(msgId, CMD_RUN_COMMAND, item, send, item.id, item.isMutex, address)
+	//c <- newSendData(msgId, CMD_RUN_COMMAND, item, send, item.id, item.isMutex, address)
 }
 
 func (queueMutex *QMutex) setRunning(id int64, running bool) {

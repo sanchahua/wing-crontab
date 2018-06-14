@@ -19,6 +19,7 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 	switch event {
 	case CMD_PULL_COMMAND:
 		// server端收到pull请求
+		// 这里的data是一个空字符串
 		log.Info("server receive pull command")
 		if len(c.onPullChan) < 32 {
 			c.onPullChan <- message{node, msgId}
