@@ -17,7 +17,7 @@ type Controller struct {
 	client              *tcp.Client
 	server              *tcp.Server
 	dispatch            chan *runItem
-	onPullChan          chan message//*tcp.ClientNode
+	onPullChan          chan message
 	runningEndChan      chan int64
 	sendQueueChan       chan *SendData
 	delSendQueueChan    chan string
