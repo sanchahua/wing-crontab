@@ -11,7 +11,7 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
 	log.Infof("==========onClientEvent==========")
 	cmd, data, err := c.codec.Decode(content)
 	if err != nil {
-		log.Errorf("%v", err)
+		log.Errorf("%v, %+v, %v", err, content, string(content))
 		return
 	}
 	log.Infof("cmd=%v,data=%+v", cmd, data)
