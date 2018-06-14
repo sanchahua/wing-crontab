@@ -15,9 +15,10 @@ type SendData struct {
 	Cmd int `json:"cmd"`
 	send sendFunc `json:"-"`
 	IsMutex bool `json:"is_mutex"`
+	MsgId int64 `json:"msg_id"`
 }
 
-func newSendData(cmd int, data []byte, send sendFunc, id int64, isMutex bool) *SendData {
+func newSendData(msgId int64, cmd int, data []byte, send sendFunc, id int64, isMutex bool) *SendData {
 	return &SendData{
 		Unique:    wstring.RandString(64),
 		Data:      data,
@@ -28,6 +29,7 @@ func newSendData(cmd int, data []byte, send sendFunc, id int64, isMutex bool) *S
 		send:      send,
 		CronId:    id,
 		IsMutex:   isMutex,
+		MsgId:     msgId,
 	}
 
 }

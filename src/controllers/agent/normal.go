@@ -16,7 +16,7 @@ func (queueNomal *QEs) append(item *runItem) bool {
 	return ok
 }
 
-func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte) (int, error), c chan *SendData, success func(item *runItem)){
+func (queueNomal *QEs) dispatch(msgId int64, id int64, address string, send sendFunc, c chan *SendData, success func(item *runItem)){
 	queueNormal := (*queueNomal)[id]
 	itemI, ok, _ := queueNormal.Get()
 	if !ok || itemI == nil {
@@ -26,5 +26,5 @@ func (queueNomal *QEs) dispatch(id int64, address string, send func(data []byte)
 	item := itemI.(*runItem)
 	sendData := pack(item, address)//c.ctx.Config.BindAddress)
 	success(item)
-	c <- newSendData(agent.CMD_RUN_COMMAND, sendData, send, item.id, item.isMutex)
+	c <- newSendData(msgId, agent.CMD_RUN_COMMAND, sendData, send, item.id, item.isMutex)
 }

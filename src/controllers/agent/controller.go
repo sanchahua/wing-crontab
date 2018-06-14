@@ -18,7 +18,7 @@ type Controller struct {
 	client              *tcp.Client
 	server              *tcp.Server
 	dispatch            chan *runItem
-	onPullChan          chan *tcp.ClientNode
+	onPullChan          chan message//*tcp.ClientNode
 	runningEndChan      chan int64
 	sendQueueChan       chan *SendData
 	delSendQueueChan    chan string
@@ -59,10 +59,14 @@ const (
 )
 type OnDispatchFunc        func(cronId int64)
 type OnCommandBackFunc     func(cronId int64, dispatchServer string)
-type sendFunc              func(data []byte)  (int, error)
+type sendFunc              func(msgId int64, data []byte)  (int, error)
 type OnCommandFunc         func(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func())
 type OnCronChangeEventFunc func(event int, data []byte)
 type GetLeaderFunc         func()(string, int, error)
+type message struct {
+	node *tcp.ClientNode
+	msgId int64
+}
 
 func NewController(
 	ctx *app.Context,
@@ -82,21 +86,21 @@ func NewController(
 ) *Controller {
 	c := &Controller{
 			dispatch:            make(chan *runItem, dispatchChanLen),
-			onPullChan:          make(chan *tcp.ClientNode, onPullChanLen),
+			onPullChan:          make(chan message, onPullChanLen),
 			runningEndChan:      make(chan int64, runningEndChanLen),
 			sendQueueChan:       make(chan *SendData, sendQueueChanLen),
 			delSendQueueChan:    make(chan string, delSendQueueChanLen),
 			statisticsStartChan: make(chan []byte, statisticsChanLen),
 			statisticsEndChan:   make(chan []byte, statisticsChanLen),
-			ctx:                ctx,
-			lock:               new(sync.Mutex),
-			onCronChange:       onCronChange,
-			onCommand:          onCommand,
-			sendQueueLen:       0,
-			getLeader:          getLeader,
-			onDispatch:	        onDispatch,
-			OnCommandBack:      OnCommandBack,
-			codec:              &Codec{},
+			ctx:                 ctx,
+			lock:                new(sync.Mutex),
+			onCronChange:        onCronChange,
+			onCommand:           onCommand,
+			sendQueueLen:        0,
+			getLeader:           getLeader,
+			onDispatch:	         onDispatch,
+			OnCommandBack:       OnCommandBack,
+			codec:               &Codec{},
 		}
 	c.server = tcp.NewServer(ctx.Context(), ctx.Config.BindAddress, tcp.SetOnServerMessage(c.OnServerMessage))
 	c.client = tcp.NewClient(ctx.Context())
@@ -155,9 +159,10 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 	}
 	//data := dataRaw.(Package)
 	switch event {
+	// server端收到pull请求
 	case CMD_PULL_COMMAND:
 		if len(c.onPullChan) < 32 {
-			c.onPullChan <- node
+			c.onPullChan <- message{node, msgId}
 		}
 	case CMD_CRONTAB_CHANGE:
 		sdata := data.(SendData)
@@ -195,17 +200,30 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 
 // send data to leader
 func (c *Controller) SyncToLeader(data []byte) {
-	d := newSendData(CMD_CRONTAB_CHANGE, data, func(data []byte) (int, error) {
-		c.client.AsyncSend(data)
-		return 0, nil
-	}, 0, false)
-	c.sendQueueChan <- d
+	// client 发送到 server， 实际上这里的msgId没有用
+	// client发送到server的时候会自动生成msgId
+	d := newSendData(1, CMD_CRONTAB_CHANGE, data, nil, 0, false)
+	sendData, _:= c.codec.Encode(d.Cmd, d)
+	resource, _, err := c.client.Send(sendData)
+	if err != nil {
+		log.Error("SyncToLeader failure")
+		return// num, err
+	}
+	// 这里采用同步发送，等待server端响应，响应超时时间设定为3秒
+	res, err := resource.Wait(time.Second * 3)
+	if err != nil {
+		log.Error("SyncToLeader failure")
+		return// num, nil
+	}
+	log.Infof("SyncToLeader return: %v, %v", res, string(res))
+	//return// num, nil
 }
 
 // 这个api用来发送获取需要执行的定时任务
 // 由crontab调用
 // 一旦crontab执行完一定程度的定时任务，变得空闲就会主动获取新的定时任务
 // 这个api就是发起主动获取请求
+// 由client端发起
 func (c *Controller) Pull() {
 	sd, _ := c.codec.Encode(CMD_PULL_COMMAND, "")
 	c.client.AsyncSend(sd)
@@ -254,7 +272,7 @@ func (c *Controller) sendService() {
 						binary.LittleEndian.PutUint64(sdata[8:], uint64(int64(time.Now().UnixNano()/1000000)))
 						c.statisticsStartChan <- sdata
 					}
-					d.send(sendData)
+					d.send(d.MsgId, sendData)
 					delete(sendQueue, d.Unique)
 					fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 				}
@@ -288,10 +306,7 @@ func (c *Controller) keep() {
 				if len(mutexKeys) > 0 {
 					start := time.Now()
 					id := mutexKeys[int(gindexMutex)]
-					queueMutex.dispatch(id, c.ctx.Config.BindAddress, func(data []byte) (int, error) {
-						node.Send(1, data)
-						return len(data), nil
-					}, c.sendQueueChan, func(item *runItem) {
+					queueMutex.dispatch(node.msgId, id, c.ctx.Config.BindAddress, node.node.Send, c.sendQueueChan, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
 							set()
@@ -311,10 +326,7 @@ func (c *Controller) keep() {
 				if len(normalKeys) > 0 {
 					start := time.Now()
 					id := normalKeys[int(gindexNormal)]
-					queueNomal.dispatch(id, c.ctx.Config.BindAddress, func(data []byte) (int, error) {
-						node.Send(1, data)
-						return len(data), nil
-					}, c.sendQueueChan, func(item *runItem) {
+					queueNomal.dispatch(node.msgId, id, c.ctx.Config.BindAddress, node.node.Send, c.sendQueueChan, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
 							set()
