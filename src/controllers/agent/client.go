@@ -4,8 +4,6 @@ import (
 	"time"
 	log "github.com/sirupsen/logrus"
 	"models/cron"
-	"fmt"
-	"os"
 	"github.com/jilieryuyi/wing-go/tcp"
 )
 
@@ -45,7 +43,7 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
 			sd, _ := c.codec.Encode(CMD_RUN_COMMAND, sendData)
 			tcp.Send(sd)
 		})
-		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
+		//fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
 		//case CMD_CRONTAB_CHANGE_OK:
 		//	log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
 		//	c.delSendQueueChan <- string(content)
@@ -82,5 +80,15 @@ func (c *Controller) SyncToLeader(event int, row *cron.CronEntity) {
 		return
 	}
 	log.Infof("SyncToLeader return: %v, %v", res, string(res))
+}
+
+// 这个api用来发送获取需要执行的定时任务
+// 由crontab调用
+// 一旦crontab执行完一定程度的定时任务，变得空闲就会主动获取新的定时任务
+// 这个api就是发起主动获取请求
+// 由client端发起
+func (c *Controller) Pull() {
+	sd, _ := c.codec.Encode(CMD_PULL_COMMAND, "")
+	c.client.AsyncSend(sd)
 }
 

@@ -112,15 +112,7 @@ func NewController(
 	return c
 }
 
-// 这个api用来发送获取需要执行的定时任务
-// 由crontab调用
-// 一旦crontab执行完一定程度的定时任务，变得空闲就会主动获取新的定时任务
-// 这个api就是发起主动获取请求
-// 由client端发起
-func (c *Controller) Pull() {
-	sd, _ := c.codec.Encode(CMD_PULL_COMMAND, "")
-	c.client.AsyncSend(sd)
-}
+
 
 func (c *Controller) sendService() {
 	var sendQueue = make(map[string]*SendData)

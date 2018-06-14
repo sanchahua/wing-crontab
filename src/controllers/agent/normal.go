@@ -20,11 +20,9 @@ func (queueNomal *QEs) dispatch(msgId int64, id int64, address string, send send
 	queueNormal := (*queueNomal)[id]
 	itemI, ok, _ := queueNormal.Get()
 	if !ok || itemI == nil {
-		//log.Warnf("queue get empty, %+v, %+v, %+v", ok, num, itemI)
 		return
 	}
 	item := itemI.(*runItem)
-	sendData := pack(item, address)//c.ctx.Config.BindAddress)
 	success(item)
-	c <- newSendData(msgId, agent.CMD_RUN_COMMAND, sendData, send, item.id, item.isMutex)
+	c <- newSendData(msgId, agent.CMD_RUN_COMMAND, item, send, item.id, item.isMutex, address)
 }
