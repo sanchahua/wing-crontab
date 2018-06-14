@@ -16,9 +16,7 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 	if err != nil {
 		return
 	}
-	//data := dataRaw.(Package)
 	switch event {
-
 	case CMD_PULL_COMMAND:
 		// server端收到pull请求
 		log.Info("server receive pull command")

@@ -2,7 +2,6 @@ package agent
 
 import (
 	"library/data"
-	"library/agent"
 )
 
 type QEs map[int64]*data.EsQueue
@@ -24,5 +23,5 @@ func (queueNomal *QEs) dispatch(msgId int64, id int64, address string, send send
 	}
 	item := itemI.(*runItem)
 	success(item)
-	c <- newSendData(msgId, agent.CMD_RUN_COMMAND, item, send, item.id, item.isMutex, address)
+	c <- newSendData(msgId, CMD_RUN_COMMAND, item, send, item.id, item.isMutex, address)
 }

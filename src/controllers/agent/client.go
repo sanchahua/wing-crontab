@@ -5,17 +5,20 @@ import (
 	log "github.com/sirupsen/logrus"
 	"models/cron"
 	"github.com/jilieryuyi/wing-go/tcp"
+	"encoding/json"
 )
 
 func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
+	log.Infof("==========onClientEvent==========")
 	cmd, data, err := c.codec.Decode(content)
 	if err != nil {
 		log.Errorf("%v", err)
 		return
 	}
-
+	log.Infof("cmd=%v,data=%+v", cmd, data)
 	switch cmd {
 	case CMD_RUN_COMMAND:
+		log.Infof("======run command======")
 		//err := json.Unmarshal(content, &sendData)
 		//if err != nil {
 		//	log.Errorf("json.Unmarshal with %v", err)
@@ -33,8 +36,19 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
 		//sdata = append(sdata, sid...)
 		//sdata = append(sdata, isMutex)
 		//sdata = append(sdata, []byte(sendData.Unique)...)
-		sendData := data.(*SendData) //var sendData SendData
+		//sendData := data.(*SendData) //var sendData SendData
+		var sendData SendData
+		//var item runItem
+		err = json.Unmarshal(data.([]byte), &sendData)
+		if err != nil {
+			log.Error(err)
+			return
+		}
 		item := sendData.Data.(*runItem)
+
+		log.Infof("####################client receive command: %+v", sendData)
+		log.Infof("####################client receive command: %+v", item)
+
 		isMutex := byte(0)
 		if item.isMutex {
 			isMutex = byte(1)

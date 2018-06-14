@@ -4,7 +4,6 @@ import (
 	"library/data"
 	log "github.com/sirupsen/logrus"
 	"time"
-	"library/agent"
 )
 
 type Mutex struct {
@@ -51,7 +50,7 @@ func (queueMutex *QMutex) dispatch(msgId int64, id int64, address string, send s
 	//分发互斥定时任务
 	//sendData := pack(item, address)//c.ctx.Config.BindAddress)
 	success(item)
-	c <- newSendData(msgId, agent.CMD_RUN_COMMAND, item, /*node.AsyncSend*/send, item.id, item.isMutex, address)
+	c <- newSendData(msgId, CMD_RUN_COMMAND, item, send, item.id, item.isMutex, address)
 }
 
 func (queueMutex *QMutex) setRunning(id int64, running bool) {

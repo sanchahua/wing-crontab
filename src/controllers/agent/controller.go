@@ -11,6 +11,7 @@ import (
 	"os"
 	"sync/atomic"
 	"github.com/jilieryuyi/wing-go/tcp"
+	"encoding/json"
 )
 
 type Controller struct {
@@ -112,8 +113,6 @@ func NewController(
 	return c
 }
 
-
-
 func (c *Controller) sendService() {
 	var sendQueue = make(map[string]*SendData)
 	var checkChan = make(chan struct{})
@@ -148,9 +147,9 @@ func (c *Controller) sendService() {
 						log.Warnf("send times %v, %+v", d.SendTimes, *d)
 					}
 					d.Time    = int64(time.Now().UnixNano() / 1000000)
-					//sd       := d.encode()
-					//sendData := agent.Pack(d.Cmd, sd)
-					sendData, _:= c.codec.Encode(d.Cmd, d)
+					log.Infof("try to send crontab: %+v", d)
+					jd, _ := json.Marshal(d)
+					sendData, _:= c.codec.Encode(d.Cmd, jd)
 					if d.IsMutex {
 						sdata := make([]byte, 16)
 						binary.LittleEndian.PutUint64(sdata[:8], uint64(d.CronId))
@@ -183,14 +182,17 @@ func (c *Controller) keep() {
 
 	for {
 		select {
+		// client发送pull指令
+		// server端收到pull指令之后进行定时任务分发操作
 		case node, ok := <-c.onPullChan:
 			if !ok {
 				return
 			}
 			if atomic.LoadInt64(&c.sendQueueLen) < 32 {
 				if len(mutexKeys) > 0 {
+					// 分发互斥任务
 					start := time.Now()
-					id := mutexKeys[int(gindexMutex)]
+					id    := mutexKeys[int(gindexMutex)]
 					queueMutex.dispatch(node.msgId, id, c.ctx.Config.BindAddress, node.node.Send, c.sendQueueChan, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
@@ -198,7 +200,6 @@ func (c *Controller) keep() {
 						} else {
 							log.Errorf("%v set num does not exists", id)
 						}
-						// add log 这里代表定时任务被发出去了
 						c.onDispatch(item.id)
 					})
 					fmt.Fprintf(os.Stderr, "dispatch id= %v, OnPullCommand mutex use time %v\n", id, time.Since(start))
@@ -209,8 +210,9 @@ func (c *Controller) keep() {
 				}
 
 				if len(normalKeys) > 0 {
+					// 分发普通任务
 					start := time.Now()
-					id := normalKeys[int(gindexNormal)]
+					id    := normalKeys[int(gindexNormal)]
 					queueNomal.dispatch(node.msgId, id, c.ctx.Config.BindAddress, node.node.Send, c.sendQueueChan, func(item *runItem) {
 						set, ok := setNum[id]
 						if ok {
@@ -218,7 +220,6 @@ func (c *Controller) keep() {
 						} else {
 							log.Errorf("%v set num does not exists", id)
 						}
-						// add log 这里代表定时任务被发出去了
 						c.onDispatch(item.id)
 					})
 					gindexNormal++
