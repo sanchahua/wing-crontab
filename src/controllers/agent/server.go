@@ -3,7 +3,7 @@ package agent
 import (
 	"encoding/binary"
 	"time"
-	//log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"fmt"
 	"os"
 	"github.com/jilieryuyi/wing-go/tcp"
@@ -18,8 +18,10 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 	}
 	//data := dataRaw.(Package)
 	switch event {
-	// server端收到pull请求
+
 	case CMD_PULL_COMMAND:
+		// server端收到pull请求
+		log.Info("server receive pull command")
 		if len(c.onPullChan) < 32 {
 			c.onPullChan <- message{node, msgId}
 		}

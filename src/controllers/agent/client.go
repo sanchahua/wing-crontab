@@ -88,6 +88,7 @@ func (c *Controller) SyncToLeader(event int, row *cron.CronEntity) {
 // 这个api就是发起主动获取请求
 // 由client端发起
 func (c *Controller) Pull() {
+	log.Infof("pull was called")
 	sd, _ := c.codec.Encode(CMD_PULL_COMMAND, "")
 	c.client.AsyncSend(sd)
 }
