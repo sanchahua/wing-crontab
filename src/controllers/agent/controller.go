@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 	log "github.com/sirupsen/logrus"
-	"encoding/json"
+	"models/cron"
 	"fmt"
 	"os"
 	"sync/atomic"
@@ -61,11 +61,15 @@ type OnDispatchFunc        func(cronId int64)
 type OnCommandBackFunc     func(cronId int64, dispatchServer string)
 type sendFunc              func(msgId int64, data []byte)  (int, error)
 type OnCommandFunc         func(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func())
-type OnCronChangeEventFunc func(event int, data []byte)
+type OnCronChangeEventFunc func(event int, data *cron.CronEntity)
 type GetLeaderFunc         func()(string, int, error)
 type message struct {
 	node *tcp.ClientNode
 	msgId int64
+}
+type rowData struct {
+	event int
+	row *cron.CronEntity
 }
 
 func NewController(
@@ -115,9 +119,9 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
 		log.Errorf("%v", err)
 		return
 	}
+
 	switch cmd {
 	case CMD_RUN_COMMAND:
-		sendData := data.(*SendData)//var sendData SendData
 		//err := json.Unmarshal(content, &sendData)
 		//if err != nil {
 		//	log.Errorf("json.Unmarshal with %v", err)
@@ -135,6 +139,7 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
 		//sdata = append(sdata, sid...)
 		//sdata = append(sdata, isMutex)
 		//sdata = append(sdata, []byte(sendData.Unique)...)
+		sendData := data.(*SendData) //var sendData SendData
 		item := sendData.Data.(*runItem)
 		isMutex := byte(0)
 		if item.isMutex {
@@ -145,18 +150,19 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
 			tcp.Send(sd)
 		})
 		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
-	case CMD_CRONTAB_CHANGE_OK:
-		log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
-		c.delSendQueueChan <-  string(content)
-	case CMD_CRONTAB_CHANGE:
-		var sdata SendData
-		err := json.Unmarshal(content, &sdata)
-		if err != nil {
-			log.Errorf("%+v", err)
-		} else {
-			event := binary.LittleEndian.Uint32(sdata.Data[:4])
-			go c.onCronChange(int(event), sdata.Data[4:])
-		}
+	//case CMD_CRONTAB_CHANGE_OK:
+	//	log.Infof("cron send to leader server ok (will delete from send queue): %+v", string(content))
+	//	c.delSendQueueChan <- string(content)
+		//case CMD_CRONTAB_CHANGE:
+		//	//var sdata SendData
+		//	//err := json.Unmarshal(content, &sdata)
+		//	//if err != nil {
+		//	//	log.Errorf("%+v", err)
+		//	//} else {
+		//		event := binary.LittleEndian.Uint32(sdata.Data[:4])
+		//		go c.onCronChange(int(event), sdata.Data[4:])
+		//	//}
+		//}
 	}
 }
 
@@ -180,14 +186,18 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 		//if err != nil {
 		//	log.Errorf("%+v", err)
 		//} else {
+
+		//响应给客户端的请求
 		sd, err := c.codec.Encode(CMD_CRONTAB_CHANGE_OK, sdata.Unique)
 		if err == nil {
 			node.AsyncSend(msgId, sd)
 		}
-		sd, err = c.codec.Encode(CMD_CRONTAB_CHANGE, content)
-		if err == nil {
-			c.server.Broadcast(msgId, sd)
-		}
+		//sd, err = c.codec.Encode(CMD_CRONTAB_CHANGE, content)
+		//if err == nil {
+		//	c.server.Broadcast(msgId, sd)
+		//}
+		row := sdata.Data.(*rowData)
+		go c.onCronChange(row.event, row.row)
 		//}
 	case CMD_RUN_COMMAND:
 		id      := int64(binary.LittleEndian.Uint64(content[:8]))
@@ -209,10 +219,13 @@ func (c *Controller) OnServerMessage(node *tcp.ClientNode, msgId int64, content 
 }
 
 // send data to leader
-func (c *Controller) SyncToLeader(data []byte) {
+func (c *Controller) SyncToLeader(event int, row *cron.CronEntity) {
 	// client 发送到 server， 实际上这里的msgId没有用
 	// client发送到server的时候会自动生成msgId
-	d := newSendData(1, CMD_CRONTAB_CHANGE, data, nil, 0, false)
+	d := newSendData(1, CMD_CRONTAB_CHANGE, rowData{
+		event:event,
+		row:row,
+	}, nil, 0, false, c.ctx.Config.BindAddress)
 	sendData, _:= c.codec.Encode(d.Cmd, d)
 	resource, _, err := c.client.Send(sendData)
 	if err != nil {

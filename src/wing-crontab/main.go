@@ -79,16 +79,16 @@ func main() {
 	defer consulControl.Close()
 
 	//agentController负责集群内部的通信
-	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, data []byte) {
+	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, row *cron.CronEntity) {
 		// client端收到http请求后，转发给server（leader）端
 		// leader 端解析后，把变化的的定时任务追加到定时任务列表
-		var e cron.CronEntity
-		err := json.Unmarshal(data, &e)
-		if err != nil {
-			log.Errorf("%+v", err)
-			return
-		}
-		crontabController.Add(event, &e)
+		//var e cron.CronEntity
+		//err := json.Unmarshal(data, &e)
+		//if err != nil {
+		//	log.Errorf("%+v", err)
+		//	return
+		//}
+		crontabController.Add(event, row)
 	}, crontabController.ReceiveCommand, func(cronId int64) {
 		//定时任务被发送出去
 		logController.Add(cronId, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
@@ -127,14 +127,14 @@ func main() {
 
 	// httpController负责对应提供http api服务
 	httpController := http.NewHttpController(ctx, cronController, logController, http.SetCronHook(func(event int, row *cron.CronEntity) {
-		var e = make([]byte, 4)
-		binary.LittleEndian.PutUint32(e, uint32(event))
-		data, err := json.Marshal(row)
-		if err != nil {
-			return
-		}
-		e = append(e, data...)
-		agentController.SyncToLeader(e)
+		//var e = make([]byte, 4)
+		//binary.LittleEndian.PutUint32(e, uint32(event))
+		//data, err := json.Marshal(row)
+		//if err != nil {
+		//	return
+		//}
+		//e = append(e, data...)
+		agentController.SyncToLeader(event, row)
 	}))
 	httpController.Start()
 	defer httpController.Close()
