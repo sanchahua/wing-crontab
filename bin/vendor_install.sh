@@ -40,7 +40,7 @@ go get github.com/orcaman/concurrent-map
 echo "installing... gopkg.in/robfig/cron.v2"
 go get gopkg.in/robfig/cron.v2
 echo "installing... github.com/jilieryuyi/wing-go"
-go get -u github.com/jilieryuyi/wing-go
+go get github.com/jilieryuyi/wing-go
 echo "installing... go get github.com/emicklei/go-restful"
 go get github.com/emicklei/go-restful
 
