@@ -8,7 +8,7 @@ import (
 type SendData struct {
 	CronId int64  `json:"cron_id"`
 	Unique string `json:"unique"`
-	Data []byte `json:"data"`
+	Data interface{} `json:"data"`
 	Status int `json:"status"`
 	Time int64 `json:"time"`
 	SendTimes int `json:"send_times"`
@@ -16,9 +16,10 @@ type SendData struct {
 	send sendFunc `json:"-"`
 	IsMutex bool `json:"is_mutex"`
 	MsgId int64 `json:"msg_id"`
+	Address string `json:"address"`
 }
 
-func newSendData(msgId int64, cmd int, data []byte, send sendFunc, id int64, isMutex bool) *SendData {
+func newSendData(msgId int64, cmd int, data interface{}, send sendFunc, id int64, isMutex bool, address string) *SendData {
 	return &SendData{
 		Unique:    wstring.RandString(64),
 		Data:      data,
@@ -30,6 +31,7 @@ func newSendData(msgId int64, cmd int, data []byte, send sendFunc, id int64, isM
 		CronId:    id,
 		IsMutex:   isMutex,
 		MsgId:     msgId,
+		Address:   address,
 	}
 
 }

@@ -85,13 +85,13 @@ func NewController(
 	OnCommandBack    OnCommandBackFunc,
 ) *Controller {
 	c := &Controller{
-			dispatch:            make(chan *runItem, dispatchChanLen),
-			onPullChan:          make(chan message, onPullChanLen),
-			runningEndChan:      make(chan int64, runningEndChanLen),
+			dispatch:            make(chan *runItem,  dispatchChanLen),
+			onPullChan:          make(chan message,   onPullChanLen),
+			runningEndChan:      make(chan int64,     runningEndChanLen),
 			sendQueueChan:       make(chan *SendData, sendQueueChanLen),
-			delSendQueueChan:    make(chan string, delSendQueueChanLen),
-			statisticsStartChan: make(chan []byte, statisticsChanLen),
-			statisticsEndChan:   make(chan []byte, statisticsChanLen),
+			delSendQueueChan:    make(chan string,    delSendQueueChanLen),
+			statisticsStartChan: make(chan []byte,    statisticsChanLen),
+			statisticsEndChan:   make(chan []byte,    statisticsChanLen),
 			ctx:                 ctx,
 			lock:                new(sync.Mutex),
 			onCronChange:        onCronChange,
@@ -103,35 +103,45 @@ func NewController(
 			codec:               &Codec{},
 		}
 	c.server = tcp.NewServer(ctx.Context(), ctx.Config.BindAddress, tcp.SetOnServerMessage(c.OnServerMessage))
-	c.client = tcp.NewClient(ctx.Context())
+	c.client = tcp.NewClient(ctx.Context(), tcp.SetOnMessage(c.onClientEvent))
 	go c.sendService()
 	go c.keep()
 	return c
 }
 
-func (c *Controller) onClientEvent(tcp *tcp.Client, cmd int , content []byte) {
+func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
+	cmd, data, err := c.codec.Decode(content)
+	if err != nil {
+		log.Errorf("%v", err)
+		return
+	}
 	switch cmd {
 	case CMD_RUN_COMMAND:
-		var sendData SendData
-		err := json.Unmarshal(content, &sendData)
-		if err != nil {
-			log.Errorf("json.Unmarshal with %v", err)
-			return
+		sendData := data.(*SendData)//var sendData SendData
+		//err := json.Unmarshal(content, &sendData)
+		//if err != nil {
+		//	log.Errorf("json.Unmarshal with %v", err)
+		//	return
+		//}
+		//id, isMutex, command, dispatchServer, err := unpack(sendData.Data)
+		//if err != nil {
+		//	log.Errorf("%v", err)
+		//	return
+		//}
+		//fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
+		//sdata := make([]byte, 0)
+		//sid   := make([]byte, 8)
+		//binary.LittleEndian.PutUint64(sid, uint64(id))
+		//sdata = append(sdata, sid...)
+		//sdata = append(sdata, isMutex)
+		//sdata = append(sdata, []byte(sendData.Unique)...)
+		item := sendData.Data.(*runItem)
+		isMutex := byte(0)
+		if item.isMutex {
+			isMutex = byte(1)
 		}
-		id, isMutex, command, dispatchServer, err := unpack(sendData.Data)
-		if err != nil {
-			log.Errorf("%v", err)
-			return
-		}
-		fmt.Fprintf(os.Stderr, "receive command, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
-		sdata := make([]byte, 0)
-		sid   := make([]byte, 8)
-		binary.LittleEndian.PutUint64(sid, uint64(id))
-		sdata = append(sdata, sid...)
-		sdata = append(sdata, isMutex)
-		sdata = append(sdata, []byte(sendData.Unique)...)
-		c.onCommand(id, command, dispatchServer, c.ctx.Config.BindAddress, isMutex, func() {
-			sd, _ := c.codec.Encode(CMD_RUN_COMMAND, sdata)
+		c.onCommand(item.id, item.command, sendData.Address, c.ctx.Config.BindAddress, isMutex, func() {
+			sd, _ := c.codec.Encode(CMD_RUN_COMMAND, sendData)
 			tcp.Send(sd)
 		})
 		fmt.Fprintf(os.Stderr, "receive command run end, %v, %v, %v, %v, %v\r\n", id, isMutex, command, dispatchServer, err)
