@@ -18,7 +18,6 @@ func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
 	case CMD_RUN_COMMAND:
 		item, _:= decodeRunItem(sendData.Data)
 		c.onCommand(item.Id, item.Command, sendData.Address, c.ctx.Config.BindAddress, item.IsMutex, func() {
-			log.Infof("%+v run complete, send: %v", *item, string(content))
 			tcp.Write(content)
 		})
 	}
