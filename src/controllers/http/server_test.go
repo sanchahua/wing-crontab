@@ -49,7 +49,7 @@ func TestNewHttpController(t *testing.T) {
 
 	con := NewHttpController(ctx, cronController, logController)
 
-	entity, err := con.cron.Add("*/1 * * * * *", "php -v", "", false)
+	entity, err := con.cron.Add("*/1 * * * * *", "php -v", "", false, 0, 0, false)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -88,7 +88,7 @@ func TestNewHttpController(t *testing.T) {
 	newRemark := "hello"
 	newCronSet := "*/2 * * * * *"
 	newCommand := "php -i | grep php.ini"
-	entity, err = con.cron.Update(entity.Id, newCronSet, newCommand, newRemark, false)
+	entity, err = con.cron.Update(entity.Id, newCronSet, newCommand, newRemark, false, 0, 0, false)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
