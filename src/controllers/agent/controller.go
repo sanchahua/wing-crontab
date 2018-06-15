@@ -59,7 +59,7 @@ const (
 type OnDispatchFunc        func(cronId int64)
 type OnCommandBackFunc     func(cronId int64, dispatchServer string)
 type sendFunc              func(msgId int64, data []byte)  (int, error)
-type OnCommandFunc         func(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func())
+type OnCommandFunc         func(id int64, command string, dispatchServer string, runServer string, isMutex bool, after func())
 type OnCronChangeEventFunc func(event int, data *cron.CronEntity)
 type GetLeaderFunc         func()(string, int, error)
 type message struct {

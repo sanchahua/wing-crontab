@@ -295,18 +295,17 @@ func (c *CrontabController) asyncPullCommand() {
 	}
 }
 
-func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchServer string, runServer string, isMutex byte, after func()) {
+func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchServer string, runServer string, isMutex bool, after func()) {
 	if len(c.runList) >= cap(c.runList) {
-		log.Errorf("runlist len is max then %v", runListMaxLen)
+		log.Warnf("runlist len is max then %v", runListMaxLen)
 		return
 	}
 	c.runList <- &runItem{
 		id:             id,
 		command:        command,
-		//dispatchTime:   dispatchTime,
 		dispatchServer: dispatchServer,
 		runServer:      runServer,
 		after:          after,
-		isMutex:        isMutex == 1,
+		isMutex:        isMutex,
 	}
 }

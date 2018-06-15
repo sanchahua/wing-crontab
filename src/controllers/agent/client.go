@@ -8,29 +8,16 @@ import (
 )
 
 func (c *Controller) onClientEvent(tcp *tcp.Client, content []byte) {
-	log.Infof("==========onClientEvent==========")
 	cmd, data, err := c.codec.Decode(content)
 	if err != nil {
 		log.Errorf("%v, %+v, %v", err, content, string(content))
 		return
 	}
-	log.Infof("cmd=%v,data=%+v", cmd, data)
-
 	sendData, _ := decodeSendData(data)
-
 	switch cmd {
 	case CMD_RUN_COMMAND:
-		log.Infof("======run command======")
 		item, _:= decodeRunItem(sendData.Data)
-
-		log.Infof("####################client receive command: %+v", sendData)
-		log.Infof("####################client receive command: %+v", item)
-
-		isMutex := byte(0)
-		if item.IsMutex {
-			isMutex = byte(1)
-		}
-		c.onCommand(item.Id, item.Command, sendData.Address, c.ctx.Config.BindAddress, isMutex, func() {
+		c.onCommand(item.Id, item.Command, sendData.Address, c.ctx.Config.BindAddress, item.IsMutex, func() {
 			log.Infof("%+v run complete, send: %v", *item, string(content))
 			tcp.Write(content)
 		})
