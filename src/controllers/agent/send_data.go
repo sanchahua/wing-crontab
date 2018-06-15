@@ -9,9 +9,6 @@ type SendData struct {
 	CronId int64     `json:"cron_id"`
 	Unique string    `json:"unique"`
 	Data []byte      `json:"data"`
-	Status int       `json:"status"`
-	Time int64       `json:"time"`
-	SendTimes int    `json:"send_times"`
 	Cmd int          `json:"cmd"`
 	send sendFunc    `json:"-"`
 	IsMutex bool     `json:"is_mutex"`
@@ -23,9 +20,6 @@ func newSendData(msgId int64, cmd int, data []byte, send sendFunc, id int64, isM
 	return &SendData{
 		Unique:    wstring.RandString(64),
 		Data:      data,
-		Status:    0,
-		Time:      0,
-		SendTimes: 0,
 		Cmd:       cmd,
 		send:      send,
 		CronId:    id,

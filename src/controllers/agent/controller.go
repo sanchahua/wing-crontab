@@ -31,7 +31,7 @@ type Controller struct {
 	getLeader           GetLeaderFunc
 	onDispatch          OnDispatchFunc
 	OnCommandBack       OnCommandBackFunc
-	codec ICodec
+	codec               ICodec
 }
 
 const (
@@ -46,14 +46,12 @@ const (
 const (
 	CMD_ERROR = iota + 1    // 错误响应
 	CMD_TICK                // 心跳包
-	CMD_AGENT
 	CMD_STOP
 	CMD_RELOAD
 	CMD_SHOW_MEMBERS
 	CMD_CRONTAB_CHANGE
 	CMD_RUN_COMMAND
 	CMD_PULL_COMMAND
-	CMD_DEL_CACHE
 	CMD_CRONTAB_CHANGE_OK
 )
 type OnDispatchFunc        func(cronId int64)
@@ -66,7 +64,6 @@ type message struct {
 	node *tcp.ClientNode
 	msgId int64
 }
-
 
 func NewController(
 	ctx *app.Context,
@@ -111,41 +108,32 @@ func NewController(
 
 func (c *Controller) sendService() {
 	var sendQueue = make(map[string]*SendData)
-	var checkChan = make(chan struct{})
+	var sendChan  = make(chan struct{})
 	// 信号生成，用于触发发送待发送的消息
 	go func() {
 		for {
-			checkChan <- struct{}{}
+			sendChan <- struct{}{}
 			time.Sleep(time.Millisecond * 10)
 		}
 	}()
 	for {
 		select {
+			// 这里channel用来把待发送的消息放入到待发送的消息队列
 			case d ,ok := <-c.sendQueueChan:
 				if !ok {
 					return
 				}
 				sendQueue[d.Unique] = d
-			case _, ok:= <-checkChan:
+			// 这里的channel用来发送待发送的消息
+			case _, ok := <-sendChan:
 				if !ok {
 					return
 				}
 				for _, d := range sendQueue {
-					start := time.Now()
-					if d.Status > 0 && (int64(time.Now().UnixNano()/1000000) - d.Time) <= 10000 {
-						fmt.Fprintf(os.Stderr, "%v is still in sending status, wait for back\r\n", d.CronId)
-						continue
-					}
-					d.Status = 1
-					d.SendTimes++
+					start       := time.Now()
+					jd          := d.encode()
+					sendData, _ := c.codec.Encode(d.Cmd, jd)
 
-					if d.SendTimes > 1 {
-						log.Warnf("send times %v, %+v", d.SendTimes, *d)
-					}
-					d.Time    = int64(time.Now().UnixNano() / 1000000)
-					log.Infof("try to send crontab: %+v", d)
-					jd := d.encode()//json.Marshal(d)
-					sendData, _:= c.codec.Encode(d.Cmd, jd)
 					if d.IsMutex {
 						sdata := make([]byte, 16)
 						binary.LittleEndian.PutUint64(sdata[:8], uint64(d.CronId))
@@ -157,11 +145,6 @@ func (c *Controller) sendService() {
 					fmt.Fprintf(os.Stderr, "send use time %v\n", time.Since(start))
 				}
 				atomic.StoreInt64(&c.sendQueueLen, int64(len(sendQueue)))
-			//case unique, ok := <- c.delSendQueueChan:
-			//	if !ok {
-			//		return
-			//	}
-			//	fmt.Fprintf(os.Stderr, "running complete -server %v\r\n", unique)
 		}
 	}
 }
@@ -171,7 +154,6 @@ func (c *Controller) keep() {
 	var queueNomal   = make(QEs)
 	var gindexMutex  = int64(0)
 	var gindexNormal = int64(0)
-	// subnum for wait queue len
 	var setNum       = make(map[int64] func() int64)
 	var mutexKeys    = make([]int64, 0)
 	var normalKeys   = make([]int64, 0)
