@@ -48,33 +48,33 @@ const (
 type PullCommandFunc func()
 type OnRunFunc func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
 type OnWillRunFunc func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64)
-type CrontabControllerOption func(c *CrontabController)
+type ControllerOption func(c *CrontabController)
 
-func SetOnWillRun(f OnWillRunFunc) CrontabControllerOption {
+func SetOnWillRun(f OnWillRunFunc) ControllerOption {
 	return func(c *CrontabController) {
 		c.onwillrun = f
 	}
 }
 
-func SetPullCommand(f PullCommandFunc) CrontabControllerOption {
+func SetPullCommand(f PullCommandFunc) ControllerOption {
 	return func(c *CrontabController) {
 		c.pullcommand = f
 	}
 }
 
-func SetOnBefore(f ...OnRunFunc) CrontabControllerOption {
+func SetOnBefore(f ...OnRunFunc) ControllerOption {
 	return func(c *CrontabController) {
 		c.onBefore = append(c.onBefore, f...)
 	}
 }
 
-func SetOnAfter(f ...OnRunFunc) CrontabControllerOption {
+func SetOnAfter(f ...OnRunFunc) ControllerOption {
 	return func(c *CrontabController) {
 		c.onAfter = append(c.onAfter, f...)
 	}
 }
 
-func NewCrontabController(opts ...CrontabControllerOption) *CrontabController {
+func NewCrontabController(opts ...ControllerOption) *CrontabController {
 	cpu := runtime.NumCPU()
 	c := &CrontabController{
 		handler:     cronv2.New(),
