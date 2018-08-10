@@ -188,6 +188,8 @@ func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop 
 	}, nil
 }
 
+// 开始、停止定时任务，取决于第二个参数
+// true为停止之意、false为开始的意思
 func (db *DbCron) Stop(id int64, stop bool) (*CronEntity, error) {
 	if id <= 0 {
 		log.Errorf("Stop fail, id invalid, error=[id==0]")
@@ -207,32 +209,31 @@ func (db *DbCron) Stop(id int64, stop bool) (*CronEntity, error) {
 	return row, nil
 }
 
-//func (db *DbCron) Start(id int64) (*CronEntity, error) {
-//	row, err := db.Get(id)
-//	if err != nil || row == nil {
-//		log.Errorf("开始定时任务错误：%v", err)
-//		return row, err
-//	}
-//	return db.Update(id, row.CronSet, row.Command, row.Remark, false, row.StartTime, row.EndTime, row.IsMutex)
-//}
-
 func (db *DbCron) Delete(id int64) (*CronEntity, error) {
+	if id <= 0 {
+		log.Errorf("Delete fail, id invalid, error=[id==0]")
+		return nil, errors.New("id invalid")
+	}
 	row, err := db.Get(id)
-	if err != nil || row == nil {
-		log.Errorf("delete error, id does not exists：%v", err)
+	if err != nil {
+		log.Errorf("Delete db.Get fail, error=[%v]", err)
 		return row, err
 	}
 	sqlStr := "DELETE FROM `cron` WHERE id=?"
-	log.Debugf("%s", sqlStr)
 	res, err := db.handler.Exec(sqlStr, row.Id)
 	if err != nil {
-		log.Errorf("删除定时任务错误：%+v", err)
+		log.Errorf("Delete db.handler.Exec fail, sql=[%v], id=[%v], error=[%+v]", sqlStr, id, err)
 		return nil, err
 	}
 	num, err := res.RowsAffected()
-	if err != nil || num <= 0{
-		log.Errorf("删除定时任务错误：%+v", err)
+	if err != nil {
+		log.Errorf("Delete res.RowsAffected fail, sql=[%v], id=[%v], error=[%+v]", sqlStr, id, err)
 		return nil, err
 	}
+	if num <= 0 {
+		log.Errorf("Delete res.RowsAffected is 0, sql=[%v], id=[%v]", sqlStr, id)
+		return nil, err
+	}
+	log.Infof("Delete success, sql=[%v], id=[%v]", sqlStr, id)
 	return row, nil
 }
