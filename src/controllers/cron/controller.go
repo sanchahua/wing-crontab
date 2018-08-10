@@ -1,7 +1,8 @@
-package crontab
+package cron
 
 import (
 	"models/cron"
+	mlog "models/log"
 	log "github.com/sirupsen/logrus"
 	cronv2 "library/cron"
 	"os/exec"
@@ -11,9 +12,10 @@ import (
 	"sync/atomic"
 	"fmt"
 	"os"
+	"database/sql"
 )
 
-type CrontabController struct {
+type CronController struct {
 	handler *cronv2.Cron
 	crontabList map[int64] *CronEntity
 	lock *sync.Mutex
@@ -30,6 +32,9 @@ type CrontabController struct {
 
 	onBefore []OnRunFunc
 	onAfter  []OnRunFunc
+	db *sql.DB
+	cronModel *cron.DbCron
+	logModel *mlog.DbLog
 }
 type runItem struct {
 	id int64
@@ -48,35 +53,35 @@ const (
 type PullCommandFunc func()
 type OnRunFunc func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration)
 type OnWillRunFunc func(id int64, command string, isMutex bool, addWaitNum func(), subWaitNum func() int64)
-type ControllerOption func(c *CrontabController)
+type ControllerOption func(c *CronController)
 
 func SetOnWillRun(f OnWillRunFunc) ControllerOption {
-	return func(c *CrontabController) {
+	return func(c *CronController) {
 		c.onwillrun = f
 	}
 }
 
 func SetPullCommand(f PullCommandFunc) ControllerOption {
-	return func(c *CrontabController) {
+	return func(c *CronController) {
 		c.pullcommand = f
 	}
 }
 
 func SetOnBefore(f ...OnRunFunc) ControllerOption {
-	return func(c *CrontabController) {
+	return func(c *CronController) {
 		c.onBefore = append(c.onBefore, f...)
 	}
 }
 
 func SetOnAfter(f ...OnRunFunc) ControllerOption {
-	return func(c *CrontabController) {
+	return func(c *CronController) {
 		c.onAfter = append(c.onAfter, f...)
 	}
 }
 
-func NewCrontabController(opts ...ControllerOption) *CrontabController {
+func NewCronController(db *sql.DB, opts ...ControllerOption) *CronController {
 	cpu := runtime.NumCPU()
-	c := &CrontabController{
+	c := &CronController{
 		handler:     cronv2.New(),
 		crontabList: make(map[int64] *CronEntity),
 		lock:        new(sync.Mutex),
@@ -86,6 +91,7 @@ func NewCrontabController(opts ...ControllerOption) *CrontabController {
 		pullc:       make(chan struct{}, cpu * 2 + 2),
 		onBefore:    make([]OnRunFunc, 0),
 		onAfter:     make([]OnRunFunc, 0),
+		db:          db,
 	}
 	for _, f := range opts {
 		f(c)
@@ -97,7 +103,11 @@ func NewCrontabController(opts ...ControllerOption) *CrontabController {
 	return c
 }
 
-func (c *CrontabController) Start() {
+func (c *CronController) Run() {
+
+}
+
+func (c *CronController) Start() {
 	c.lock.Lock()
 	if atomic.LoadInt64(&c.running) == 1 {
 		c.lock.Unlock()
@@ -108,7 +118,7 @@ func (c *CrontabController) Start() {
 	c.lock.Unlock()
 }
 
-func (c *CrontabController) Stop() {
+func (c *CronController) Stop() {
 	c.lock.Lock()
 	if atomic.LoadInt64(&c.running) == 0 {
 		c.lock.Unlock()
@@ -119,7 +129,7 @@ func (c *CrontabController) Stop() {
 	c.lock.Unlock()
 }
 
-func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
+func (c *CronController) Add(event int, entity *cron.CronEntity) {
 	c.Stop()
 	c.lock.Lock()
 	func() {
@@ -188,7 +198,7 @@ func (c *CrontabController) Add(event int, entity *cron.CronEntity) {
 	c.Start()
 }
 
-func (c *CrontabController) runCommand(id int64, command string, dispatchServer string, runServer string) {
+func (c *CronController) runCommand(id int64, command string, dispatchServer string, runServer string) {
 	for _, f := range c.onBefore {
 		f(id, dispatchServer, runServer, []byte(""), 0)
 	}
@@ -207,7 +217,7 @@ func (c *CrontabController) runCommand(id int64, command string, dispatchServer 
 	}
 }
 
-func (c *CrontabController) run() {
+func (c *CronController) run() {
 	cpu := runtime.NumCPU() * 2
 	var s = make(chan struct{})
 	go func(){
@@ -267,7 +277,7 @@ func (c *CrontabController) run() {
 	}
 }
 
-func (c *CrontabController) asyncPullCommand() {
+func (c *CronController) asyncPullCommand() {
 	var ch = make(chan struct{})
 	cpu := int64(runtime.NumCPU() * 2)
 	go func() {
@@ -295,7 +305,7 @@ func (c *CrontabController) asyncPullCommand() {
 	}
 }
 
-func (c *CrontabController) ReceiveCommand(id int64, command string, dispatchServer string, runServer string, isMutex bool, after func()) {
+func (c *CronController) ReceiveCommand(id int64, command string, dispatchServer string, runServer string, isMutex bool, after func()) {
 	if len(c.runList) >= cap(c.runList) {
 		log.Warnf("runlist len is max then %v", runListMaxLen)
 		return

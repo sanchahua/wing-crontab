@@ -1,4 +1,4 @@
-package crontab
+package cron
 
 type IFilter interface {
 	Stop() bool

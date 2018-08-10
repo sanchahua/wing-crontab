@@ -1,140 +1,64 @@
 package main
 
 import (
-	"app"
-	"library/path"
-	"controllers/consul"
-	"controllers/http"
-	"controllers/crontab"
-	log "github.com/sirupsen/logrus"
-	"controllers/agent"
-	"models/cron"
-	"time"
-	"controllers/models"
+	log "github.com/cihub/seelog"
 	"database/sql"
 	"fmt"
-	mlog "models/log"
+	"config"
+	"controllers/cron"
 	"os"
+	"os/signal"
+	"syscall"
+	_ "github.com/go-sql-driver/mysql"
+	_ "database/sql/driver"
 )
 
 func main() {
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		log.Errorf("%+v", err)
-	//	}
-	//}()
-	// 初始化相关环境
-	// 这里传入的参数为配置文件目录
-	// 后续增加命令行参数支持，可以指定配置文件目录
-	app.Init(path.CurrentPath + "/config")
-	defer app.Release()
 
-	ctx := app.NewContext()
-	var err error
-
+	mysqlConfig, err := config.GetMysqlConfig()
+	if err != nil {
+		log.Errorf("main config.GetMysqlConfig fail, error=[%v]", err)
+		return
+	}
+	err = config.SeelogInit()
+	if err != nil {
+		log.Errorf("main config.SeelogInit fail, error=[%v]", err)
+		return
+	}
 	// init database
 	// 数据库资源
 	var handler *sql.DB
 	{
 		dataSource := fmt.Sprintf(
 			"%s:%s@tcp(%s:%d)/%s?charset=%s",
-			ctx.Config.MysqlUser,
-			ctx.Config.MysqlPassword,
-			ctx.Config.MysqlHost,
-			ctx.Config.MysqlPort,
-			ctx.Config.MysqlDatabase,
-			ctx.Config.MysqlCharset,
+			mysqlConfig.User,
+			mysqlConfig.Password,
+			mysqlConfig.Host,
+			mysqlConfig.Port,
+			mysqlConfig.Database,
+			mysqlConfig.Charset,
 		)
 		handler, err = sql.Open("mysql", dataSource)
 		if err != nil {
-			log.Panicf("链接数据库错误：%+v", err)
+			log.Errorf("main sql.Open fail, source=[%v], error=[%+v]", dataSource, err)
+			return
 		}
 		//设置最大空闲连接数
-		handler.SetMaxIdleConns(8)
+		handler.SetMaxIdleConns(4)
 		//设置最大允许打开的连接
-		handler.SetMaxOpenConns(32)
+		handler.SetMaxOpenConns(4)
 		defer handler.Close()
 	}
 
-	// cronController负责对完成定时任务db的增删改查操作
-	cronController := models.NewCronController(ctx, handler)
-	defer cronController.Close()
+	cron.NewCronController(handler).Run()
 
-	// logController负责记录执行日志
-	logController     := models.NewLogController(ctx, handler)
-
-	// 负责定时任务管理，主要是解析定时任务、分发和执行
-	crontabController := crontab.NewCrontabController(crontab.SetOnBefore(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
-		// 定时任务开始执行
-		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.Step_2, "定时任务开始执行")
-	}), crontab.SetOnAfter(func(id int64, dispatchServer string, runServer string, output []byte, useTime time.Duration) {
-		// 定时任务执行完毕
-		logController.Add(id, string(output), int64(useTime.Nanoseconds()/1000000), dispatchServer, runServer, int64(time.Now().UnixNano() / 1000000), mlog.Step_3, "定时任务执行完成")
-	}))
-
-	// consulControl 实现选leader
-	consulControl := consul.NewConsulController(ctx)
-	defer consulControl.Close()
-
-	//agentController负责集群内部的通信
-	agentController := agent.NewController(ctx, consulControl.GetLeader,  func(event int, row *cron.CronEntity) {
-		// http -> client -> server(leader)
-		// leader 端解析后，把变化的的定时任务追加到定时任务列表
-		crontabController.Add(event, row)
-	}, crontabController.ReceiveCommand, func(cronId int64) {
-		// 定时任务被分发出去
-		// 所有的定时任务由leader负责分发
-		logController.Add(cronId, "", 0, "", "", int64(time.Now().UnixNano() / 1000000), mlog.Step_1, "")
-	}, func(cronId int64, dispatchServer string) {
-		// 定时分发到client端，client收到响应后的回调
-		logController.Add(cronId, "", 0, dispatchServer, "", int64(time.Now().UnixNano() / 1000000), mlog.Step_4, "")
-	})
-	agentController.Start()
-	defer agentController.Close()
-
-	crontab.SetOnWillRun(agentController.Dispatch)(crontabController)
-	crontab.SetPullCommand(agentController.Pull)(crontabController)
-
-	// 这里设定选leader后的相应操作
-	consul.SetOnleader(agentController.OnLeader)(consulControl)
-	consul.SetOnleader(func(isLeader bool) {
-		fmt.Fprintf(os.Stderr, "==============on leader %v=====================", isLeader)
-		if !isLeader {
-			crontabController.Stop()
-		} else {
-			go func() {
-				list, err := cronController.GetList()
-				if err != nil {
-					log.Errorf("%+v", err)
-					return
-				}
-				log.Debugf("==============init crontab list==============")
-				for _, e := range list  {
-					crontabController.Add(cron.EVENT_ADD, e)
-				}
-			}()
-			crontabController.Start()
-		}
-	})(consulControl)
-	consulControl.Start()
-
-	// httpController负责对应提供http api服务
-	httpController := http.NewHttpController(ctx, cronController, logController, http.SetCronHook(func(event int, row *cron.CronEntity) {
-		//var e = make([]byte, 4)
-		//binary.LittleEndian.PutUint32(e, uint32(event))
-		//data, err := json.Marshal(row)
-		//if err != nil {
-		//	return
-		//}
-		//e = append(e, data...)
-		agentController.SyncToLeader(event, row)
-	}))
-	httpController.Start()
-	defer httpController.Close()
-
-	select {
-		case <- ctx.Done():
-	}
-	log.Debug("service exit")
-	ctx.Cancel()
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc,
+		os.Kill,
+		os.Interrupt,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	<-sc
 }

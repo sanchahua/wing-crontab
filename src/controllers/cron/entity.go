@@ -1,4 +1,4 @@
-package crontab
+package cron
 
 // 定时任务实体对象
 import (

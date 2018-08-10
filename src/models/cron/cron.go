@@ -38,23 +38,6 @@ const (
 	EVENT_DELETE = 5
 )
 
-type ICron interface {
-	GetList() ([]*CronEntity, error)
-	Get(id int64) (*CronEntity, error)
-	Add(cronSet, command string, remark string, stop bool, startTime, endTime int64, isMutex bool) (*CronEntity, error)
-	Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime int64, isMutex bool) (*CronEntity,error)
-	Stop(id int64) (*CronEntity, error)
-	Start(id int64) (*CronEntity, error)
-	Delete(id int64) (*CronEntity, error)
-}
-type Middleware func(ICron) ICron
-
-
-func NewCron(handler *sql.DB) ICron {
-	var db ICron
-	{
-		db = newDbCron(handler)
-		//db = loggingMiddleware()(db)
-	}
-	return db
+func NewCron(handler *sql.DB) *DbCron {
+	return newDbCron(handler)
 }

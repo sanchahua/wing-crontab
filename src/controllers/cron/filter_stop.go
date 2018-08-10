@@ -1,4 +1,4 @@
-package crontab
+package cron
 
 type StopFilter struct {
 	row *CronEntity

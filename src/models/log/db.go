@@ -24,7 +24,7 @@ type DbLog struct {
 	handler *sql.DB
 }
 
-func newDbLog(handler *sql.DB) ILog {
+func newDbLog(handler *sql.DB) *DbLog {
 	db := &DbLog{
 		handler : handler,
 	}

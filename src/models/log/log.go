@@ -27,19 +27,15 @@ type LogEntity struct {
 	Event string     `json:"event"`
 	Remark string    `json:"remark"`
 }
-type ILog interface {
-	GetList(cronId int64, search string, dispatchServer, runServer string, page int64, limit int64) ([]*LogEntity, int64, error)
-	Get(rid int64) (*LogEntity, error)
-	Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) (*LogEntity, error)
-	Delete(id int64) (*LogEntity, error)
-	DeleteFormCronId(cronId int64) ([]*LogEntity, error)
-}
-type Middleware func(ILog) ILog
+//type ILog interface {
+//	GetList(cronId int64, search string, dispatchServer, runServer string, page int64, limit int64) ([]*LogEntity, int64, error)
+//	Get(rid int64) (*LogEntity, error)
+//	Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) (*LogEntity, error)
+//	Delete(id int64) (*LogEntity, error)
+//	DeleteFormCronId(cronId int64) ([]*LogEntity, error)
+//}
+//type Middleware func(ILog) ILog
 
-func NewLog(handler *sql.DB) ILog {
-	var db ILog
-	{
-		db = newDbLog(handler)
-	}
-	return db
+func NewLog(handler *sql.DB) *DbLog {
+	return newDbLog(handler)
 }
