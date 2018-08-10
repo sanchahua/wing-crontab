@@ -281,3 +281,45 @@ func TestDbCron_Delete(t *testing.T) {
 		return
 	}
 }
+
+// go test -v -test.run TestDbCron_GetList
+func TestDbCron_GetList(t *testing.T) {
+	handler := newLocalDb()
+	db := NewCron(handler)
+	c, err := db.Add("   */1 * * * * *   ", "curl http://www.baidu.com/ ", "", false, 0, 0, false)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	rows, err := db.GetList()
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if rows == nil {
+		t.Errorf("GetList fail")
+		return
+	}
+	_, err = db.Delete(c.Id)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	rows, err = db.GetList()
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	found := false
+	for _, r := range rows {
+		if r.Id == c.Id {
+			found = true
+		}
+	}
+	if found {
+		t.Errorf("GetList fail")
+	}
+
+}

@@ -23,8 +23,8 @@ func newDbCron(handler *sql.DB) *DbCron {
 func (db *DbCron) GetList() ([]*CronEntity, error) {
 	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `is_mutex` from cron"
 	rows, err := db.handler.Query(sqlStr)
-	if nil != err || rows == nil {
-		log.Errorf("查询数据库错误：%+v", err)
+	if nil != err {
+		log.Errorf("GetList fail, error=[%+v]", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -42,7 +42,7 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 	for rows.Next() {
 		err = rows.Scan(&id, &cronSet, &command, &stop, &remark, &startTime, &endTime, &isMutex)
 		if err != nil {
-			log.Errorf("查询错误，sql=%s，error=%+v", sqlStr, err)
+			log.Errorf("GetList rows.Scan fail，sql=[%s]，error=[%+v]", sqlStr, err)
 			continue
 		}
 		row := &CronEntity{
