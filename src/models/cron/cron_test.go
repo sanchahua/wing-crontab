@@ -224,3 +224,33 @@ func TestDbCron_Update(t *testing.T) {
 	}
 	db.Delete(c.Id)
 }
+
+// go test -v -test.run TestDbCron_Stop
+func TestDbCron_Stop(t *testing.T) {
+	handler := newLocalDb()
+	db := NewCron(handler)
+	c, err := db.Add("   */1 * * * * *   ", "curl http://www.baidu.com/ ", "", false, 0, 0, false)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	c, err = db.Stop(c.Id, true)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if !c.Stop {
+		t.Errorf("stop fail")
+		return
+	}
+
+	c, err = db.Stop(c.Id, false)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if c.Stop {
+		t.Errorf("start fail")
+		return
+	}
+}

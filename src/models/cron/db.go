@@ -76,7 +76,7 @@ func (db *DbCron) Get(rid int64) (*CronEntity, error) {
 	err := data.Scan(&row.Id, &row.CronSet, &row.Command, &stop, &row.Remark, &row.StartTime, &row.EndTime, &isMutex)
 	if err != nil {
 		log.Errorf("Get data.Scan fail, sql=[%s], id=[%v], error=[%+v]", sqlStr, rid, err)
-		return &row, err
+		return nil, err
 	}
 	row.Stop      = stop == 1
 	row.IsMutex   = isMutex == 1
@@ -188,23 +188,33 @@ func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop 
 	}, nil
 }
 
-func (db *DbCron) Stop(id int64) (*CronEntity, error) {
-	row, err := db.Get(id)
-	if err != nil || row == nil {
-		log.Errorf("停止定时任务错误：%v", err)
-		return row, err
+func (db *DbCron) Stop(id int64, stop bool) (*CronEntity, error) {
+	if id <= 0 {
+		log.Errorf("Stop fail, id invalid, error=[id==0]")
+		return nil, errors.New("id invalid")
 	}
-	return db.Update(id, row.CronSet, row.Command, row.Remark, true, row.StartTime, row.EndTime, row.IsMutex)
+	row, err := db.Get(id)
+	if err != nil {
+		log.Errorf("Stop db.Get fail, id=[%v], stop=[%v], error=[%v]", id, stop, err)
+		return nil, err
+	}
+	row, err = db.Update(id, row.CronSet, row.Command, row.Remark, stop, row.StartTime, row.EndTime, row.IsMutex)
+	if err != nil {
+		log.Errorf("Stop db.Update fail, id=[%v], stop=[%v], error=[%v]", id, stop, err)
+		return nil, err
+	}
+	log.Infof("Stop success, id=[%v], stop=[%v]", id, stop)
+	return row, nil
 }
 
-func (db *DbCron) Start(id int64) (*CronEntity, error) {
-	row, err := db.Get(id)
-	if err != nil || row == nil {
-		log.Errorf("开始定时任务错误：%v", err)
-		return row, err
-	}
-	return db.Update(id, row.CronSet, row.Command, row.Remark, false, row.StartTime, row.EndTime, row.IsMutex)
-}
+//func (db *DbCron) Start(id int64) (*CronEntity, error) {
+//	row, err := db.Get(id)
+//	if err != nil || row == nil {
+//		log.Errorf("开始定时任务错误：%v", err)
+//		return row, err
+//	}
+//	return db.Update(id, row.CronSet, row.Command, row.Remark, false, row.StartTime, row.EndTime, row.IsMutex)
+//}
 
 func (db *DbCron) Delete(id int64) (*CronEntity, error) {
 	row, err := db.Get(id)
