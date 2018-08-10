@@ -43,6 +43,7 @@ echo "installing... github.com/jilieryuyi/wing-go"
 go get github.com/jilieryuyi/wing-go
 echo "installing... go get github.com/emicklei/go-restful"
 go get github.com/emicklei/go-restful
+go get github.com/cihub/seelog
 
 find $vendor_path -name '*.git*' | xargs rm -rf
 ##cp -rf $vendor_path/src/* $vendor_path

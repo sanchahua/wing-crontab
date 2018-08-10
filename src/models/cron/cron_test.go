@@ -2,38 +2,13 @@ package cron
 
 import (
 	"testing"
-	"fmt"
-	"database/sql"
-	log "github.com/cihub/seelog"
-	_ "github.com/go-sql-driver/mysql"
-	_ "database/sql/driver"
+	"library/debug"
 )
-
-func newLocalDb() *sql.DB {
-	dataSource := fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s?charset=%s",
-		"root",
-		"123456",
-		"127.0.0.1",
-		3306,
-		"cron",
-		"utf8",
-	)
-	handler, err := sql.Open("mysql", dataSource)
-	if err != nil {
-		log.Errorf("newLocalDb sql.Open fail, source=[%v], error=[%+v]", dataSource, err)
-		return nil
-	}
-	//设置最大空闲连接数
-	handler.SetMaxIdleConns(4)
-	//设置最大允许打开的连接
-	handler.SetMaxOpenConns(4)
-	return handler
-}
 
 // go test -v -test.run TestDbCron_Add
 func TestDbCron_Add(t *testing.T) {
-	handler := newLocalDb()
+	handler := debug.NewLocalDb()
+	defer handler.Close()
 	db := NewCron(handler)
 	if db == nil {
 		t.Errorf("open db connect error")
@@ -101,7 +76,8 @@ func TestDbCron_Add(t *testing.T) {
 
 // go test -v -test.run TestDbCron_Get
 func TestDbCron_Get(t *testing.T) {
-	handler := newLocalDb()
+	handler := debug.NewLocalDb()
+	defer handler.Close()
 	db := NewCron(handler)
 	c, err := db.Add("   */1 * * * * *   ", "curl http://www.baidu.com/ ", "", false, 0, 0, false)
 	if err != nil {
@@ -145,7 +121,8 @@ func TestDbCron_Get(t *testing.T) {
 
 // go test -v -test.run TestDbCron_Update
 func TestDbCron_Update(t *testing.T) {
-	handler := newLocalDb()
+	handler := debug.NewLocalDb()
+	defer handler.Close()
 	db := NewCron(handler)
 	c, err := db.Add("   */1 * * * * *   ", "curl http://www.baidu.com/ ", "", false, 0, 0, false)
 	if err != nil {
@@ -227,7 +204,8 @@ func TestDbCron_Update(t *testing.T) {
 
 // go test -v -test.run TestDbCron_Stop
 func TestDbCron_Stop(t *testing.T) {
-	handler := newLocalDb()
+	handler := debug.NewLocalDb()
+	defer handler.Close()
 	db := NewCron(handler)
 	c, err := db.Add("   */1 * * * * *   ", "curl http://www.baidu.com/ ", "", false, 0, 0, false)
 	if err != nil {
@@ -258,7 +236,8 @@ func TestDbCron_Stop(t *testing.T) {
 
 // go test -v -test.run TestDbCron_Delete
 func TestDbCron_Delete(t *testing.T) {
-	handler := newLocalDb()
+	handler := debug.NewLocalDb()
+	defer handler.Close()
 	db := NewCron(handler)
 	c, err := db.Add("   */1 * * * * *   ", "curl http://www.baidu.com/ ", "", false, 0, 0, false)
 	if err != nil {
@@ -284,7 +263,8 @@ func TestDbCron_Delete(t *testing.T) {
 
 // go test -v -test.run TestDbCron_GetList
 func TestDbCron_GetList(t *testing.T) {
-	handler := newLocalDb()
+	handler := debug.NewLocalDb()
+	defer handler.Close()
 	db := NewCron(handler)
 	c, err := db.Add("   */1 * * * * *   ", "curl http://www.baidu.com/ ", "", false, 0, 0, false)
 	if err != nil {

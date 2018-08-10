@@ -2,28 +2,21 @@ package log
 
 import (
 	"database/sql"
-	log "github.com/sirupsen/logrus"
+	log "github.com/cihub/seelog"
 	"strings"
-	"time"
-)
-
-const (
-	EVENT_CRON_START    = "1"//cron_start"     //定时任务到点开始执行事件
-	EVENT_CRON_END = "2"//cron_dispatch"  //定时任务开始分发事件
-	//EVENT_CRON_RUN      = "3"//cron_run_start" //定时任务开始运行事件
-	//EVENT_CRON_RUN_END  = "4"//cron_run_end"   //定时任务运行结束事件
-	//EVENT_CRON_END      = "5"//cron_end"       //定时任务结束
-	Step_1 = "1"
-	Step_2 = "2"
-	Step_3 = "3"
-	Step_4 = "4"
-	Step_5 = "5"
+	"fmt"
+	"errors"
+	ltime "library/time"
 )
 
 type DbLog struct {
 	handler *sql.DB
 }
 
+const (
+	FIELDS = "`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`"
+	MaxQueryRows = 10000
+)
 func newDbLog(handler *sql.DB) *DbLog {
 	db := &DbLog{
 		handler : handler,
@@ -31,69 +24,45 @@ func newDbLog(handler *sql.DB) *DbLog {
 	return db
 }
 
-// 获取所有的定时任务列表
-func (db *DbLog) GetList(cronId int64, search string, dispatchServer, runServer string, page int64, limit int64) ([]*LogEntity, int64, error) {
-	sqlStr  := "select `id`, `cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server`  from log where 1 "
+// 查询定时任务执行记录
+// 所有的参数都是可选参数
+// int类型的值写0表示默认值
+// 字符串类型的写为空表示默认值
+// 返回值为查询结果集合、总数量、发生的错误
+func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, int64, error) {
+	sqlStr  := "SELECT " + FIELDS + " FROM `log` where 1"
 	sqlStr2 := "select count(*) as num  from log where 1 "
-	var params []interface{}
+	var params  []interface{}
 	var params2 []interface{}
 	if cronId > 0 {
-		params = append(params, cronId)
+		params  = append(params, cronId)
 		params2 = append(params2, cronId)
-
 		sqlStr  += " and `cron_id`=?"
 		sqlStr2 += " and `cron_id`=?"
 	}
-	search = strings.Trim(search, " ")
-	if search != "" {
-		params = append(params, "%"+search+"%")
-		params2 = append(params2, "%"+search+"%")
-
-		sqlStr  += " and output like ?"
-		sqlStr2 += " and output like ?"
-	}
-	runServer = strings.Trim(runServer, " ")
-	if runServer != "" {
-		params = append(params, runServer)
-		params2 = append(params2, runServer)
-
-		sqlStr  += " and run_server=?"
-		sqlStr2 += " and run_server=?"
-	}
-
-	dispatchServer = strings.Trim(dispatchServer, " ")
-	if dispatchServer != "" {
-		params = append(params, dispatchServer)
-		params2 = append(params2, dispatchServer)
-
-		sqlStr  += " and dispatch_server=?"
-		sqlStr2 += " and dispatch_server=?"
-	}
-
 	sqlStr += " order by id desc limit ?,?"
-
-
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 10000 {
+	if limit < 1 || limit > MaxQueryRows {
 		limit = 50
 	}
 	params = append(params, (page - 1) * limit)
 	params = append(params, limit)
+	debugSql  := fmt.Sprintf(strings.Replace(sqlStr, "?", "%v", -1), params...)
+	debugSql2 := fmt.Sprintf(strings.Replace(sqlStr2, "?", "%v", -1), params2...)
 
-	log.Debugf("\n%+v\n%v\n%+v\n%+v", sqlStr, sqlStr2, params, params2)
+	log.Infof("GetList info, sql2=[%v]", debugSql2)
 
 	stmtOut, err := db.handler.Prepare(sqlStr)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("GetList db.handler.Prepare fail, sql=[%v], error=[%v]", debugSql, err)
 		return nil, 0, err
 	}
 	defer stmtOut.Close()
-
 	rows, err  := stmtOut.Query(params...)
-	if nil != err || rows == nil {
-		log.Errorf("查询数据库错误：%+v", err)
+	if nil != err {
+		log.Errorf("GetList stmtOut.Query fail, sql=[%v], error=[%v]", debugSql, err)
 		return nil, 0, err
 	}
 	defer rows.Close()
@@ -101,41 +70,37 @@ func (db *DbLog) GetList(cronId int64, search string, dispatchServer, runServer 
 	var (
 		id int64
 		cron_id int64
-		Time int64
+		start_time string
 		output string
 		use_time int64
-		run_server string
-		dispatch_server string
+		remark string
 	)
 	for rows.Next() {
-		//id`, `cron_id`, `time`, `output`, `use_time`, `run_server`
-		err = rows.Scan(&id, &cron_id, &Time, &output, &use_time, &dispatch_server, &run_server)
+		//`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`
+		err = rows.Scan(&id, &cron_id, &start_time, &output, &use_time, &remark)
 		if err != nil {
-			log.Errorf("查询错误，sql=%s，error=%+v", sqlStr, err)
+			log.Errorf("GetList rows.Scan fail, sql=[%v], error=[%v]", debugSql, err)
 			continue
 		}
 		row := &LogEntity{
 			Id:        id,
 			CronId:    cron_id,
-			Time:      Time,
+			StartTime: start_time,
 			Output:    output,
 			UseTime:   use_time,
-			RunServer: run_server,
-			DispatchServer: dispatch_server,
+			Remark:    remark,
 		}
-		log.Infof("%+v", *row)
 		records = append(records, row)
 	}
-
 	stmtOut2, err := db.handler.Prepare(sqlStr2)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("GetList db.handler.Prepare fail, sql=[%v], error=[%v]", debugSql2, err)
 		return nil, 0, err
 	}
 	defer stmtOut2.Close()
 	rows2, err := stmtOut2.Query(params2...)
-	if nil != err || rows2 == nil {
-		log.Errorf("查询数据库错误：%+v", err)
+	if nil != err {
+		log.Errorf("GetList stmtOut2.Query fail, sql=[%v], error=[%v]", debugSql2, err)
 		return nil, 0, err
 	}
 	defer rows2.Close()
@@ -144,93 +109,120 @@ func (db *DbLog) GetList(cronId int64, search string, dispatchServer, runServer 
 	for rows2.Next() {
 		err = rows2.Scan(&num)
 		if err != nil {
-			log.Errorf("查询错误，sql=%s，error=%+v", sqlStr2, err)
-			continue
+			log.Errorf("GetList rows2.Scan fail, sql=[%v], error=[%v]", debugSql2, err)
+			return nil, 0, err
 		}
 		break
 	}
+	log.Infof("GetList success, sql=[%v], sql2=[%v], records=[%+v], num=[%v]", debugSql, debugSql2, records, num)
 	return records, num, nil
 }
 
 // 根据指定id查询行
 func (db *DbLog) Get(rid int64) (*LogEntity, error) {
-	sqlStr := "select `id`, `cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server` from log where id=?"
+	if rid <= 0 {
+		log.Errorf("Get fail, error=[id invalid]")
+		return nil, errors.New("id invalid")
+	}
+	sqlStr := "select " + FIELDS + " from log where id=?"
 	data := db.handler.QueryRow(sqlStr, rid)
 	var (
 		row LogEntity
 	)
-	err := data.Scan(&row.Id, &row.CronId, &row.Time, &row.Output, &row.UseTime, &row.RunServer)
+	//`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`
+	err := data.Scan(&row.Id, &row.CronId, &row.StartTime, &row.Output, &row.UseTime, &row.Remark)
 	if err != nil {
-		log.Errorf("查询sql发生错误：%s, %+v", sqlStr, err)
+		log.Errorf("Get data.Scan fail, sql=[%v], id=[%v], error=[%v]", sqlStr, rid, err)
 		return &row, err
 	}
+	log.Infof("Get success, sql=[%v], id=[%v], return=[%v]", sqlStr, rid, row)
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) (*LogEntity, error) {
-	sqlStr := "INSERT INTO `log`(`cron_id`, `time`, `output`, `use_time`, `dispatch_server`, `run_server`, `event`, `remark`) VALUES (?,?,?,?,?,?,?,?)"
-	res, err := db.handler.Exec(sqlStr, cronId, rtime, output, useTime, dispatchServer, runServer, event, remark)
+func (db *DbLog) Add(cronId int64, output string, useTime int64, remark string) (*LogEntity, error) {
+	if cronId <= 0 {
+		log.Errorf("Add fail, error=[cron_id invalid], cronId=[%v]", cronId)
+		return nil, errors.New("cron_id invalid")
+	}
+	startTime := ltime.GetDayTime()
+	sqlStr := "INSERT INTO `log`(`cron_id`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?)"
+	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, startTime, output, useTime, remark)
+	res, err := db.handler.Exec(sqlStr, cronId, startTime, output, useTime, remark)
 	if err != nil {
-		log.Errorf("新增log错误：%+v", err)
+		log.Errorf("Add db.handler.Exec fail, sql=[%v], error=[%v]", debugSql, err)
 		return nil, err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Errorf("新增log错误：%+v", err)
+		log.Errorf("Add res.LastInsertId fail, sql=[%v], error=[%v]", debugSql, err)
 		return nil, err
 	}
-	return &LogEntity{
-		Id:             id,
-		CronId:         cronId,
-		Time:           time.Now().Unix(),
-		Output:         output,
-		UseTime:        useTime,
-		RunServer:      runServer,
-		DispatchServer: dispatchServer,
-		Event:          event,
-		Remark:         remark,
-	}, nil
+	rsp := &LogEntity{
+		Id:         id,
+		CronId:     cronId,
+		StartTime:  startTime,
+		Output:     output,
+		UseTime:    useTime,
+		Remark:     remark,
+	}
+	log.Infof("Add success, sql=[%v], res=[%+v]", debugSql, rsp)
+	return rsp, nil
 }
 
-
 func (db *DbLog) Delete(id int64) (*LogEntity, error) {
+	if id <= 0 {
+		log.Errorf("Delete fail, error=[id invalid]")
+		return nil, errors.New("id invalid")
+	}
 	row, err := db.Get(id)
-	if err != nil || row == nil {
-		log.Errorf("delete error, id does not exists：%v", err)
+	if err != nil {
+		log.Errorf("Delete db.Get fail, id=[%v], error=[%v]", id, err)
 		return row, err
 	}
 	sqlStr := "DELETE FROM `log` WHERE id=?"
-	log.Debugf("%s", sqlStr)
-	res, err := db.handler.Exec(sqlStr, row.Id)
+	res, err := db.handler.Exec(sqlStr, id)
 	if err != nil {
-		log.Errorf("删除定时任务错误：%+v", err)
+		log.Errorf("Delete db.handler.Exec fail, sql=[%v], id=[%v], error=[%+v]", sqlStr, id, err)
 		return nil, err
 	}
 	num, err := res.RowsAffected()
-	if err != nil || num <= 0{
-		log.Errorf("删除定时任务错误：%+v", err)
+	if err != nil {
+		log.Errorf("Delete res.RowsAffected fail, sql=[%v], id=[%v], error=[%+v]", sqlStr, id, err)
 		return nil, err
 	}
+	if num <= 0 {
+		log.Errorf("Delete res.RowsAffected is 0, sql=[%v], id=[%v], num=[%v], error=[%+v]", sqlStr, id, err)
+		return nil, err
+	}
+	log.Infof("Delete success, sql=[%v], id=[%v], num=[%v]", sqlStr, id, num)
 	return row, nil
 }
 
-func (db *DbLog) DeleteFormCronId(cronId int64) ([]*LogEntity, error) {
-	rows, num, err := db.GetList(cronId, "", "", "", 1, 10000)
-	if err != nil || rows == nil {
-		log.Errorf("delete error, cronId does not exists：%v", err)
-		return rows, err
+func (db *DbLog) DeleteByCronId(cronId int64) ([]*LogEntity, error) {
+	if cronId <= 0 {
+		log.Errorf("Delete fail, cronId=[%v], error=[cronId invalid]", cronId)
+		return nil, errors.New("cronId invalid")
+	}
+	rows, _, err := db.GetList(cronId, 0, MaxQueryRows)
+	if err != nil {
+		log.Errorf("Delete db.GetList fail, cronId=[%v], error=[%v]", cronId, err)
+		return nil, err
 	}
 	sqlStr := "DELETE FROM `log` WHERE cron_id=?"
-	log.Debugf("%s", sqlStr)
 	res, err := db.handler.Exec(sqlStr, cronId)
 	if err != nil {
-		log.Errorf("删除定时任务错误：%+v", err)
+		log.Errorf("Delete db.handler.Exec fail, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
 		return nil, err
 	}
-	num, err = res.RowsAffected()
-	if err != nil || num <= 0{
-		log.Errorf("删除定时任务错误：%+v", err)
+	num, err := res.RowsAffected()
+	if err != nil {
+		log.Errorf("Delete res.RowsAffected fail, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
 		return nil, err
 	}
+	if num <= 0 {
+		log.Errorf("Delete res.RowsAffected is 0, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
+		return nil, err
+	}
+	log.Infof("Delete success, sql=[%v], cronId=[%v], num=[%v], rows=[%+v]", sqlStr, cronId, num, rows)
 	return rows, nil
 }

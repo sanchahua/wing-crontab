@@ -8,33 +8,25 @@ import (
 //)
 // log 表实体类 entry
 /**
+CREATE TABLE `log` (
  `id` int(11) NOT NULL AUTO_INCREMENT,
- `cron_id` int(11) NOT NULL DEFAULT '0',
- `time` bigint(20) NOT NULL COMMENT '命令运行的时间',
+ `cron_id` int(11) NOT NULL DEFAULT '0' COMMENT '定时任务id',
+ `start_time` datetime NOT NULL COMMENT '命令开始执行的时间',
  `output` longtext NOT NULL COMMENT '执行命令输出',
  `use_time` bigint(20) NOT NULL COMMENT '执行命令耗时，单位为毫秒',
- `run_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '该命令在那个节点上被执行（服务器）'
+ `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '备注',
+ PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=706891 DEFAULT CHARSET=utf8
 */
 
 type LogEntity struct {
 	Id int64         `json:"id"`
 	CronId int64     `json:"cron_id"`
-	Time int64       `json:"time"`
+	StartTime string `json:"start_time"`
 	Output string    `json:"output"`
 	UseTime int64    `json:"use_time"`
-	DispatchServer string `json:"dispatch_server"`
-	RunServer string `json:"run_server"`
-	Event string     `json:"event"`
 	Remark string    `json:"remark"`
 }
-//type ILog interface {
-//	GetList(cronId int64, search string, dispatchServer, runServer string, page int64, limit int64) ([]*LogEntity, int64, error)
-//	Get(rid int64) (*LogEntity, error)
-//	Add(cronId int64, output string, useTime int64, dispatchServer, runServer string, rtime int64, event string, remark string) (*LogEntity, error)
-//	Delete(id int64) (*LogEntity, error)
-//	DeleteFormCronId(cronId int64) ([]*LogEntity, error)
-//}
-//type Middleware func(ILog) ILog
 
 func NewLog(handler *sql.DB) *DbLog {
 	return newDbLog(handler)

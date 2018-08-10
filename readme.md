@@ -1,4 +1,7 @@
 
+go test 相关指令支持，将GOPATH指向项目的根目录和vendor目录
+`export GOPATH=/Users/yuyi/Code/go/wing-crontab:/Users/yuyi/Code/go/wing-crontab/vendor`
+
 数据库相关
 -----
 所有的增加、删除、更新操作，直接修改数据库，修改后重启软件
