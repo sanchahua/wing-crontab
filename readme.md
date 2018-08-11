@@ -55,5 +55,14 @@ mysql_charset = "utf8"
 运行
 ----
 ````
+debug模式
 ./bin/wing-crontab
+````
+````
+后台运行
+./bin/start.sh
+````
+````
+停止运行
+./bin/stop.sh
 ````

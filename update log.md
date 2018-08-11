@@ -1,4 +1,0 @@
-v1.1
-修改log实现，增加相关事件流程以及时间记录
-修复选leader出现多个多个leader bug
-修复agent client偶现闪退问题
