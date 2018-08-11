@@ -19,6 +19,7 @@ func NewManager(db *sql.DB) *CronManager {
 	m.init()
 	return m
 }
+
 func (m *CronManager) init() {
 	list, err := m.cronModel.GetList()
 	if err != nil {
@@ -29,6 +30,7 @@ func (m *CronManager) init() {
 		m.cronController.Add(data)
 	}
 }
+
 func (m *CronManager) Start() {
 	m.cronController.StartCron()
 }
