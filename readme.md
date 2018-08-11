@@ -1,6 +1,6 @@
 
-go test 相关指令支持，将GOPATH指向项目的根目录和vendor目录
-`export GOPATH=/Users/yuyi/Code/go/wing-crontab:/Users/yuyi/Code/go/wing-crontab/vendor`
+go test 相关指令支持，将GOPATH指向项目的根目录和vendor目录，注意一下目录换成自己的真实项目路径
+`export GOPATH={project path}:{project path}/vendor`
 
 数据库相关
 -----
@@ -25,16 +25,13 @@ CREATE TABLE `cron` (
 ````
 CREATE TABLE `log` (
  `id` int(11) NOT NULL AUTO_INCREMENT,
- `cron_id` int(11) NOT NULL DEFAULT '0',
- `event` varchar(32) NOT NULL DEFAULT '' COMMENT '事件',
- `time` bigint(20) NOT NULL COMMENT '命令运行的时间(毫秒时间戳)',
+ `cron_id` int(11) NOT NULL DEFAULT '0' COMMENT '定时任务id',
+ `start_time` datetime NOT NULL COMMENT '命令开始执行的时间',
  `output` longtext NOT NULL COMMENT '执行命令输出',
  `use_time` bigint(20) NOT NULL COMMENT '执行命令耗时，单位为毫秒',
- `dispatch_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '调度server',
- `run_server` varchar(1024) NOT NULL DEFAULT '' COMMENT '该命令在那个节点上被执行（服务器）',
  `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '备注',
  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7730455 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=706922 DEFAULT CHARSET=utf8
 ````
 
 如何安装wing-crontab
@@ -46,33 +43,8 @@ CREATE TABLE `log` (
 修改配置文件
 ------
 ````
-vim ./config/app.toml
+vim ./config/mysql.toml
 
-配置文件说明
-##这个就是consul的服务地址了，本地调试模式使用127.0.0.1:8500即可
-consul_address = "127.0.0.1:8500"
-##服务名称，用于consul的服务注册
-service_name = "wing-crontab-service"
-##用来选leader时的竞争锁的key值
-##集群内所有的节点的key要保持一致
-lock_key = "wing-crontab-lock"
-##tcp服务的监听地址
-##不允许使用"0.0.0.0:9991"这种模式，必须要指定具体的ip和端口
-##原因是这个监听的地址要用于服务发现
-bind_address = "127.0.0.1:9991"
-##http接口的服务监听端口，这个可以使用"0.0.0.0:9990"这种模式
-http_bind_address = "127.0.0.1:9990"
-##这个用于性能监控调优，如果不想打开，去掉留空就可以了
-pprof_listen = "127.0.0.1:8880"
-##日志级别
-# 0 =	PanicLevel Level = iota
-# 1 =	FatalLevel
-# 2 =	ErrorLevel
-# 3 =	WarnLevel
-# 4 =	InfoLevel
-# 5 =	DebugLevel
-log_level=5
-##如下几个字段是mysql相关的连接配置
 mysql_user = "root"
 mysql_password = "123456"
 mysql_host = "127.0.0.1"

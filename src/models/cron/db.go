@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	log "github.com/cihub/seelog"
 	"strings"
-	"github.com/pkg/errors"
+	"errors"
 	"fmt"
 )
 

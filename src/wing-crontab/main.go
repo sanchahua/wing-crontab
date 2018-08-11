@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"config"
-	"controllers/cron"
+	"manager"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,6 +20,7 @@ func main() {
 		log.Errorf("main config.GetMysqlConfig fail, error=[%v]", err)
 		return
 	}
+	config.WtitePid()
 	err = config.SeelogInit()
 	if err != nil {
 		log.Errorf("main config.SeelogInit fail, error=[%v]", err)
@@ -49,9 +50,10 @@ func main() {
 		handler.SetMaxOpenConns(4)
 		defer handler.Close()
 	}
-
-	cron.NewCronController(handler).Run()
-
+	fmt.Println("start wing-crontab")
+	m := manager.NewManager(handler)
+	m.Start()
+	defer m.Stop()
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
 		os.Kill,

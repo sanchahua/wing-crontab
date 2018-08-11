@@ -8,6 +8,8 @@ import (
 	_ "net/http/pprof"
 	log "github.com/cihub/seelog"
 	"errors"
+	"os"
+	"io/ioutil"
 )
 
 // 配置文件管理相关实现
@@ -24,7 +26,7 @@ type MysqlConfig struct {
 // 读取mysql配置
 func GetMysqlConfig() (*MysqlConfig, error) {
 	var appConfig MysqlConfig
-	configFile := path.CurrentPath + "/config/canal.toml"
+	configFile := path.CurrentPath + "/config/mysql.toml"
 	if !file.Exists(configFile) {
 		log.Errorf("GetMysqlConfig config file not found, file=[%v]", configFile)
 		return nil, errors.New(fmt.Sprintf("config file not found, file=[%v]", configFile))
@@ -33,17 +35,23 @@ func GetMysqlConfig() (*MysqlConfig, error) {
 		log.Errorf("GetMysqlConfig toml.DecodeFile fail, file=[%v], error=[%v]", configFile, err)
 		return nil, err
 	}
+	log.Infof("GetMysqlConfig [%+v]", appConfig)
 	return &appConfig, nil
 }
 
 // 初始化seelog日志组件
 func SeelogInit() error {
 	// 初始化日志组件
-	logger, err := log.LoggerFromConfigAsFile(path.CurrentPath + "/logger.xml")
+	logger, err := log.LoggerFromConfigAsFile(path.CurrentPath + "/config/logger.xml")
 	if err != nil {
 		log.Errorf("SeelogInit fail, config file=[%v], error=[%v]", path.CurrentPath + "/logger.xml", err)
 		return err
 	}
 	log.ReplaceLogger(logger)
 	return nil
+}
+
+func WtitePid() {
+	data := []byte(fmt.Sprintf("%d", os.Getpid()))
+	ioutil.WriteFile(path.CurrentPath + "/wing-crontab.pid", data, 0644)
 }
