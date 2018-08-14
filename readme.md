@@ -1,5 +1,6 @@
 
 main函数：src/xcrontab/main.go
+
 go test 相关指令支持，将GOPATH指向项目的根目录和vendor目录，注意一下目录换成自己的真实项目路径
 `export GOPATH={project path}:{project path}/vendor`
 
