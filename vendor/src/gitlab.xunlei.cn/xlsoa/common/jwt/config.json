@@ -1,8 +1,0 @@
-{
-  "service_id": "service_id",
-  "service_name": "service_name",
-  "client_id": "client_id",
-  "client_secret" : "client_secret",
-  "auth_service_name": "xlsoa.core.auth.Auth",
-  "key_sync_service_name": "xlsoa.core.key_sync.KeySync"
-}

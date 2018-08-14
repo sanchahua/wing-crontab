@@ -1,8 +1,0 @@
-modules:
-    xlsoa:
-        server:
-            context:
-                addr: "127.0.0.1:58092"    # Server的监听地址
-                oauth:
-                    secure:
-                        switch: "off"      # Server关闭OAuth鉴权校验，允许Client直接访问
