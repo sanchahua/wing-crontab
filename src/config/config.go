@@ -60,5 +60,5 @@ func SeelogInit() error {
 
 func WtitePid() {
 	data := []byte(fmt.Sprintf("%d", os.Getpid()))
-	ioutil.WriteFile(path.CurrentPath + "/wing-crontab.pid", data, 0644)
+	ioutil.WriteFile(path.CurrentPath + "/xcrontab.pid", data, 0644)
 }

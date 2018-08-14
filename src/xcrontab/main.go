@@ -51,7 +51,7 @@ func main() {
 		handler.SetMaxOpenConns(4)
 		defer handler.Close()
 	}
-	fmt.Println("start wing-crontab")
+	fmt.Println("start xcrontab")
 	m := manager.NewManager(handler)
 	m.Start()
 	defer m.Stop()

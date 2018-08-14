@@ -1,4 +1,5 @@
 
+main函数：src/xcrontab/main.go
 go test 相关指令支持，将GOPATH指向项目的根目录和vendor目录，注意一下目录换成自己的真实项目路径
 `export GOPATH={project path}:{project path}/vendor`
 
@@ -34,8 +35,8 @@ CREATE TABLE `log` (
 ) ENGINE=InnoDB AUTO_INCREMENT=706922 DEFAULT CHARSET=utf8mb4
 ````
 
-如何安装wing-crontab
-编译wing-crontab，需要提前安装go环境
+如何安装xcrontab
+编译xcrontab，需要提前安装go环境
 -----
 ````
 ./bin/build.sh
@@ -56,7 +57,7 @@ mysql_charset = "utf8"
 ----
 ````
 debug模式
-./bin/wing-crontab
+./bin/xcrontab
 ````
 ````
 后台运行

@@ -2,7 +2,7 @@
 echo "building..."
 current_path=$(cd `dirname $0`; pwd)
 root_path=$(dirname $current_path)
-project="wing-crontab"
+project="xcrontab"
 
 bin_path="${root_path}/bin"
 pkg_path="${root_path}/pkg"
