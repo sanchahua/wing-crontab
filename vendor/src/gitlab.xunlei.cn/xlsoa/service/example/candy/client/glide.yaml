@@ -1,0 +1,12 @@
+package: gitlab.xunlei.cn/xlsoa/service/example/candy/client
+import:
+- package: gitlab.xunlei.cn/xlsoa/service
+  vcs: git
+  repo: git@gitlab.xunlei.cn:xlsoa/service.git
+  version: ^v3.0.0
+  subpackages:
+  - proto_gen/xlsoa/example
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/grpc

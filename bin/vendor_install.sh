@@ -44,6 +44,10 @@ go get github.com/jilieryuyi/wing-go
 echo "installing... go get github.com/emicklei/go-restful"
 go get github.com/emicklei/go-restful
 go get github.com/cihub/seelog
+go get github.com/go-yaml/yaml
+go get github.com/golang/protobuf/jsonpb
+go get github.com/json-iterator/go
+go get github.com/json-iterator/go/extra
 
 find $vendor_path -name '*.git*' | xargs rm -rf
 ##cp -rf $vendor_path/src/* $vendor_path

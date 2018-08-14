@@ -1,0 +1,26 @@
+package: gitlab.xunlei.cn/xlsoa/service
+import:
+- package: github.com/golang/protobuf
+  subpackages:
+  - proto
+- package: github.com/grpc-ecosystem/go-grpc-middleware
+- package: github.com/pkg/errors
+- package: gitlab.xunlei.cn/xlsoa/common
+  repo: https://gitlab.xunlei.cn/xlsoa/common.git
+  vcs: git
+  subpackages:
+  - jws
+  - jwt
+  - utility
+- package: gitlab.xunlei.cn/xlsoa/config
+  repo: https://gitlab.xunlei.cn/xlsoa/config.git
+  vcs: git
+  version: ^v1.1.0
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/grpc
+  version: v1.4.1
+  subpackages:
+  - metadata
+- package: gopkg.in/yaml.v2

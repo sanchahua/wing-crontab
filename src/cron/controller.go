@@ -3,7 +3,8 @@ package cron
 import (
 	"models/cron"
 	mlog "models/log"
-	log "github.com/cihub/seelog"
+	//log "github.com/cihub/seelog"
+	log "gitlab.xunlei.cn/xllive/common/log"
 	cronv2 "library/cron"
 	"sync"
 	"fmt"

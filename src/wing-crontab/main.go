@@ -1,7 +1,8 @@
 package main
 
 import (
-	log "github.com/cihub/seelog"
+	//log "github.com/cihub/seelog"
+	log "gitlab.xunlei.cn/xllive/common/log"
 	"database/sql"
 	"fmt"
 	"config"

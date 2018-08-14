@@ -1,7 +1,8 @@
 package cron
 
 import (
-	log "github.com/cihub/seelog"
+	//log "github.com/cihub/seelog"
+	log "gitlab.xunlei.cn/xllive/common/log"
 	cronv2 "library/cron"
 	"models/cron"
 	"os/exec"

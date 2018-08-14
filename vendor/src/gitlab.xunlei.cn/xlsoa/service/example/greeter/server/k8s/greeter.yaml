@@ -1,0 +1,112 @@
+# This file describes the spec for deployment of a kubeploy container
+# along with your xlsoa service container in a single pod and the spec
+# for a service in k8s cluster.
+# NOTE:
+# 1. Your xlsoa service should be added a label "xlsoa-service" so as to
+#    be discovered by kuberds for service registration into xlsoa service
+#    registry.
+# 2. The gRPC service name of your xlsoa service should be exposed to the
+#    kubeploy container as environment variable KUBEPLOY_SERVICE_NAME.
+# 3. Add env XLSOA_KUBESERVICE_CONFIG_FILE to your service container and set its
+#    value to /etc/xlsoa/xlsoa.yaml. It's required by the xlsoa service sdk.
+# 4. Your xlsoa service container will serve at fixed port 9000 in the pod.
+# 5. The kubeploy container will starts an envoy network proxy for your
+#    your service. It uses fixed ports 9001, 9002 and 9003. Your service
+#    container should not use these ports.
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: greeter
+  namespace: xluser
+  labels:
+    xluser-app: greeter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        xluser-app: greeter
+    spec:
+      imagePullSecrets:
+      - name: "harbor-key"
+      nodeSelector:
+        "test-env": "true"
+
+      containers:
+      #-----------------------------------------
+      # ADD spec of your service container here.
+      #-----------------------------------------
+      - name: greeter
+        image: test-registry.topsecret.xunlei.cn/xluser-service/greeter:v0.1.0
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      #------------------------------------------------------
+      # Following env XLSOA_KUBESERVICE_CONFIG_FILE and volumeMounts are
+      # required by the xlsoa service sdk. DO NOT change it.
+      #------------------------------------------------------
+        env:
+        - name: XLSOA_KUBESERVICE_CONFIG_FILE
+          value: /etc/xlsoa/xlsoa.yaml
+        volumeMounts:
+        - name: xlsoaconf
+          mountPath: /etc/xlsoa/
+
+      #------------------------------------------------------
+      # DO NOT change following part of the spec for kubeploy
+      # container except env KUBEPLOY_SERVICE_NAME.
+      #------------------------------------------------------
+      - name: kubeploy
+        image: test-registry.topsecret.xunlei.cn/kubernetes/kubeploy:v0.1.0
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 512m
+            memory: 512Mi
+          requests:
+            cpu: 128m
+            memory: 32Mi
+        livenessProbe:
+          tcpSocket:
+            port: 9001
+          initialDelaySeconds: 30
+          timeoutSeconds: 2
+        env:
+        - name: KUBEPLOY_SERVICE_NAME
+          value: "xlsoa.example.greeter" #[Required, the gRPC service name of your service]
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        volumeMounts:
+        - name: xlsoaconf
+          mountPath: /etc/xlsoa
+        ports:
+        - containerPort: 9001
+      volumes:
+      - name: xlsoaconf
+        emptyDir: {}
+      #------------------------------------------------------
+      # End of spec for kubeploy container
+      #------------------------------------------------------
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: xlsoa-example-greeter
+  namespace: xluser
+  labels:
+    xlsoa-service: "true"
+spec:
+  selector:
+    xluser-app: greeter
+  ports:
+  - port: 39001
+    targetPort: 9001

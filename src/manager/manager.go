@@ -4,7 +4,8 @@ import (
 	"cron"
 	mcron "models/cron"
 	"database/sql"
-	"github.com/cihub/seelog"
+	//"github.com/cihub/seelog"
+	seelog "gitlab.xunlei.cn/xllive/common/log"
 )
 
 type CronManager struct {

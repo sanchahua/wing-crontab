@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.xunlei.xluser.core.session";
+option java_outer_classname = "XLSessionProto";
+option go_package = "xluser/core/session";
+package xluser.core;
+
+/** result
+ 200 – 成功
+ 401 - 参数错误,
+ 402 – sessionid 被踢
+ 403 – sessionid 超时
+ 404 – 不存在对应sessionid 
+ 500 – 内部错误（缓存异常等）
+**/
+
+service sessionv0{
+  // 
+  rpc Register(RegisterRequest) returns (RegisterReply) {}
+  rpc Unregister(UnregisterRequest) returns (UnregisterReply) {}
+  rpc Delete(DeleteRequest) returns (DeleteReply) {}
+  rpc Get(GetRequest) returns (GetReply) {}
+  rpc Check(CheckRequest) returns (CheckReply) {}
+  rpc Ping(PingRequest) returns (PingReply) {}
+}
+
+enum Errno{
+	UNKNOWN = 0;
+	OK = 200;
+	ARGERR = 401;
+	KICKOUT = 402;
+	TIMEOUT = 403;
+	NOTFOUND = 404;
+	INTERNALERR = 500;
+}
+
+enum SessionType{
+	UNKNOWNSESSION = 0;
+	CLIENTSESSION = 1;
+	WEBSESSION = 2;
+}
+
+message RegisterRequest {
+	int32  appid       =1;
+	int64  userid      =2;
+	string deviceid    =3; //optional
+	string version	   =4; //optional
+	SessionType sessiontype = 5;
+}
+
+message UnregisterRequest {
+	int32  appid       =1;
+	int64  userid      =2;
+	string sessionid   =3;
+	SessionType sessiontype = 4;
+}
+
+message DeleteRequest { 
+	int32  appid       =1;
+	int64  userid      =2;
+	string sessionid   =3;
+}
+
+message GetRequest {
+	int32  appid       =1;
+	int64  userid      =2;
+	int32  limit= 3;
+	SessionType sessiontype = 4;
+}
+
+message CheckRequest {
+	int32  appid       =1; 
+	int64  userid      =2; //userid or -1(get userid from reply)
+	SessionType sessiontype =3;
+	string sessionid   =4;
+	string deviceid    =5; //optional
+}
+
+message PingRequest {
+	int32  appid       =1;
+	int64  userid      =2;
+	string sessionid   =3;
+	string deviceid    =4;
+}
+
+message UnregisterReply{
+	Errno  result    =1;
+	string info      =2;
+	int64  userid    =3;
+	int32  appid     =4;
+}
+
+message DeleteReply{
+	Errno  result    =1;
+	string info      =2;
+	int64  userid    =3;
+	int32  appid     =4;
+}
+
+message CheckReply{
+	Errno  result    =1;
+	string info      =2;
+	int64  userid    =3;
+	int32  appid     =4;
+}
+
+message PingReply{ 
+	Errno  result   =1;
+	string info      =2;
+	int64  userid    =3;
+	int32  appid     =4;
+}
+
+message GetReply {
+	Errno  result    =1;
+	string info      =2;
+	int64  userid    =3;
+	int32  appid     =4;
+	int32  online    =5;
+	int64  logintime =6;
+	int64  lasttime  =7;
+	string sessionid =8;
+	string version   =9; 
+}
+
+message RegisterReply {
+	Errno  result    =1;
+	string info      =2;
+	int64  userid    =3;
+	string sessionid =4;
+	int32  appid     =5;
+}

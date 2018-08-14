@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"library/file"
 	_ "net/http/pprof"
-	log "github.com/cihub/seelog"
+	//log "github.com/cihub/seelog"
+	log "gitlab.xunlei.cn/xllive/common/log"
 	"errors"
 	"os"
 	"io/ioutil"
@@ -42,12 +43,18 @@ func GetMysqlConfig() (*MysqlConfig, error) {
 // 初始化seelog日志组件
 func SeelogInit() error {
 	// 初始化日志组件
-	logger, err := log.LoggerFromConfigAsFile(path.CurrentPath + "/config/logger.xml")
+	//logger, err := log.LoggerFromConfigAsFile(path.CurrentPath + "/config/logger.xml")
+	//if err != nil {
+	//	log.Errorf("SeelogInit fail, config file=[%v], error=[%v]", path.CurrentPath + "/logger.xml", err)
+	//	return err
+	//}
+	//log.ReplaceLogger(logger)
+	ilog, err := log.NewLogMgr(path.CurrentPath + "/config/logger.yml")
 	if err != nil {
-		log.Errorf("SeelogInit fail, config file=[%v], error=[%v]", path.CurrentPath + "/logger.xml", err)
+		fmt.Println("log init error:", err)
 		return err
 	}
-	log.ReplaceLogger(logger)
+	log.SetDefaultLogMgr(ilog)
 	return nil
 }
 

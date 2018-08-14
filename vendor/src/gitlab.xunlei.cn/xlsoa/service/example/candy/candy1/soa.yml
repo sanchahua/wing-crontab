@@ -1,0 +1,14 @@
+modules:
+    xlsoa:
+        environment:
+            hosts:
+            - service: "xlsoa.example.candy2"  # 定义xlsoa.example.candy2的host信息
+              addr: "127.0.0.1:58092"          # 连接xlsoa.example.candy2的地址
+              oauth: false                     # # 访问xlsoa.example.candy2不进行OAuth鉴权，直接访问
+
+        server:
+            context:
+                addr: "127.0.0.1:58091"        # Server的监听地址
+                oauth:
+                    secure:
+                        switch: "off"          # Server关闭OAuth鉴权校验，允许Client直接访问

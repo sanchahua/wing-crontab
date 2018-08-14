@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package xlsoa.core;
+
+enum CertificateResult {
+    // - 成功
+    OK = 0;
+
+    // - 没有授权
+    // 申请的一组Scope，如果全部都没有授权会返回这个错误
+    //     Note: 如果部分授权，并不会返回这个错误。实际获取到的权限在AccessToken里面有描述。
+    ERR_AUTHORIZE = 404;   // 没有授权
+
+    // 非法访问
+    ERR_AUTHENTICATE = 405;
+
+    // - 内部错误
+    ERR_INTERNAL = 500;  
+}
+
+service certificate {
+
+    //
+    // - 申请授权
+    // 
+    // 针对授权结果的不同处理，Client端组件可以根据实际情况处理。以下是建议的处理
+    // 
+    // 1. 成功，则更新本地AccessToken，并且用最新的AccessToken进行RPC Call
+    // 2. Auth Call Error（例如网络通信失败）
+    //         使用老的AccessToken进行RPC Call。待下次Auth重试。
+    // 3. Auth Call 成功
+    //         |ERR_AUTHORIZE|ERR_AUTHENTICATE: 返回上层Call失败，并且告知错误类型。不进行业务Service的RPC Call。
+    //         ERR_INTERNAL                   : 使用老的AccessToken进行RPC Call。待下次重试
+    //         
+    //
+    rpc Authorize(AuthorizeRequest)      returns (AuthorizeResponse)            {}
+
+    // - 同步Key
+    rpc SyncKey(SyncKeyRequest)     returns (SyncKeyResponse)            {}
+
+}
+
+message AuthorizeRequest {
+
+    // - 授权类型
+    // 预留字段，暂时没用
+    string   grant_type        = 1; 
+
+    // - Assertion
+    // jwt.Encode()之后的字符串
+    // jwt里面描述了秘钥信息、申请授权的信息等。
+    // 具体内容参考JWT相关的内容实现。
+    string   assertion         = 2;
+}
+message AuthorizeResponse {
+    
+    // - 返回结果
+    // 参考enum Result的定义
+    CertificateResult  result       = 1;
+
+    // - 错误信息
+    // result!=OK时返回的错误信息，方便跟踪定位
+    string  message      = 2; 
+    
+    // - AccessToken
+    // 授权的AccessToken字符串，Client端不用关系实际含义。
+    string  access_token = 3; 
+
+    // - Token类型
+    // 预留字段，暂时没用
+    string  token_type   = 4;
+
+    // - IDToken
+    // 预留字段，暂时没用
+    string  id_token     = 5;
+
+    // - Token过期时间
+    // 相对时间，单位为秒。
+    // 表示该AccessToken可以使用的生命周期，Client端应该尽量在生命周期耗尽之前重新进行新的AccessToken申请。
+    int32   expires_in   = 6; //Token有效期，相对时间
+}
+
+message SyncKeyRequest {
+    //本地副本最新Key的版本号。如果没有任何版本则填0
+    int32 latest_version = 1; 
+
+    // - Assertion
+    // jwt.Encode()之后的字符串
+    // jwt里面描述了秘钥信息、申请授权的信息等。
+    // 具体内容参考JWT相关的内容实现。
+    string   assertion         = 2;
+}
+
+message SyncKeyResponse {
+    // - 返回结果
+    // 参考enum Result的定义
+    CertificateResult   result                   = 1;
+
+    // - 错误信息
+    // result!=OK时返回的错误信息，方便跟踪定位
+    string   message                  = 2;
+
+    // - 最新的key列表
+    repeated Key keys                 = 3;
+
+    // - 下次Sync的时间间隔
+    // 单位秒
+    int32    next_interval            = 4; 
+}
+
+message Key {
+    //标记唯一Key的KeyId
+    string id           = 1; 
+
+    // 秘钥
+    string secret       = 2; 
+
+    // Key的版本号，实际上是该Key的创建时间(秒)
+    int32  version      = 3;
+
+    //Key剩余生命周期，单位秒
+    int32  time_to_live = 4; //Key剩余生命周期，单位秒
+}

@@ -2,7 +2,8 @@ package cron
 
 import (
 	"database/sql"
-	log "github.com/cihub/seelog"
+	//log "github.com/cihub/seelog"
+	log "gitlab.xunlei.cn/xllive/common/log"
 	"strings"
 	"errors"
 	"fmt"
