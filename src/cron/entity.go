@@ -1,51 +1,52 @@
 package cron
 
-// 定时任务实体对象
 import (
 	log "github.com/cihub/seelog"
 	cronv2 "library/cron"
 	"models/cron"
 	"os/exec"
 	"time"
+	"sync/atomic"
 )
 
 // 数据库的基本属性
 type CronEntity struct {
-	CronId    cronv2.EntryID  `json:"cron_id"`
-	Id        int64           `json:"id"`
-	CronSet   string          `json:"cron_set"`
-	Command   string          `json:"command"`
-	Remark    string          `json:"remark"`
-	Stop      bool            `json:"stop"`
-	StartTime int64           `json:"start_time"`
-	EndTime   int64           `json:"end_time"`
-	IsMutex   bool            `json:"is_mutex"`
-	//onWillRun OnWillRunFunc   `json:"-"`
-	filter    IFilter         `json:"-"`
-	//WaitNum   int64           `json:"wait_num"`
-	IsRunning bool            `json:"is_running"`
-	runChan chan struct{}     `json:"-"`
-	exitChan chan struct{}    `json:"-"`
-	onRun OnRunCommandFunc    `json:"-"`
+	CronId     cronv2.EntryID   `json:"cron_id"`
+	Id         int64            `json:"id"`
+	CronSet    string           `json:"cron_set"`
+	Command    string           `json:"command"`
+	Remark     string           `json:"remark"`
+	Stop       bool             `json:"stop"`
+	StartTime  int64            `json:"start_time"`
+	EndTime    int64            `json:"end_time"`
+	IsMutex    bool             `json:"is_mutex"`
+	filter     IFilter          `json:"-"`
+	// 当前正在同事运行的进程数
+	ProcessNum int64            `json:"process_num"`
+	runChan    chan struct{}    `json:"-"`
+	exitChan   chan struct{}    `json:"-"`
+	onRun      OnRunCommandFunc `json:"-"`
 }
-type CronEntityMiddleWare func(entity *CronEntity) IFilter
+type FilterMiddleWare func(entity *CronEntity) IFilter
 type OnRunCommandFunc func(cron_id int64, output string, usetime int64, remark string)
-const RunChanLen = 60
+const (
+	RunChanLen = 60
+)
 func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity {
 	e := &CronEntity{
-		Id:        entity.Id,
-		CronSet:   entity.CronSet,
-		Command:   entity.Command,
-		Remark:    entity.Remark,
-		Stop:      entity.Stop,
-		CronId:    0,
-		//onWillRun: onWillRun,
-		StartTime: entity.StartTime,
-		EndTime:   entity.EndTime,
-		IsMutex:   entity.IsMutex,
-		runChan:   make(chan struct{}, RunChanLen),
-		exitChan:  make(chan struct{}, 3),
-		onRun:     onRun,
+		Id:         entity.Id,
+		CronSet:    entity.CronSet,
+		Command:    entity.Command,
+		Remark:     entity.Remark,
+		Stop:       entity.Stop,
+		CronId:     0,
+		StartTime:  entity.StartTime,
+		EndTime:    entity.EndTime,
+		IsMutex:    entity.IsMutex,
+		runChan:    make(chan struct{}, RunChanLen),
+		exitChan:   make(chan struct{}, 3),
+		onRun:      onRun,
+		ProcessNum: 0,
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
@@ -56,19 +57,11 @@ func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity 
 	return e
 }
 
-//func (row *CronEntity) SubWaitNum() int64 {
-//	if atomic.LoadInt64(&row.WaitNum) <= 0 {
-//		return 0
-//	}
-//	return atomic.AddInt64(&row.WaitNum, -1)
-//}
-//
-//func (row *CronEntity) AddWaitNum() {
-//	atomic.AddInt64(&row.WaitNum, 1)
-//}
 func (row *CronEntity) delete() {
-	row.exitChan <- struct{}{}
+	close(row.exitChan)
+	close(row.runChan)
 }
+
 func (row *CronEntity) run() {
 	for {
 		select {
@@ -79,11 +72,12 @@ func (row *CronEntity) run() {
 		}
 	}
 }
+
 func (row *CronEntity) Run() {
 
 	if row.filter.Stop() {
 		// 外部注入，停止执行定时任务支持
-		log.Debugf("%+v was stop", row.Id)
+		log.Tracef("%+v was stop", row.Id)
 		return
 	}
 
@@ -97,14 +91,10 @@ func (row *CronEntity) Run() {
 
 	// 不需要互斥运行
 	go row.runCommand()
-	//row.onWillRun(row.Id, row.Command, row.IsMutex, row.AddWaitNum, row.SubWaitNum)
-	//fmt.Fprintf(os.Stderr, "\r\n########## only leader do this %+v\r\n\r\n", *row)
 }
 
 func (row *CronEntity) runCommand() {
-	//for _, f := range c.onBefore {
-	//	f(id, dispatchServer, runServer, []byte(""), 0)
-	//}
+	processNum := atomic.AddInt64(&row.ProcessNum, 1)
 	var cmd *exec.Cmd
 	var err error
 	start := time.Now().UnixNano()/1000000
@@ -114,10 +104,8 @@ func (row *CronEntity) runCommand() {
 		res = append(res, []byte("  error: " + err.Error())...)
 		log.Errorf("runCommand fail, id=[%v], command=[%v], error=[%+v]", row.Id, row.Command, err)
 	}
-	log.Infof( "##########################[%+v,%v] was run##########################", row.Id, row.Command)
-	//for _, f := range c.onAfter {
-	//	f(id, dispatchServer, runServer, res, time.Since(start))
-	//}
-	usetime := int64(time.Now().UnixNano()/1000000 - start)
-	row.onRun(row.Id, string(res), usetime, row.Command)
+	log.Tracef( "##########################%v=>[%+v,%v] was run##########################", processNum, row.Id, row.Command)
+	atomic.AddInt64(&row.ProcessNum, -1)
+	useTime := int64(time.Now().UnixNano()/1000000 - start)
+	row.onRun(row.Id, string(res), useTime, row.Command)
 }

@@ -114,7 +114,7 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 		}
 		break
 	}
-	log.Infof("GetList success, sql=[%v], sql2=[%v], records=[%+v], num=[%v]", debugSql, debugSql2, records, num)
+	log.Tracef("GetList success, sql=[%v], sql2=[%v], records=[%+v], num=[%v]", debugSql, debugSql2, records, num)
 	return records, num, nil
 }
 
@@ -165,7 +165,7 @@ func (db *DbLog) Add(cronId int64, output string, useTime int64, remark string) 
 		UseTime:    useTime,
 		Remark:     remark,
 	}
-	log.Infof("Add success, sql=[%v], res=[%+v]", debugSql, rsp)
+	log.Tracef("Add success, sql=[%v], res=[%+v]", debugSql, rsp)
 	return rsp, nil
 }
 
@@ -194,7 +194,7 @@ func (db *DbLog) Delete(id int64) (*LogEntity, error) {
 		log.Errorf("Delete res.RowsAffected is 0, sql=[%v], id=[%v], num=[%v], error=[%+v]", sqlStr, id, err)
 		return nil, err
 	}
-	log.Infof("Delete success, sql=[%v], id=[%v], num=[%v]", sqlStr, id, num)
+	log.Tracef("Delete success, sql=[%v], id=[%v], num=[%v]", sqlStr, id, num)
 	return row, nil
 }
 
@@ -223,6 +223,6 @@ func (db *DbLog) DeleteByCronId(cronId int64) ([]*LogEntity, error) {
 		log.Errorf("Delete res.RowsAffected is 0, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
 		return nil, err
 	}
-	log.Infof("Delete success, sql=[%v], cronId=[%v], num=[%v], rows=[%+v]", sqlStr, cronId, num, rows)
+	log.Tracef("Delete success, sql=[%v], cronId=[%v], num=[%v], rows=[%+v]", sqlStr, cronId, num, rows)
 	return rows, nil
 }

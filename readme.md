@@ -19,7 +19,7 @@ CREATE TABLE `cron` (
  `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '定时任务的备注信息',
  `is_mutex` int(11) NOT NULL DEFAULT '0' COMMENT '0可以并发执行 1严格互斥执行',
  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1634 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=1634 DEFAULT CHARSET=utf8mb4
 ````
 
 ````
@@ -31,7 +31,7 @@ CREATE TABLE `log` (
  `use_time` bigint(20) NOT NULL COMMENT '执行命令耗时，单位为毫秒',
  `remark` varchar(1024) NOT NULL DEFAULT '' COMMENT '备注',
  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=706922 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=706922 DEFAULT CHARSET=utf8mb4
 ````
 
 如何安装wing-crontab
@@ -65,4 +65,8 @@ debug模式
 ````
 停止运行
 ./bin/stop.sh
+````
+````
+重新加载配置(修改数据库后执行此命令重新加载定时任务)
+./bin/reload.sh
 ````

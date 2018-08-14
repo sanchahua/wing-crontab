@@ -7,7 +7,7 @@ type TimeFilter struct {
 	row *CronEntity
 	next IFilter
 }
-func TimeMiddleware(next IFilter) CronEntityMiddleWare {
+func TimeMiddleware(next IFilter) FilterMiddleWare {
 	return func(entity *CronEntity) IFilter {
 		return &TimeFilter{row:entity, next:next}
 	}
