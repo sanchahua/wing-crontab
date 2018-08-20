@@ -28,6 +28,8 @@ type CronEntity struct {
 	runChan    chan struct{}    `json:"-"`
 	exitChan   chan struct{}    `json:"-"`
 	onRun      OnRunCommandFunc `json:"-"`
+	runid      int64            `json:"-"`
+	isRunning  int64              `json:"-"`
 }
 type FilterMiddleWare func(entity *CronEntity) IFilter
 type OnRunCommandFunc func(cron_id int64, output string, usetime int64, remark, startTime string)
@@ -49,6 +51,7 @@ func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity 
 		exitChan:   make(chan struct{}, 3),
 		onRun:      onRun,
 		ProcessNum: 0,
+		runid:      0,
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
@@ -86,7 +89,11 @@ func (row *CronEntity) Run() {
 	// 如果需要互斥运行
 	if row.IsMutex {
 		if len(row.runChan) < RunChanLen {
-			row.runChan <- struct{}{}
+			// 判断是否正在运行
+			isrun := atomic.LoadInt64(&row.isRunning)
+			if isrun == 0 {
+				row.runChan <- struct{}{}
+			}
 		}
 		return
 	}
@@ -99,7 +106,10 @@ func (row *CronEntity) runCommand() {
 	processNum := atomic.AddInt64(&row.ProcessNum, 1)
 	var cmd *exec.Cmd
 	var err error
+	rid := atomic.AddInt64(&row.runid, 1)
+	atomic.StoreInt64(&row.isRunning, 1)
 	startTime := time2.GetDayTime()
+	log.Tracef( "##########################%v, %v=>[%+v,%v] start run##########################", rid, processNum, row.Id, row.Command)
 	start := time.Now().UnixNano()/1000000
 	cmd = exec.Command("bash", "-c", row.Command)
 	res, err := cmd.CombinedOutput()
@@ -107,8 +117,9 @@ func (row *CronEntity) runCommand() {
 		res = append(res, []byte("  error: " + err.Error())...)
 		log.Errorf("runCommand fail, id=[%v], command=[%v], error=[%+v]", row.Id, row.Command, err)
 	}
-	log.Tracef( "##########################%v=>[%+v,%v] was run##########################", processNum, row.Id, row.Command)
+	log.Tracef( "##########################%v, %v=>[%+v,%v] run end##########################", rid, processNum, row.Id, row.Command)
 	atomic.AddInt64(&row.ProcessNum, -1)
+	atomic.StoreInt64(&row.isRunning, 0)
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
 	row.onRun(row.Id, string(res), useTime, row.Command, startTime)
 }
