@@ -122,9 +122,9 @@ func (c *CronController) Stop(id int64, stop bool) (*CronEntity, error) {
 	return e, nil
 }
 
-func (c *CronController) onRun(cron_id int64, output string, usetime int64, remark string) {
-	_, err := c.logModel.Add(cron_id, output, usetime, remark)
+func (c *CronController) onRun(cron_id int64, output string, usetime int64, remark, startTime string) {
+	_, err := c.logModel.Add(cron_id, output, usetime, remark, startTime)
 	if err != nil {
-		log.Errorf("onRun c.logModel.Add fail, cron_id=[%v], output=[%v], usetime=[%v], remark=[%v], error=[%v]", cron_id, output, usetime, remark, err)
+		log.Errorf("onRun c.logModel.Add fail, cron_id=[%v], output=[%v], usetime=[%v], remark=[%v], startTime=[%v], error=[%v]", cron_id, output, usetime, remark, startTime, err)
 	}
 }

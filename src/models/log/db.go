@@ -3,11 +3,10 @@ package log
 import (
 	"database/sql"
 	//log "github.com/cihub/seelog"
-	log "gitlab.xunlei.cn/xllive/common/log"
+	"gitlab.xunlei.cn/xllive/common/log"
 	"strings"
 	"fmt"
 	"errors"
-	ltime "library/time"
 )
 
 type DbLog struct {
@@ -140,12 +139,12 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, output string, useTime int64, remark string) (*LogEntity, error) {
+func (db *DbLog) Add(cronId int64, output string, useTime int64, remark, startTime string) (*LogEntity, error) {
 	if cronId <= 0 {
 		log.Errorf("Add fail, error=[cron_id invalid], cronId=[%v]", cronId)
 		return nil, errors.New("cron_id invalid")
 	}
-	startTime := ltime.GetDayTime()
+	//startTime := ltime.GetDayTime()
 	sqlStr := "INSERT INTO `log`(`cron_id`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?)"
 	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, startTime, output, useTime, remark)
 	res, err := db.handler.Exec(sqlStr, cronId, startTime, output, useTime, remark)

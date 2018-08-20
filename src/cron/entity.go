@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"time"
 	"sync/atomic"
+	time2 "library/time"
 )
 
 // 数据库的基本属性
@@ -29,7 +30,7 @@ type CronEntity struct {
 	onRun      OnRunCommandFunc `json:"-"`
 }
 type FilterMiddleWare func(entity *CronEntity) IFilter
-type OnRunCommandFunc func(cron_id int64, output string, usetime int64, remark string)
+type OnRunCommandFunc func(cron_id int64, output string, usetime int64, remark, startTime string)
 const (
 	RunChanLen = 60
 )
@@ -98,6 +99,7 @@ func (row *CronEntity) runCommand() {
 	processNum := atomic.AddInt64(&row.ProcessNum, 1)
 	var cmd *exec.Cmd
 	var err error
+	startTime := time2.GetDayTime()
 	start := time.Now().UnixNano()/1000000
 	cmd = exec.Command("bash", "-c", row.Command)
 	res, err := cmd.CombinedOutput()
@@ -108,5 +110,5 @@ func (row *CronEntity) runCommand() {
 	log.Tracef( "##########################%v=>[%+v,%v] was run##########################", processNum, row.Id, row.Command)
 	atomic.AddInt64(&row.ProcessNum, -1)
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
-	row.onRun(row.Id, string(res), useTime, row.Command)
+	row.onRun(row.Id, string(res), useTime, row.Command, startTime)
 }
