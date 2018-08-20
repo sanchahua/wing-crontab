@@ -25,17 +25,12 @@ type CronEntity struct {
 	filter     IFilter          `json:"-"`
 	// 当前正在同事运行的进程数
 	ProcessNum int64            `json:"process_num"`
-	runChan    chan struct{}    `json:"-"`
-	exitChan   chan struct{}    `json:"-"`
 	onRun      OnRunCommandFunc `json:"-"`
 	runid      int64            `json:"-"`
 	isRunning  int64              `json:"-"`
 }
 type FilterMiddleWare func(entity *CronEntity) IFilter
 type OnRunCommandFunc func(cron_id int64, output string, usetime int64, remark, startTime string)
-const (
-	RunChanLen = 60
-)
 func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity {
 	e := &CronEntity{
 		Id:         entity.Id,
@@ -47,8 +42,6 @@ func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity 
 		StartTime:  entity.StartTime,
 		EndTime:    entity.EndTime,
 		IsMutex:    entity.IsMutex,
-		runChan:    make(chan struct{}, RunChanLen),
-		exitChan:   make(chan struct{}, 3),
 		onRun:      onRun,
 		ProcessNum: 0,
 		runid:      0,
@@ -58,24 +51,7 @@ func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity 
 	// 如果不在指定运行时间范围之内
 	e.filter = StopMiddleware()(e)
 	e.filter = TimeMiddleware(e.filter)(e)
-	go e.run()
 	return e
-}
-
-func (row *CronEntity) delete() {
-	close(row.exitChan)
-	close(row.runChan)
-}
-
-func (row *CronEntity) run() {
-	for {
-		select {
-		case <-row.runChan:
-			row.runCommand()
-		case <-row.exitChan:
-			return
-		}
-	}
 }
 
 func (row *CronEntity) Run() {
@@ -88,13 +64,11 @@ func (row *CronEntity) Run() {
 
 	// 如果需要互斥运行
 	if row.IsMutex {
-		if len(row.runChan) < RunChanLen {
 			// 判断是否正在运行
 			isrun := atomic.LoadInt64(&row.isRunning)
 			if isrun == 0 {
-				row.runChan <- struct{}{}
+				go row.runCommand()
 			}
-		}
 		return
 	}
 
@@ -107,7 +81,10 @@ func (row *CronEntity) runCommand() {
 	var cmd *exec.Cmd
 	var err error
 	rid := atomic.AddInt64(&row.runid, 1)
+
 	atomic.StoreInt64(&row.isRunning, 1)
+	defer atomic.StoreInt64(&row.isRunning, 0)
+
 	startTime := time2.GetDayTime()
 	log.Tracef( "##########################%v, %v=>[%+v,%v] start run##########################", rid, processNum, row.Id, row.Command)
 	start := time.Now().UnixNano()/1000000
@@ -119,7 +96,7 @@ func (row *CronEntity) runCommand() {
 	}
 	log.Tracef( "##########################%v, %v=>[%+v,%v] run end##########################", rid, processNum, row.Id, row.Command)
 	atomic.AddInt64(&row.ProcessNum, -1)
-	atomic.StoreInt64(&row.isRunning, 0)
+
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
 	row.onRun(row.Id, string(res), useTime, row.Command, startTime)
 }

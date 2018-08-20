@@ -76,7 +76,6 @@ func (c *CronController) Delete(id int64) (*CronEntity, error) {
 	}
 	delete(c.cronList, id)
 	c.cron.Remove(e.CronId)
-	e.delete()
 	return e, nil
 }
 
