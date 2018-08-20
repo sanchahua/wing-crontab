@@ -62,18 +62,17 @@ func (row *CronEntity) Run() {
 		return
 	}
 
-	// 如果需要互斥运行
-	if row.IsMutex {
-			// 判断是否正在运行
-			isrun := atomic.LoadInt64(&row.isRunning)
-			if isrun == 0 {
-				go row.runCommand()
-			}
+	// 不需要互斥运行
+	if !row.IsMutex {
+		go row.runCommand()
 		return
 	}
 
-	// 不需要互斥运行
-	go row.runCommand()
+	// 如果需要互斥运行
+	// 判断是否正在运行，0代表不是正在运行中
+	if 0 == atomic.LoadInt64(&row.isRunning) {
+		go row.runCommand()
+	}
 }
 
 func (row *CronEntity) runCommand() {
