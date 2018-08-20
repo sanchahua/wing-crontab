@@ -18,7 +18,6 @@ type Server struct {
 func GetServers(straceOutput string) []*Server {
 	r 	:= strings.NewReader(straceOutput)
 	bio := bufio.NewReader(r)
-
 	res := make([]*Server, 0)
 
 	for {
@@ -31,31 +30,11 @@ func GetServers(straceOutput string) []*Server {
 			st := bytes.Index(line, []byte("connect")) + len([]byte("connect"))+1
 			socketSource := string(line[st:st+1])
 			st = bytes.Index(line, []byte("sin_port=htons(")) + len([]byte("sin_port=htons("))
-
 			port := line[st:][0:bytes.Index(line[st:], []byte(")"))]
-
 			st = bytes.Index(line, []byte("sin_addr=inet_addr(\"")) + len([]byte("sin_addr=inet_addr(\""))
 			ip := line[st:][0:bytes.Index(line[st:], []byte(")"))-1]
-			//sendTime:=0
-			//for {
-			//	line2, _, err := bio.ReadLine()
-			//	if err != nil {
-			//		break
-			//	}
-			//	if strings.Index(string(line2), "sendto("+string(socketSource)) == 0 {
-			//		fmt.Println(string(line2))
-			//		sendTime++
-			//	}
-			//}
-			//fmt.Println("")
-			//fmt.Println("")
-			//t := make(map[string]int)
-			//t[string(socketSource)]=sendTime
-			//res[string(ip)+":"+string(port)] = t
-			//fmt.Println(string(socketSource), t, res)
 			straceOutput = straceOutput[startIndex:]
 			bio.Reset(strings.NewReader(straceOutput))
-
 			res = append(res, &Server{
 				Ip: string(ip),
 				Port: string(port),
@@ -65,10 +44,10 @@ func GetServers(straceOutput string) []*Server {
 	}
 	return res
 }
-func GetReadWriteTimes(straceOutput, source string) int {
-	r 	:= strings.NewReader(straceOutput)
-	bio := bufio.NewReader(r)
 
+func GetReadWriteTimes(straceOutput, source string) int {
+	r 	     := strings.NewReader(straceOutput)
+	bio      := bufio.NewReader(r)
 	sendTime := 0
 
 	for {
@@ -76,7 +55,6 @@ func GetReadWriteTimes(straceOutput, source string) int {
 		if err != nil {
 			break
 		}
-
 		if strings.Index(string(line), "sendto("+string(source)) == 0 {
 			sendTime++
 		}
@@ -99,9 +77,7 @@ func main() {
 			return
 		}
 	}
-
 	straceOutput := string(straceOutputr)
-
 
 	if straceOutput == "" {
 		straceOutput = `socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 3
