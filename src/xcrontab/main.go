@@ -1,8 +1,7 @@
 package main
 
 import (
-	//log "github.com/cihub/seelog"
-	log "gitlab.xunlei.cn/xllive/common/log"
+	"gitlab.xunlei.cn/xllive/common/log"
 	"database/sql"
 	"fmt"
 	"config"
@@ -15,6 +14,12 @@ import (
 )
 
 func main() {
+	err := config.SeelogInit()
+	if err != nil {
+		log.Errorf("main config.SeelogInit fail, error=[%v]", err)
+		return
+	}
+	defer log.Flush()
 
 	mysqlConfig, err := config.GetMysqlConfig()
 	if err != nil {
@@ -22,11 +27,6 @@ func main() {
 		return
 	}
 	config.WtitePid()
-	err = config.SeelogInit()
-	if err != nil {
-		log.Errorf("main config.SeelogInit fail, error=[%v]", err)
-		return
-	}
 	// init database
 	// 数据库资源
 	var handler *sql.DB

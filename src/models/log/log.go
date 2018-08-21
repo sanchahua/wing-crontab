@@ -2,6 +2,7 @@ package log
 
 import (
 	"database/sql"
+	"errors"
 )
 //var (
 //	updateFailError = errors.New("更新失败")
@@ -27,6 +28,11 @@ type LogEntity struct {
 	UseTime int64    `json:"use_time"`
 	Remark string    `json:"remark"`
 }
+
+var (
+	ErrIdInvalid = errors.New("id invalid")
+	ErrNoRowsAffected =  errors.New("no rows affected")
+)
 
 func NewLog(handler *sql.DB) *DbLog {
 	return newDbLog(handler)

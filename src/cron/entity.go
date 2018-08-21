@@ -97,5 +97,6 @@ func (row *CronEntity) runCommand() {
 	atomic.AddInt64(&row.ProcessNum, -1)
 
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
+	// todo 程序退出时，定时任务的日志可能会失败，因为这个时候数据库已经关闭，这个问题需要处理一下
 	row.onRun(row.Id, string(res), useTime, row.Command, startTime)
 }

@@ -5,7 +5,12 @@ import (
 	"database/sql"
 )
 var (
-	updateFailError = errors.New("更新失败")
+	ErrNoRowsChange = errors.New("no rows change")
+	ErrIdInvalid = errors.New("id invalid")
+	ErrNoRowsAffected =  errors.New("no rows affected")
+	ErrCronSetInvalid = errors.New("cronSet invalid")
+	ErrCommandInvalid = errors.New("command invalid")
+	ErrEndTimeInvalid = errors.New("endTime invalid")
 )
 // cron 表实体类 entry
 /**

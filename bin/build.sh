@@ -13,7 +13,7 @@ vendor_path="${root_path}/vendor"
 
 ##添加当前目录和当前目录下的vendor目录到GOPATH环境变量
 export GOPATH="${root_path}/vendor:${root_path}"
-
+echo ${GOPATH}
 ##如果pkg目录存在，则删除
 if [ -d "${pkg_path}" ]
 then
@@ -40,7 +40,8 @@ then
 fi
 
 ##install安装
-go install ${project}
+##go install
+cp ${root_path}"/"${project} ${root_path}"/bin"
 ##删除根目录下的可执行文件
 rm ${project}
 

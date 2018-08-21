@@ -139,90 +139,71 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, output string, useTime int64, remark, startTime string) (*LogEntity, error) {
+func (db *DbLog) Add(cronId int64, output string, useTime int64, remark, startTime string) (int64, error) {
 	if cronId <= 0 {
 		log.Errorf("Add fail, error=[cron_id invalid], cronId=[%v]", cronId)
-		return nil, errors.New("cron_id invalid")
+		return 0, errors.New("cron_id invalid")
 	}
-	//startTime := ltime.GetDayTime()
 	sqlStr := "INSERT INTO `log`(`cron_id`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?)"
 	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, startTime, output, useTime, remark)
 	res, err := db.handler.Exec(sqlStr, cronId, startTime, output, useTime, remark)
 	if err != nil {
 		log.Errorf("Add db.handler.Exec fail, sql=[%v], error=[%v]", debugSql, err)
-		return nil, err
+		return 0, err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
 		log.Errorf("Add res.LastInsertId fail, sql=[%v], error=[%v]", debugSql, err)
-		return nil, err
+		return 0, err
 	}
-	rsp := &LogEntity{
-		Id:         id,
-		CronId:     cronId,
-		StartTime:  startTime,
-		Output:     output,
-		UseTime:    useTime,
-		Remark:     remark,
-	}
-	log.Tracef("Add success, sql=[%v], res=[%+v]", debugSql, rsp)
-	return rsp, nil
+	log.Tracef("Add success, sql=[%v], id=[%+v]", debugSql, id)
+	return id, nil
 }
 
-func (db *DbLog) Delete(id int64) (*LogEntity, error) {
+func (db *DbLog) Delete(id int64) error {
 	if id <= 0 {
 		log.Errorf("Delete fail, error=[id invalid]")
-		return nil, errors.New("id invalid")
-	}
-	row, err := db.Get(id)
-	if err != nil {
-		log.Errorf("Delete db.Get fail, id=[%v], error=[%v]", id, err)
-		return row, err
+		return ErrIdInvalid
 	}
 	sqlStr := "DELETE FROM `log` WHERE id=?"
 	res, err := db.handler.Exec(sqlStr, id)
 	if err != nil {
 		log.Errorf("Delete db.handler.Exec fail, sql=[%v], id=[%v], error=[%+v]", sqlStr, id, err)
-		return nil, err
+		return err
 	}
 	num, err := res.RowsAffected()
 	if err != nil {
 		log.Errorf("Delete res.RowsAffected fail, sql=[%v], id=[%v], error=[%+v]", sqlStr, id, err)
-		return nil, err
+		return err
 	}
 	if num <= 0 {
 		log.Errorf("Delete res.RowsAffected is 0, sql=[%v], id=[%v], num=[%v], error=[%+v]", sqlStr, id, err)
-		return nil, err
+		return ErrNoRowsAffected
 	}
 	log.Tracef("Delete success, sql=[%v], id=[%v], num=[%v]", sqlStr, id, num)
-	return row, nil
+	return nil
 }
 
-func (db *DbLog) DeleteByCronId(cronId int64) ([]*LogEntity, error) {
+func (db *DbLog) DeleteByCronId(cronId int64) error {
 	if cronId <= 0 {
 		log.Errorf("Delete fail, cronId=[%v], error=[cronId invalid]", cronId)
-		return nil, errors.New("cronId invalid")
-	}
-	rows, _, err := db.GetList(cronId, 0, MaxQueryRows)
-	if err != nil {
-		log.Errorf("Delete db.GetList fail, cronId=[%v], error=[%v]", cronId, err)
-		return nil, err
+		return ErrIdInvalid
 	}
 	sqlStr := "DELETE FROM `log` WHERE cron_id=?"
 	res, err := db.handler.Exec(sqlStr, cronId)
 	if err != nil {
 		log.Errorf("Delete db.handler.Exec fail, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
-		return nil, err
+		return err
 	}
 	num, err := res.RowsAffected()
 	if err != nil {
 		log.Errorf("Delete res.RowsAffected fail, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
-		return nil, err
+		return  err
 	}
 	if num <= 0 {
 		log.Errorf("Delete res.RowsAffected is 0, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
-		return nil, err
+		return ErrNoRowsAffected
 	}
-	log.Tracef("Delete success, sql=[%v], cronId=[%v], num=[%v], rows=[%+v]", sqlStr, cronId, num, rows)
-	return rows, nil
+	log.Tracef("Delete success, sql=[%v], cronId=[%v], num=[%v]", sqlStr, cronId, num)
+	return nil
 }

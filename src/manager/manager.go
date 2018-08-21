@@ -4,20 +4,41 @@ import (
 	"cron"
 	mcron "models/cron"
 	"database/sql"
-	//"github.com/cihub/seelog"
 	seelog "gitlab.xunlei.cn/xllive/common/log"
+	"library/http"
 )
 
 type CronManager struct {
-	cronController *cron.CronController
+	cronController *cron.Controller
 	cronModel *mcron.DbCron
+	httpServer *http.HttpServer
 }
 
 func NewManager(db *sql.DB) *CronManager {
 	cronModel := mcron.NewCron(db)
-	cronController := cron.NewCronController(db)
-	m := &CronManager{cronController, cronModel}
+	cronController := cron.NewController(db)
+	m := &CronManager{
+		cronController:cronController,
+		cronModel:cronModel,
+	}
 	m.init()
+
+	//ctx *app.Context,
+	//	cr cron.ICron,
+	//	log mlog.ILog,
+	//	opts ...CronApiOption) *HttpServer {
+
+	m.httpServer = http.NewHttpServer(
+		"0.0.0.0:98001",
+		//http.SetRoute("GET",  "/log/list",         logApi.logs),
+		//http.SetRoute("GET",  "/cron/list",        cronApi.list),
+		//http.SetRoute("GET",  "/cron/stop/{id}",   cronApi.stop),
+		//http.SetRoute("GET",  "/cron/start/{id}",  cronApi.start),
+		//http.SetRoute("GET",  "/cron/delete/{id}", cronApi.delete),
+		//http.SetRoute("POST", "/cron/update",      cronApi.update),
+		http.SetRoute("POST", "/cron/add",         m.addCron),
+	)
+	m.httpServer.Start()
 	return m
 }
 
