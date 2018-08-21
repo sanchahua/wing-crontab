@@ -22,12 +22,6 @@ func NewManager(db *sql.DB) *CronManager {
 		cronModel:cronModel,
 	}
 	m.init()
-
-	//ctx *app.Context,
-	//	cr cron.ICron,
-	//	log mlog.ILog,
-	//	opts ...CronApiOption) *HttpServer {
-
 	m.httpServer = http.NewHttpServer(
 		"0.0.0.0:98001",
 		//http.SetRoute("GET",  "/log/list",         logApi.logs),
