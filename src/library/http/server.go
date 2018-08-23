@@ -91,7 +91,7 @@ func (server *HttpServer) Start() {
 
 		wsContainer.Add(server.ws)
 
-		log.Printf("%s", server.Listen)
+		log.Printf("start http server: %s", server.Listen)
 		httpserver := &http.Server{Addr: server.Listen, Handler: wsContainer}
 		log.Fatal(httpserver.ListenAndServe())
 	}()

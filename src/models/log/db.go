@@ -29,7 +29,7 @@ func newDbLog(handler *sql.DB) *DbLog {
 // int类型的值写0表示默认值
 // 字符串类型的写为空表示默认值
 // 返回值为查询结果集合、总数量、发生的错误
-func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, int64, error) {
+func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, int64, int64, int64, error) {
 	sqlStr  := "SELECT " + FIELDS + " FROM `log` where 1"
 	sqlStr2 := "select count(*) as num  from log where 1 "
 	var params  []interface{}
@@ -57,13 +57,13 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 	stmtOut, err := db.handler.Prepare(sqlStr)
 	if err != nil {
 		log.Errorf("GetList db.handler.Prepare fail, sql=[%v], error=[%v]", debugSql, err)
-		return nil, 0, err
+		return nil, 0, page, limit, err
 	}
 	defer stmtOut.Close()
 	rows, err  := stmtOut.Query(params...)
 	if nil != err {
 		log.Errorf("GetList stmtOut.Query fail, sql=[%v], error=[%v]", debugSql, err)
-		return nil, 0, err
+		return nil, 0, page, limit, err
 	}
 	defer rows.Close()
 	var records []*LogEntity
@@ -95,13 +95,13 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 	stmtOut2, err := db.handler.Prepare(sqlStr2)
 	if err != nil {
 		log.Errorf("GetList db.handler.Prepare fail, sql=[%v], error=[%v]", debugSql2, err)
-		return nil, 0, err
+		return nil, 0, page, limit, err
 	}
 	defer stmtOut2.Close()
 	rows2, err := stmtOut2.Query(params2...)
 	if nil != err {
 		log.Errorf("GetList stmtOut2.Query fail, sql=[%v], error=[%v]", debugSql2, err)
-		return nil, 0, err
+		return nil, 0, page, limit, err
 	}
 	defer rows2.Close()
 
@@ -110,12 +110,12 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 		err = rows2.Scan(&num)
 		if err != nil {
 			log.Errorf("GetList rows2.Scan fail, sql=[%v], error=[%v]", debugSql2, err)
-			return nil, 0, err
+			return nil, 0, page, limit, err
 		}
 		break
 	}
 	log.Tracef("GetList success, sql=[%v], sql2=[%v], records=[%+v], num=[%v]", debugSql, debugSql2, records, num)
-	return records, num, nil
+	return records, num, page, limit, nil
 }
 
 // 根据指定id查询行

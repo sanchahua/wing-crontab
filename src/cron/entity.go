@@ -9,6 +9,8 @@ import (
 	"time"
 	"sync/atomic"
 	time2 "library/time"
+	"sync"
+	"encoding/json"
 )
 
 // 数据库的基本属性
@@ -27,7 +29,8 @@ type CronEntity struct {
 	ProcessNum int64            `json:"process_num"`
 	onRun      OnRunCommandFunc `json:"-"`
 	runid      int64            `json:"-"`
-	isRunning  int64              `json:"-"`
+	isRunning  int64            `json:"-"`
+	lock       *sync.RWMutex    `json:"-"`
 }
 type FilterMiddleWare func(entity *CronEntity) IFilter
 type OnRunCommandFunc func(cron_id int64, output string, usetime int64, remark, startTime string)
@@ -45,6 +48,7 @@ func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity 
 		onRun:      onRun,
 		ProcessNum: 0,
 		runid:      0,
+		lock:       new(sync.RWMutex),
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
@@ -52,6 +56,12 @@ func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity 
 	e.filter = StopMiddleware()(e)
 	e.filter = TimeMiddleware(e.filter)(e)
 	return e
+}
+
+func (row *CronEntity) setStop(stop bool) {
+	row.lock.Lock()
+	row.Stop = stop
+	row.lock.Unlock()
 }
 
 func (row *CronEntity) Run() {
@@ -75,8 +85,28 @@ func (row *CronEntity) Run() {
 	}
 }
 
+func (row *CronEntity) toJson() (string,error) {
+	row.lock.RLock()
+	d, e := json.Marshal(row)
+	row.lock.RUnlock()
+	return string(d), e
+}
+
+func (row *CronEntity) Update(cronSet, command string, remark string, stop bool, startTime, endTime int64, isMutex bool) {
+	row.lock.Lock()
+	row.CronSet   = cronSet
+	row.Command   = command
+	row.Stop      = stop
+	row.Remark    = remark
+	row.StartTime = startTime
+	row.EndTime   = endTime
+	row.IsMutex   = isMutex
+	row.lock.Unlock()
+}
 func (row *CronEntity) runCommand() {
+	row.lock.Lock()
 	processNum := atomic.AddInt64(&row.ProcessNum, 1)
+	row.lock.Unlock()
 	var cmd *exec.Cmd
 	var err error
 	rid := atomic.AddInt64(&row.runid, 1)

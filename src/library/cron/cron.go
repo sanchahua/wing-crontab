@@ -178,7 +178,6 @@ func (c *Cron) run() {
 		} else {
 			effective = c.entries[0].Next
 		}
-
 		select {
 		case now = <-time.After(effective.Sub(now)):
 			// Run every entry whose next time was this effective time.
@@ -194,7 +193,9 @@ func (c *Cron) run() {
 
 		case newEntry := <-c.add:
 			c.entries = append(c.entries, newEntry)
-			newEntry.Next = newEntry.Schedule.Next(now)
+			//newEntry.Next = newEntry.Schedule.Next(now)
+			//如上存在bug，修正如下
+			newEntry.Next = newEntry.Schedule.Next(time.Now().Local())
 
 		case <-c.snapshot:
 			c.snapshot <- c.entrySnapshot()

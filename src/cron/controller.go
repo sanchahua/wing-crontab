@@ -7,8 +7,8 @@ import (
 	cronV2 "library/cron"
 	"sync"
 	"fmt"
-	"database/sql"
 	"errors"
+	"encoding/json"
 )
 const (
 	IsRunning = 1
@@ -21,13 +21,13 @@ type Controller struct {
 	logModel *modelLog.DbLog
 }
 
-func NewController(db *sql.DB) *Controller {
+func NewController(logModel *modelLog.DbLog) *Controller {
 	c := &Controller{
 		cron:     cronV2.New(),
 		cronList: make(map[int64] *CronEntity),
 		lock:     new(sync.RWMutex),
 		status:   0,
-		logModel: modelLog.NewLog(db),
+		logModel: logModel,//modelLog.NewLog(db),
 	}
 	return c
 }
@@ -62,7 +62,8 @@ func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
 		return entity, err
 	}
 	c.cronList[entity.Id] = entity
-	log.Tracef("Add success, entity=[%+v]", entity)
+	debugStr, _:= entity.toJson()
+	log.Tracef("Add success, entity=[%s]", debugStr)
 	return entity, nil
 }
 
@@ -85,13 +86,7 @@ func (c *Controller) Update(id int64, cronSet, command string, remark string, st
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
-	e.CronSet   = cronSet
-	e.Command   = command
-	e.Stop      = stop
-	e.Remark    = remark
-	e.StartTime = startTime
-	e.EndTime   = endTime
-	e.IsMutex   = isMutex
+	e.Update(cronSet, command, remark, stop, startTime, endTime, isMutex)
 	return e, nil
 }
 
@@ -109,15 +104,25 @@ func (c *Controller) GetList() (map[int64]*CronEntity, error) {
 	return c.cronList, nil
 }
 
-func (c *Controller) Stop(id int64, stop bool) (*CronEntity, error) {
+func (c *Controller) GetListToJson(code int, msg string) ([]byte, error) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	res := make(map[string] interface{})
+	res["code"] = code
+	res["message"] = msg
+	res["data"] = c.cronList
+	return json.Marshal(res)
+}
+
+func (c *Controller) Stop(id int64, stop bool) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	e, ok := c.cronList[id]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
+		return errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
-	e.Stop = stop
-	return e, nil
+	e.setStop(stop)
+	return nil
 }
 
 func (c *Controller) onRun(cronId int64, output string, useTime int64, remark, startTime string) {

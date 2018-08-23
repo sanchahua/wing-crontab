@@ -11,9 +11,22 @@ import (
 	"syscall"
 	_ "github.com/go-sql-driver/mysql"
 	_ "database/sql/driver"
+	"flag"
 )
 
 func main() {
+	// -l "0.0.0.0:38001"
+	// -h
+
+	listen := flag.String("l", "0.0.0.0:38001", "restful http server listen")
+	help   := flag.Bool("h", false, "show help info")
+	flag.Parse()
+
+	if *help {
+		fmt.Fprintf(os.Stderr, "./xcrontab -l 0.0.0.0:38001  [restful http server listen]\r\n")
+		return
+	}
+
 	err := config.SeelogInit()
 	if err != nil {
 		log.Errorf("main config.SeelogInit fail, error=[%v]", err)
@@ -52,7 +65,7 @@ func main() {
 		defer handler.Close()
 	}
 	fmt.Println("start xcrontab")
-	m := manager.NewManager(handler)
+	m := manager.NewManager(handler, *listen)
 	m.Start()
 	defer m.Stop()
 	sc := make(chan os.Signal, 1)

@@ -6,30 +6,35 @@ import (
 	"database/sql"
 	seelog "gitlab.xunlei.cn/xllive/common/log"
 	"library/http"
+	modelLog "models/log"
+
 )
 
 type CronManager struct {
 	cronController *cron.Controller
 	cronModel *mcron.DbCron
+	logModel  *modelLog.DbLog
 	httpServer *http.HttpServer
 }
 
-func NewManager(db *sql.DB) *CronManager {
+func NewManager(db *sql.DB, listen string) *CronManager {
 	cronModel := mcron.NewCron(db)
-	cronController := cron.NewController(db)
+	logModel  := modelLog.NewLog(db)
+	cronController := cron.NewController(logModel)
 	m := &CronManager{
 		cronController:cronController,
 		cronModel:cronModel,
+		logModel: logModel,
 	}
 	m.init()
 	m.httpServer = http.NewHttpServer(
-		"0.0.0.0:98001",
-		//http.SetRoute("GET",  "/log/list",         logApi.logs),
-		//http.SetRoute("GET",  "/cron/list",        cronApi.list),
-		//http.SetRoute("GET",  "/cron/stop/{id}",   cronApi.stop),
-		//http.SetRoute("GET",  "/cron/start/{id}",  cronApi.start),
-		//http.SetRoute("GET",  "/cron/delete/{id}", cronApi.delete),
-		//http.SetRoute("POST", "/cron/update",      cronApi.update),
+		listen,
+		http.SetRoute("GET",  "/log/list/{cron_id}/{page}/{limit}", m.logs),
+		http.SetRoute("GET",  "/cron/list",        m.cronList),
+		http.SetRoute("GET",  "/cron/stop/{id}",   m.stopCron),
+		http.SetRoute("GET",  "/cron/start/{id}",  m.startCron),
+		http.SetRoute("GET",  "/cron/delete/{id}", m.deleteCron),
+		http.SetRoute("POST", "/cron/update/{id}", m.updateCron),
 		http.SetRoute("POST", "/cron/add",         m.addCron),
 	)
 	m.httpServer.Start()

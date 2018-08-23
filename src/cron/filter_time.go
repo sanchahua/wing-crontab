@@ -18,6 +18,9 @@ func (f *TimeFilter) Stop() bool {
 		return true
 	}
 
+	f.row.lock.RLock()
+	defer f.row.lock.RUnlock()
+
 	if f.row.EndTime <= 0 {
 		return false
 	}
