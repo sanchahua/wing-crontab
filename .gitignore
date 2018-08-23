@@ -41,3 +41,5 @@
 /bin3/*
 bin/nohup.out
 *.pid
+*.zip
+*.log
