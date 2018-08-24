@@ -31,6 +31,7 @@ type CronEntity struct {
 	runid      int64            `json:"-"`
 	isRunning  int64            `json:"-"`
 	lock       *sync.RWMutex    `json:"-"`
+	copy       *CronEntity      `json:"-"`
 }
 type FilterMiddleWare func(entity *CronEntity) IFilter
 type OnRunCommandFunc func(cron_id int64, output string, usetime int64, remark, startTime string)
@@ -49,6 +50,7 @@ func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity 
 		ProcessNum: 0,
 		runid:      0,
 		lock:       new(sync.RWMutex),
+		copy:       nil,
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
@@ -102,6 +104,24 @@ func (row *CronEntity) Update(cronSet, command string, remark string, stop bool,
 	row.EndTime   = endTime
 	row.IsMutex   = isMutex
 	row.lock.Unlock()
+}
+func (row *CronEntity) clone() *CronEntity {
+	row.lock.RLock()
+	defer row.lock.RUnlock()
+	if row.copy == nil {
+		row.copy = new(CronEntity)
+	}
+	row.copy.CronId     = row.CronId
+	row.copy.Id         = row.Id
+	row.copy.CronSet    = row.CronSet
+	row.copy.Command    = row.Command
+	row.copy.Remark     = row.Remark
+	row.copy.Stop       = row.Stop
+	row.copy.StartTime  = row.StartTime
+	row.copy.EndTime    = row.EndTime
+	row.copy.IsMutex    = row.IsMutex
+	row.copy.ProcessNum = atomic.LoadInt64(&row.ProcessNum)
+	return row.copy
 }
 func (row *CronEntity) runCommand() {
 	row.lock.Lock()

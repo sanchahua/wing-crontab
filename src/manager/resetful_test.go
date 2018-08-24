@@ -216,3 +216,26 @@ func Test_UpdateCron(t *testing.T) {
 		return
 	}
 }
+
+func Test_GetLogs(t *testing.T) {
+	res, err := httpGet("http://localhost:38001/log/list/0/0/0")
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if res.Code != 2000 {
+		t.Errorf("get log list fail: %v", res.Message)
+	}
+}
+
+func Test_CronList(t *testing.T) {
+	//http://localhost:38001/cron/list
+	res, err := httpGet("http://localhost:38001/cron/list")
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if res.Code != 2000 {
+		t.Errorf("get log list fail: %v", res.Message)
+	}
+}

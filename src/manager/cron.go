@@ -156,15 +156,9 @@ func (m *CronManager) updateCron(request *restful.Request, w *restful.Response) 
 
 // http://localhost:38001/cron/list
 func (m *CronManager) cronList(request *restful.Request, w *restful.Response) {
-	// 在目标GetListToJson api内生成json，主要为了考虑线程安全问题
-	data, err := m.cronController.GetListToJson(HttpSuccess, "success")
+	data := m.cronController.GetList()
+	err := m.outJson(w, HttpSuccess, "success", data)
 	if err != nil {
-		log.Errorf("cronList m.cronController.GetListToJson fail, error=[%v]", err)
-		err := m.outJson(w, HttpErrorCronControllerGetListJsonFail, "查询列表失败", nil)
-		if err != nil {
-			log.Errorf("cronList m.outJson fail, error=[%v]", err)
-		}
-		return
+		log.Errorf("cronList m.outJson fail, error=[%v]", err)
 	}
-	w.Write(data)
 }
