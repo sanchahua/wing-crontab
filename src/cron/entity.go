@@ -124,9 +124,9 @@ func (row *CronEntity) clone() *CronEntity {
 	return row.copy
 }
 func (row *CronEntity) runCommand() {
-	row.lock.Lock()
+	//row.lock.Lock()
 	processNum := atomic.AddInt64(&row.ProcessNum, 1)
-	row.lock.Unlock()
+	//row.lock.Unlock()
 	var cmd *exec.Cmd
 	var err error
 	rid := atomic.AddInt64(&row.runid, 1)
@@ -148,5 +148,6 @@ func (row *CronEntity) runCommand() {
 
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
 	// todo 程序退出时，定时任务的日志可能会失败，因为这个时候数据库已经关闭，这个问题需要处理一下
+	// 即安全退出问题，kill -9没办法了
 	row.onRun(row.Id, string(res), useTime, row.Command, startTime)
 }
