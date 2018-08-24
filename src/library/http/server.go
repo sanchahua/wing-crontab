@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"github.com/emicklei/go-restful"
+	"github.com/rakyll/statik/fs"
+	_ "statik"
 )
 
 type HttpServer struct{
@@ -52,7 +54,11 @@ func NewHttpServer(address string, routes ...HttpServerOption) *HttpServer {
 
 func (server *HttpServer) Start() {
 	go func() {
-		server.container.Handle("/ui/", http.StripPrefix("/ui/", server.httpHandler))
+		statikFS, err := fs.New()
+		if err != nil {
+			log.Fatal(err)
+		}
+		server.container.Handle("/ui/", http.StripPrefix("/ui/", http.FileServer(statikFS)))
 		httpServer := &http.Server{
 			Addr:    server.Listen,
 			Handler: server.container,

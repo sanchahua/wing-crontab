@@ -26,6 +26,8 @@ then
 	mkdir "${vendor_path}/src"
 	sh "${root_path}/bin/vendor_install.sh"
 fi
+echo "如果statik未安装，执行go get github.com/rakyll/statik安装\r\n"
+cd cd ${root_path}"/src" && rm -rf ${root_path}"/statik" && statik -src=/Users/yuyi/Code/go/xcrontab/bin/web
 
 ##进入当前目录
 cd ${root_path}
