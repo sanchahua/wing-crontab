@@ -4,6 +4,24 @@ import HelloWorld from '@/components/HelloWorld'
 import Index from '@/components/pages/Index'
 import Forms from '@/components/pages/Forms'
 Vue.use(Router)
+//
+// const routes = {
+//   '/': Home,
+//   '/about': About
+// }
+//
+// new Vue({
+//   el: '#app',
+//   data: {
+//     currentRoute: window.location.pathname
+//   },
+//   computed: {
+//     ViewComponent () {
+//       return routes[this.currentRoute] || NotFound
+//     }
+//   },
+//   render (h) { return h(this.ViewComponent) }
+// })
 
 export default new Router({
   routes: [
@@ -13,7 +31,7 @@ export default new Router({
       component: Index
     },
     {
-      path: '/forms',
+      path: '/froms',
       name: "Forms",
       component: Forms
     }

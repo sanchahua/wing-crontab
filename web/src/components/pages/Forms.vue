@@ -1,5 +1,6 @@
 <template>
   <!--/sub-heard-part-->
+  <div class="outter-wp">
   <div class="sub-heard-part">
     <ol class="breadcrumb m-b-0">
       <li><a href="index.html">Home</a></li>
@@ -326,6 +327,7 @@
       <!--//set-4-->
     </div>
     <!--//forms-inner-->
+  </div>
   </div>
   <!--//forms-->
 </template>
