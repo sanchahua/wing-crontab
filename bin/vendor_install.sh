@@ -48,6 +48,7 @@ go get github.com/go-yaml/yaml
 go get github.com/golang/protobuf/jsonpb
 go get github.com/json-iterator/go
 go get github.com/json-iterator/go/extra
+go get github.com/rakyll/statik/fs
 
 find $vendor_path -name '*.git*' | xargs rm -rf
 ##cp -rf $vendor_path/src/* $vendor_path

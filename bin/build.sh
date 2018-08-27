@@ -8,6 +8,11 @@ bin_path="${root_path}/bin"
 pkg_path="${root_path}/pkg"
 vendor_path="${root_path}/vendor"
 
+if ! command -v statik >/dev/null 2>&1; then
+  echo "正在安装statik"
+  go get github.com/rakyll/statik
+fi
+
 ##杀掉正在运行的进程然后再编译
 ##kill -9 $(ps -ef|grep wing-binlog-go|gawk '$0 !~/grep/ {print $2}' |tr -s '\n' ' ')
 
@@ -26,8 +31,10 @@ then
 	mkdir "${vendor_path}/src"
 	sh "${root_path}/bin/vendor_install.sh"
 fi
-echo "如果statik未安装，执行go get github.com/rakyll/statik安装\r\n"
-cd cd ${root_path}"/src" && rm -rf ${root_path}"/statik" && statik -src=/Users/yuyi/Code/go/xcrontab/bin/web
+
+cd ${root_path}"/src"
+rm -rf ${root_path}"/src/statik"
+statik -src=${root_path}"/web/dist"
 
 ##进入当前目录
 cd ${root_path}

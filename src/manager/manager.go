@@ -7,7 +7,9 @@ import (
 	seelog "gitlab.xunlei.cn/xllive/common/log"
 	"library/http"
 	modelLog "models/log"
-
+	shttp "net/http"
+	_ "statik"
+	"github.com/rakyll/statik/fs"
 )
 
 type CronManager struct {
@@ -27,6 +29,11 @@ func NewManager(db *sql.DB, listen string) *CronManager {
 		logModel: logModel,
 	}
 	m.init()
+	statikFS, err := fs.New()
+	if err != nil {
+		panic(err)
+		return nil
+	}
 	m.httpServer = http.NewHttpServer(
 		listen,
 		http.SetRoute("GET",  "/log/list/{cron_id}/{page}/{limit}", m.logs),
@@ -36,6 +43,7 @@ func NewManager(db *sql.DB, listen string) *CronManager {
 		http.SetRoute("GET",  "/cron/delete/{id}", m.deleteCron),
 		http.SetRoute("POST", "/cron/update/{id}", m.updateCron),
 		http.SetRoute("POST", "/cron/add",         m.addCron),
+		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
 	)
 	m.httpServer.Start()
 	return m

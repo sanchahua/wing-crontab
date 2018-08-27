@@ -17,6 +17,12 @@ type Rsp struct {
 	Data *CronEntity `json:"data"`
 }
 
+type RspList struct {
+	Code int `json:"code"`
+	Message string `json:"message"`
+	Data []*CronEntity `json:"data"`
+}
+
 type CronEntity struct {
 	// 数据库的基本属性
 	Id int64        `json:"id"`
@@ -29,16 +35,50 @@ type CronEntity struct {
 	IsMutex bool    `json:"is_mutex"`
 }
 
-func httpGet(uri string) (*Rsp, error) {
+func get(uri string) ([]byte, error) {
 	resp, body, errs := gorequest.New().Get(uri).End()
 	if len(errs) > 0 && errs[0] != nil {
 		return nil, errs[0]
 	} else if resp.StatusCode != 200 {
 		return nil, errors.New(fmt.Sprintf("error http code: ", resp.StatusCode))
 	}
+	return []byte(body), nil
+}
+
+func httpGet(uri string) (*Rsp, error) {
+	//resp, body, errs := gorequest.New().Get(uri).End()
+	//if len(errs) > 0 && errs[0] != nil {
+	//	return nil, errs[0]
+	//} else if resp.StatusCode != 200 {
+	//	return nil, errors.New(fmt.Sprintf("error http code: ", resp.StatusCode))
+	//}
+	body, err := get(uri)
+	if err != nil {
+		return nil, err
+	}
 	//return []byte(body), nil
 	var rsp Rsp
-	err := json.Unmarshal([]byte(body), &rsp)
+	err = json.Unmarshal([]byte(body), &rsp)
+	if err != nil {
+		return nil, err
+	}
+	return &rsp, nil
+}
+
+func httpGetList(uri string) (*RspList, error) {
+	//resp, body, errs := gorequest.New().Get(uri).End()
+	//if len(errs) > 0 && errs[0] != nil {
+	//	return nil, errs[0]
+	//} else if resp.StatusCode != 200 {
+	//	return nil, errors.New(fmt.Sprintf("error http code: ", resp.StatusCode))
+	//}
+	//return []byte(body), nil
+	body, err := get(uri)
+	if err != nil {
+		return nil, err
+	}
+	var rsp RspList
+	err = json.Unmarshal([]byte(body), &rsp)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +270,7 @@ func Test_GetLogs(t *testing.T) {
 
 func Test_CronList(t *testing.T) {
 	//http://localhost:38001/cron/list
-	res, err := httpGet("http://localhost:38001/cron/list")
+	res, err := httpGetList("http://localhost:38001/cron/list")
 	if err != nil {
 		t.Errorf("%v", err)
 		return

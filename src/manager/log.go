@@ -17,20 +17,19 @@ func (m *CronManager) logs(request *restful.Request, w *restful.Response) {
 	page, _   := strconv.ParseInt(spage, 10, 64)
 	limit, _  := strconv.ParseInt(slimit, 10, 64)
 
-	data, total, page, limit,_ := m.logModel.GetList(cronId, page, limit)
+	data, total, page, limit, _ := m.logModel.GetList(cronId, page, limit)
 
 	totalPage := int64(math.Ceil(float64(total/limit)))
 	nextPage := page+1
 	if nextPage > totalPage {
 		nextPage = 1
 	}
-
 	m.outJson(w, HttpSuccess, "success", map[string]interface{}{
-		"data": data,
-		"total": total,
+		"data":      data,
+		"total":     total,
 		"totalPage": totalPage,
-		"nextPage": nextPage,
-		"page": page,
-		"limit": limit,
+		"nextPage":  nextPage,
+		"page":      page,
+		"limit":     limit,
 	})
 }
