@@ -129,8 +129,8 @@ func (c *Controller) Stop(id int64, stop bool) error {
 	return nil
 }
 
-func (c *Controller) onRun(cronId int64, output string, useTime int64, remark, startTime string) {
-	_, err := c.logModel.Add(cronId, output, useTime, remark, startTime)
+func (c *Controller) onRun(cronId int64, state, output string, useTime int64, remark, startTime string) {
+	_, err := c.logModel.Add(cronId, state, output, useTime, remark, startTime)
 	if err != nil {
 		log.Errorf("onRun c.logModel.Add fail, cron_id=[%v], output=[%v], usetime=[%v], remark=[%v], startTime=[%v], error=[%v]", cronId, output, useTime, remark, startTime, err)
 	}

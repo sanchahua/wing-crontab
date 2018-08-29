@@ -10,12 +10,12 @@ import (
 func TestDbLog_Add(t *testing.T) {
 	handler := debug.NewLocalDb()
 	db := newDbLog(handler)
-	_, err := db.Add(0, "", 0, "", time.GetDayTime())
+	_, err := db.Add(0, "success", "", 0, "", time.GetDayTime())
 	if err == nil {
 		t.Errorf("Add check cronId fail")
 		return
 	}
-	id, err := db.Add(1, "123", 1000, "hello", time.GetDayTime())
+	id, err := db.Add(1, "success", "123", 1000, "hello", time.GetDayTime())
 	if err != nil {
 		t.Errorf("Add fail, error=[%v]", err)
 		return
@@ -31,7 +31,7 @@ func TestDbLog_Add(t *testing.T) {
 func TestDbLog_Delete(t *testing.T) {
 	handler := debug.NewLocalDb()
 	db := newDbLog(handler)
-	id, err := db.Add(1, "123", 1000, "hello", time.GetDayTime())
+	id, err := db.Add(1, "success", "123", 1000, "hello", time.GetDayTime())
 	if err != nil {
 		t.Errorf("Add fail, error=[%v]", err)
 		return
@@ -47,7 +47,7 @@ func TestDbLog_Delete(t *testing.T) {
 func TestDbLog_DeleteByCronId(t *testing.T) {
 	handler := debug.NewLocalDb()
 	db := newDbLog(handler)
-	_, err := db.Add(1, "123", 1000, "hello", time.GetDayTime())
+	_, err := db.Add(1, "success", "123", 1000, "hello", time.GetDayTime())
 	if err != nil {
 		t.Errorf("Add fail, error=[%v]", err)
 		return
@@ -63,12 +63,12 @@ func TestDbLog_DeleteByCronId(t *testing.T) {
 func TestDbLog_Get(t *testing.T) {
 	handler := debug.NewLocalDb()
 	db := newDbLog(handler)
-	_, err := db.Add(0, "", 0, "", time.GetDayTime())
+	_, err := db.Add(0, "success", "", 0, "", time.GetDayTime())
 	if err == nil {
 		t.Errorf("Add check cronId fail")
 		return
 	}
-	id, err := db.Add(1, "123", 1000, "hello", time.GetDayTime())
+	id, err := db.Add(1, "success", "123", 1000, "hello", time.GetDayTime())
 	if err != nil {
 		t.Errorf("Add fail, error=[%v]", err)
 		return
@@ -90,17 +90,17 @@ func TestDbLog_Get(t *testing.T) {
 func TestDbLog_GetList(t *testing.T) {
 	handler := debug.NewLocalDb()
 	db := newDbLog(handler)
-	_, err := db.Add(0, "", 0, "", time.GetDayTime())
+	_, err := db.Add(0, "success","", 0, "", time.GetDayTime())
 	if err == nil {
 		t.Errorf("Add check cronId fail")
 		return
 	}
-	id, err := db.Add(1, "123", 1000, "hello", time.GetDayTime())
+	id, err := db.Add(1, "success","123", 1000, "hello", time.GetDayTime())
 	if err != nil {
 		t.Errorf("Add fail, error=[%v]", err)
 		return
 	}
-	rows, num, err := db.GetList(1, 0, 0)
+	rows, num, _, _, err := db.GetList(1, 0, 0)
 	if err != nil || num <= 0 {
 		t.Errorf("Get GetList, error=[%v], num=[%v]", err, num)
 		return

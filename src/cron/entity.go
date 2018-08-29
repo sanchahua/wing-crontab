@@ -34,7 +34,7 @@ type CronEntity struct {
 	copy       *CronEntity      `json:"-"`
 }
 type FilterMiddleWare func(entity *CronEntity) IFilter
-type OnRunCommandFunc func(cron_id int64, output string, usetime int64, remark, startTime string)
+type OnRunCommandFunc func(cron_id int64, state, output string, usetime int64, remark, startTime string)
 func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity {
 	e := &CronEntity{
 		Id:         entity.Id,
@@ -139,7 +139,9 @@ func (row *CronEntity) runCommand() {
 	start := time.Now().UnixNano()/1000000
 	cmd = exec.Command("bash", "-c", row.Command)
 	res, err := cmd.CombinedOutput()
+	state := "success"
 	if err != nil {
+		state = "fail"
 		res = append(res, []byte("  error: " + err.Error())...)
 		log.Errorf("runCommand fail, id=[%v], command=[%v], error=[%+v]", row.Id, row.Command, err)
 	}
@@ -149,5 +151,5 @@ func (row *CronEntity) runCommand() {
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
 	// todo 程序退出时，定时任务的日志可能会失败，因为这个时候数据库已经关闭，这个问题需要处理一下
 	// 即安全退出问题，kill -9没办法了
-	row.onRun(row.Id, string(res), useTime, row.Command, startTime)
+	row.onRun(row.Id, state, string(res), useTime, row.Command, startTime)
 }

@@ -14,7 +14,7 @@ type DbLog struct {
 }
 
 const (
-	FIELDS = "`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`"
+	FIELDS = "`id`, `cron_id`, `state`, `start_time`, `output`, `use_time`, `remark`"
 	MaxQueryRows = 10000
 )
 func newDbLog(handler *sql.DB) *DbLog {
@@ -74,10 +74,11 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 		output string
 		use_time int64
 		remark string
+		state string
 	)
 	for rows.Next() {
 		//`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`
-		err = rows.Scan(&id, &cron_id, &start_time, &output, &use_time, &remark)
+		err = rows.Scan(&id, &cron_id, &state, &start_time, &output, &use_time, &remark)
 		if err != nil {
 			log.Errorf("GetList rows.Scan fail, sql=[%v], error=[%v]", debugSql, err)
 			continue
@@ -89,6 +90,7 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 			Output:    output,
 			UseTime:   use_time,
 			Remark:    remark,
+			State:     state,
 		}
 		records = append(records, row)
 	}
@@ -130,7 +132,7 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 		row LogEntity
 	)
 	//`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`
-	err := data.Scan(&row.Id, &row.CronId, &row.StartTime, &row.Output, &row.UseTime, &row.Remark)
+	err := data.Scan(&row.Id, &row.CronId, &row.State, &row.StartTime, &row.Output, &row.UseTime, &row.Remark)
 	if err != nil {
 		log.Errorf("Get data.Scan fail, sql=[%v], id=[%v], error=[%v]", sqlStr, rid, err)
 		return &row, err
@@ -139,14 +141,14 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, output string, useTime int64, remark, startTime string) (int64, error) {
+func (db *DbLog) Add(cronId int64, state string, output string, useTime int64, remark, startTime string) (int64, error) {
 	if cronId <= 0 {
 		log.Errorf("Add fail, error=[cron_id invalid], cronId=[%v]", cronId)
 		return 0, errors.New("cron_id invalid")
 	}
-	sqlStr := "INSERT INTO `log`(`cron_id`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?)"
+	sqlStr := "INSERT INTO `log`(`cron_id`, `state`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?,?)"
 	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, startTime, output, useTime, remark)
-	res, err := db.handler.Exec(sqlStr, cronId, startTime, output, useTime, remark)
+	res, err := db.handler.Exec(sqlStr, cronId, state, startTime, output, useTime, remark)
 	if err != nil {
 		log.Errorf("Add db.handler.Exec fail, sql=[%v], error=[%v]", debugSql, err)
 		return 0, err
