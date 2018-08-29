@@ -6,39 +6,47 @@ import (
 	"strconv"
 	"gitlab.xunlei.cn/xllive/common/log"
 	"models/cron"
+	"library/time"
 )
+type httpParamsEntity struct {
+	// 数据库的基本属性
+	Id string        `json:"id"`
+	CronSet string   `json:"cron_set"`
+	Command string   `json:"command"`
+	Remark string    `json:"remark"`
+	Stop string      `json:"stop"`
+	StartTime string `json:"start_time"`
+	EndTime string   `json:"end_time"`
+	IsMutex string   `json:"is_mutex"`
+}
 
 // restful api，只支持post
 // http post 添加定时任务
 func (m *CronManager) addCron(request *restful.Request, w *restful.Response) {
-	cronSet      := request.QueryParameter("cron_set")
-	command      := request.QueryParameter("command")
-	remark       := request.QueryParameter("remark")
-	stop         := request.QueryParameter("stop")
-	strStartTime := request.QueryParameter("start_time")
-	strEndTime   := request.QueryParameter("end_time")
-	strIsMutex   := request.QueryParameter("is_mutex")
-
-	cronSet = strings.Trim(cronSet, " ")
-	//res := strings.Split(cronSet, " ")
-	if cronSet == "" {
+	params, err := ParseForm(request)
+	if err != nil || params == nil {
+		m.outJson(w, HttpErrorParamInvalid, err.Error(), nil)
+		return
+	}
+	params.CronSet = strings.Trim(params.CronSet, " ")
+	if params.CronSet == "" {
 		m.outJson(w, HttpErrorParamCronSet, "定时任务设置错误，格式为（秒 分 时 日 月 周），如： * * * * * *", nil)
 		return
 	}
-	command = strings.Trim(command, " ")
-	if len(command) <= 0 {
+	params.Command = strings.Trim(params.Command, " ")
+	if len(params.Command) <= 0 {
 		m.outJson(w, HttpErrorParamCommand, "参数错误", nil)
 		return
 	}
 
 	isMutex := false
-	if strIsMutex != "0" && strIsMutex != "" {
+	if params.IsMutex != "0" && params.IsMutex != "" {
 		isMutex = true
 	}
-	startTime, _ := strconv.ParseInt(strStartTime, 10, 64)
-	endTime, _   := strconv.ParseInt(strEndTime, 10, 64)
+	startTime := time.StrToTime(params.StartTime)
+	endTime   := time.StrToTime(params.EndTime)
 	// 添加到数据库
-	id, err      := m.cronModel.Add(cronSet, command, remark, stop == "1", startTime, endTime, isMutex)
+	id, err      := m.cronModel.Add(params.CronSet, params.Command, params.Remark, params.Stop == "1", startTime, endTime, isMutex)
 	if err != nil || id <= 0 {
 		log.Errorf("addCron m.cronModel.Add fail, error=[%v]", err)
 		m.outJson(w, HttpErrorCronModelAddFail, err.Error(), nil)
@@ -46,10 +54,10 @@ func (m *CronManager) addCron(request *restful.Request, w *restful.Response) {
 	}
 	cdata := &cron.CronEntity{
 		Id:        id,
-		CronSet:   cronSet,
-		Command:   command,
-		Remark:    remark,
-		Stop:      stop == "1",
+		CronSet:   params.CronSet,
+		Command:   params.Command,
+		Remark:    params.Remark,
+		Stop:      params.Stop == "1",
 		StartTime: startTime,
 		EndTime:   endTime,
 		IsMutex:   isMutex,

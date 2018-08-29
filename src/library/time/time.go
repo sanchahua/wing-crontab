@@ -37,7 +37,7 @@ func GetTimeStamp() int64 {
 // convert time to timestamp
 // t params like "2006-01-02 15:04:05"
 // return int64
-func StrToTS(t string) int64 {
+func StrToTime(t string) int64 {
 	loc, _ := time.LoadLocation("Local")
 	s, err := time.ParseInLocation("2006-01-02 15:04:05", t, loc)
 	if err != nil {

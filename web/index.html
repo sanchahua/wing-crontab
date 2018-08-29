@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-  <title>Home</title>
+  <title>定时任务管理系统</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta name="keywords" content="" />
@@ -31,11 +31,15 @@
   <script type="text/javascript" src="./static/js/TweenLite.min.js"></script>
   <script type="text/javascript" src="./static/js/CSSPlugin.min.js"></script>
   <script src="./static/js/jquery.nicescroll.js"></script>
+  <script src="./static/js/bootstrap.js"></script>
   <script src="./static/js/scripts.js"></script>
   <script src="./static/js/fabochart.js"></script>
+  <script src="./static/js/jedate.min.js"></script>
+  <link href="./static/css/jedate.css" rel='stylesheet' type='text/css' />
+  <script src="./static/js/vue.js"></script>
+  <script src="./static/js/axios.min.js"></script>
 
   <!-- Bootstrap Core JavaScript -->
-  <script src="./static/js/bootstrap.min.js"></script>
   <!--//skycons-icons-->
 </head>
 <body>
@@ -47,9 +51,9 @@
       <div class="header-section">
         <!--menu-right-->
         <div class="top_menu">
-          <div class="main-search">
+          <div class="main-search" style="display: none;">
             <form>
-              <input type="text" value="Search" onFocus="this.value = '';" onBlur="if (this.value == '') {this.value = 'Search';}" class="text"/>
+              <input type="text" class="s" value="Search" onFocus="this.value = '';" onBlur="if (this.value == '') {this.value = 'Search';}" class="text"/>
               <input type="submit" value="">
             </form>
             <div class="close"><img src="./static/images/cross.png" /></div>
@@ -300,10 +304,10 @@
 
           </ul>
         </li>
-        <li id="menu-academico" ><a href="#"><i class="fa fa-file-text-o"></i> <span>Ui Elements</span> <span class="fa fa-angle-right" style="float: right"></span></a>
+        <li id="menu-academico" ><a href="#"><i class="fa fa-file-text-o"></i> <span>定时任务管理</span> <span class="fa fa-angle-right" style="float: right"></span></a>
           <ul id="menu-academico-sub" >
-            <li id="menu-academico-avaliacoes" ><a href="/ui/#/froms">Forms</a></li>
-            <li id="menu-academico-boletim" ><a href="validation.html">Validation Forms</a></li>
+            <li id="menu-academico-avaliacoes" ><a href="/ui/#/add">增加定时任务</a></li>
+            <li id="menu-academico-boletim" ><a href="/ui/#/cron_list">定时任务管理</a></li>
             <li id="menu-academico-boletim" ><a href="table.html">Tables</a></li>
             <li id="menu-academico-boletim" ><a href="buttons.html">Buttons</a></li>
           </ul>
@@ -373,6 +377,19 @@
     }
 
     toggle = !toggle;
+  });
+
+  $(document).ready(function () {
+    //$('.main-search').hide();
+    $('.srch button').click(function (ev){
+      ev.stopImmediatePropagation();
+        $('.main-search').toggle();//.show();
+        $('.main-search input.s').focus();
+      }
+    );
+    $('.main-search .close').click(function(){
+      $('.main-search').hide();
+    });
   });
 </script>
 <!--js -->

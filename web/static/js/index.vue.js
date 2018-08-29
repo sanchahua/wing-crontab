@@ -605,16 +605,6 @@ $(document).ready(function() {
 
   icons.play();
 
-  $('.main-search').hide();
-  $('button').click(function (){
-      $('.main-search').show();
-      $('.main-search text').focus();
-    }
-  );
-  $('.close').click(function(){
-    $('.main-search').hide();
-  });
-
   var icons = new Skycons({"color": "#00C6D7"}),
     list  = [
       "clear-night", "clear-day",

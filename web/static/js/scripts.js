@@ -17,10 +17,10 @@
 
     // Toggle Left Menu
    jQuery('.menu-list > a').click(function() {
-      
+
       var parent = jQuery(this).parent();
       var sub = parent.find('> ul');
-      
+
       if(!jQuery('body').hasClass('left-side-collapsed')) {
          if(sub.is(':visible')) {
             sub.slideUp(200, function(){
@@ -68,7 +68,7 @@
    // Menu Toggle
    jQuery('.toggle-btn').click(function(){
        $(".left-side").getNiceScroll().hide();
-       
+
        if ($('body').hasClass('left-side-collapsed')) {
            $(".left-side").getNiceScroll().hide();
        }
@@ -101,7 +101,7 @@
       }
 
    });
-   
+
 
    searchform_reposition();
 
@@ -133,12 +133,17 @@
 						$(document).ready(function() {
 						  $(document).on('click', function(ev) {
 						    ev.stopImmediatePropagation();
-						    $(".dropdown-toggle").dropdown("active");
+					// 	    if (typeof $(".dropdown-toggle") != "undefined") {
+                //   $(".dropdown-toggle").dropdown("active");
+                // }
+                if (!$('.main-search').is(":hidden")) {
+                  $('.main-search').hide();
+                }
 						  });
 						});
-						
-	
-     
+
+
+
   /************** Search ****************/
 		$(function() {
 	    var button = $('#loginButton');
@@ -149,7 +154,7 @@
 	        box.toggle();
 	        button.toggleClass('active');
 	    });
-	    form.mouseup(function() { 
+	    form.mouseup(function() {
 	        return false;
 	    });
 	    $(this).mouseup(function(login) {
@@ -159,4 +164,3 @@
 	        }
 	    });
 	});
-	

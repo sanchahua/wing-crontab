@@ -7,6 +7,7 @@ const (
 	HttpErrorParamCronSet  = 4001
 	HttpErrorParamCommand  = 4002
 	HttpErrorIdInvalid     = 4003
+	HttpErrorParamInvalid  = 4004
 
 	HttpErrorCronModelAddFail = 5001
 	HttpErrorCronModelStopFalseFail = 5002

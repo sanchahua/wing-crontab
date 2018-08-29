@@ -27,7 +27,8 @@ type MysqlConfig struct {
 // 读取mysql配置
 func GetMysqlConfig() (*MysqlConfig, error) {
 	var appConfig MysqlConfig
-	configFile := path.CurrentPath + "/config/mysql.toml"
+	//configFile := path.CurrentPath + "/config/mysql.toml"
+	configFile := "/Users/yuyi/Code/go/xcrontab/bin/config/mysql.toml"
 	if !file.Exists(configFile) {
 		log.Errorf("GetMysqlConfig config file not found, file=[%v]", configFile)
 		return nil, errors.New(fmt.Sprintf("config file not found, file=[%v]", configFile))
@@ -49,7 +50,9 @@ func SeelogInit() error {
 	//	return err
 	//}
 	//log.ReplaceLogger(logger)
-	ilog, err := log.NewLogMgr(path.CurrentPath + "/config/logger.yml")
+	configFile:= "/Users/yuyi/Code/go/xcrontab/bin/config/logger.yml"
+	//configFile := path.CurrentPath + "/config/logger.yml"
+	ilog, err := log.NewLogMgr(configFile)
 	if err != nil {
 		fmt.Println("log init error:", err)
 		return err

@@ -5,8 +5,8 @@
       <div class="row-one">
         <div class="col-md-3 widget">
           <div class="stats-left ">
-            <h5>Today</h5>
-            <h4> Users</h4>
+            <h5>定时任务</h5>
+            <h4> 总数</h4>
           </div>
           <div class="stats-right">
             <label>90</label>
@@ -15,8 +15,8 @@
         </div>
         <div class="col-md-3 widget states-mdl">
           <div class="stats-left">
-            <h5>Today</h5>
-            <h4>Visitors</h4>
+            <h5>历史执行</h5>
+            <h4>次数</h4>
           </div>
           <div class="stats-right">
             <label> 85</label>
@@ -25,8 +25,8 @@
         </div>
         <div class="col-md-3 widget states-thrd">
           <div class="stats-left">
-            <h5>Today</h5>
-            <h4>Tasks</h4>
+            <h5>今日执行</h5>
+            <h4>次数</h4>
           </div>
           <div class="stats-right">
             <label>51</label>
@@ -35,8 +35,8 @@
         </div>
         <div class="col-md-3 widget states-last">
           <div class="stats-left">
-            <h5>Today</h5>
-            <h4>Alerts</h4>
+            <h5>今日错误</h5>
+            <h4>次数</h4>
           </div>
           <div class="stats-right">
             <label>30</label>

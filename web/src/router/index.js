@@ -2,7 +2,9 @@ import Vue from 'vue'
 import Router from 'vue-router'
 import HelloWorld from '@/components/HelloWorld'
 import Index from '@/components/pages/Index'
-import Forms from '@/components/pages/Forms'
+import Add from '@/components/pages/Add'
+import CronList from '@/components/pages/CronList'
+
 Vue.use(Router)
 //
 // const routes = {
@@ -31,9 +33,14 @@ export default new Router({
       component: Index
     },
     {
-      path: '/froms',
-      name: "Forms",
-      component: Forms
+      path: '/add',
+      name: "Add",
+      component: Add
+    },
+    {
+      path: '/cron_list',
+      name: 'CronList',
+      component: CronList,
     }
   ]
 })

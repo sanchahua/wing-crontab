@@ -40,7 +40,7 @@ func get(uri string) ([]byte, error) {
 	if len(errs) > 0 && errs[0] != nil {
 		return nil, errs[0]
 	} else if resp.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("error http code: ", resp.StatusCode))
+		return nil, errors.New(fmt.Sprintf("error http code: %v", resp.StatusCode))
 	}
 	return []byte(body), nil
 }
@@ -90,7 +90,7 @@ func httpPost(uri string, data url.Values) (*Rsp, error) {
 	if len(errs) > 0 && errs[0] != nil {
 		return nil, errs[0]
 	} else if resp.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("error http code: ", resp.StatusCode))
+		return nil, errors.New(fmt.Sprintf("error http code: %v", resp.StatusCode))
 	}
 	//return []byte(body), nil
 	var rsp Rsp
