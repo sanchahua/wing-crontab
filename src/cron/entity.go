@@ -109,7 +109,7 @@ func (row *CronEntity) runCommand() {
 	rid := atomic.AddInt64(&row.runid, 1)
 	atomic.StoreInt64(&row.isRunning, 1)
 	startTime := time2.GetDayTime()
-	log.Tracef( "##########################%v, %v=>[%+v,%v] start run##########################", rid, processNum, row.Id, row.Command)
+	log.Tracef( "##start run: %v, %v=>[%+v,%v]", rid, processNum, row.Id, row.Command)
 	start := time.Now().UnixNano()/1000000
 	cmd = exec.Command("bash", "-c", row.Command)
 	res, err := cmd.CombinedOutput()
@@ -117,7 +117,7 @@ func (row *CronEntity) runCommand() {
 		res = append(res, []byte("  error: " + err.Error())...)
 		log.Errorf("runCommand fail, id=[%v], command=[%v], error=[%+v]", row.Id, row.Command, err)
 	}
-	log.Tracef( "##########################%v, %v=>[%+v,%v] run end##########################", rid, processNum, row.Id, row.Command)
+	log.Tracef( "##run end: %v, %v=>[%+v,%v]", rid, processNum, row.Id, row.Command)
 	atomic.AddInt64(&row.ProcessNum, -1)
 	atomic.StoreInt64(&row.isRunning, 0)
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
