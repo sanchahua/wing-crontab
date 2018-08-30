@@ -124,9 +124,9 @@ func (row *CronEntity) clone() *CronEntity {
 	return row.copy
 }
 func (row *CronEntity) runCommand() {
-	//row.lock.Lock()
+	row.lock.Lock()
 	processNum := atomic.AddInt64(&row.ProcessNum, 1)
-	//row.lock.Unlock()
+	row.lock.Unlock()
 	var cmd *exec.Cmd
 	var err error
 	rid := atomic.AddInt64(&row.runid, 1)

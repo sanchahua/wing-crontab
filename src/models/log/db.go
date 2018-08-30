@@ -147,7 +147,7 @@ func (db *DbLog) Add(cronId int64, state string, output string, useTime int64, r
 		return 0, errors.New("cron_id invalid")
 	}
 	sqlStr := "INSERT INTO `log`(`cron_id`, `state`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?,?)"
-	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, startTime, output, useTime, remark)
+	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, state, startTime, output, useTime, remark)
 	res, err := db.handler.Exec(sqlStr, cronId, state, startTime, output, useTime, remark)
 	if err != nil {
 		log.Errorf("Add db.handler.Exec fail, sql=[%v], error=[%v]", debugSql, err)
