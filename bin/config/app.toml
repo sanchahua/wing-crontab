@@ -1,0 +1,10 @@
+## mysql配置
+user = "root"
+password = "123456"
+host = "127.0.0.1"
+port = 3306
+database = "cron"
+charset = "utf8"
+
+## log表日至最长保留天数，默认保留30天的日志数据
+log_keep_day = 30

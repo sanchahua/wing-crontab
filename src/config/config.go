@@ -15,29 +15,31 @@ import (
 
 // 配置文件管理相关实现
 // 这里主要使用到了mysql的配置
-type MysqlConfig struct {
+type AppConfig struct {
 	User string       `toml:"user"`
 	Password string   `toml:"password"`
 	Host string       `toml:"host"`
 	Port int          `toml:"port"`
 	Database string   `toml:"database"`
 	Charset string    `toml:"charset"`
+	// log表日志最长保留天数
+	LogKeepDay int64  `toml:"log_keep_day"`
 }
 
 // 读取mysql配置
-func GetMysqlConfig() (*MysqlConfig, error) {
-	var appConfig MysqlConfig
-	//configFile := path.CurrentPath + "/config/mysql.toml"
-	configFile := "/Users/yuyi/Code/go/xcrontab/bin/config/mysql.toml"
+func GetAppConfig() (*AppConfig, error) {
+	var appConfig AppConfig
+	configFile := path.CurrentPath + "/config/app.toml"
+	//configFile = "/Users/yuyi/Code/go/xcrontab/bin/config/mysql.toml"
 	if !file.Exists(configFile) {
-		log.Errorf("GetMysqlConfig config file not found, file=[%v]", configFile)
+		log.Errorf("GetAppConfig config file not found, file=[%v]", configFile)
 		return nil, errors.New(fmt.Sprintf("config file not found, file=[%v]", configFile))
 	}
 	if _, err := toml.DecodeFile(configFile, &appConfig); err != nil {
-		log.Errorf("GetMysqlConfig toml.DecodeFile fail, file=[%v], error=[%v]", configFile, err)
+		log.Errorf("GetAppConfig toml.DecodeFile fail, file=[%v], error=[%v]", configFile, err)
 		return nil, err
 	}
-	log.Infof("GetMysqlConfig [%+v]", appConfig)
+	log.Infof("GetAppConfig [%+v]", appConfig)
 	return &appConfig, nil
 }
 
@@ -50,8 +52,8 @@ func SeelogInit() error {
 	//	return err
 	//}
 	//log.ReplaceLogger(logger)
-	configFile:= "/Users/yuyi/Code/go/xcrontab/bin/config/logger.yml"
-	//configFile := path.CurrentPath + "/config/logger.yml"
+	configFile := path.CurrentPath + "/config/logger.yml"
+	//configFile = "/Users/yuyi/Code/go/xcrontab/bin/config/logger.yml"
 	ilog, err := log.NewLogMgr(configFile)
 	if err != nil {
 		fmt.Println("log init error:", err)

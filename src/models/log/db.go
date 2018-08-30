@@ -188,24 +188,48 @@ func (db *DbLog) Delete(id int64) error {
 
 func (db *DbLog) DeleteByCronId(cronId int64) error {
 	if cronId <= 0 {
-		log.Errorf("Delete fail, cronId=[%v], error=[cronId invalid]", cronId)
+		log.Errorf("DeleteByCronId fail, cronId=[%v], error=[cronId invalid]", cronId)
 		return ErrIdInvalid
 	}
 	sqlStr := "DELETE FROM `log` WHERE cron_id=?"
 	res, err := db.handler.Exec(sqlStr, cronId)
 	if err != nil {
-		log.Errorf("Delete db.handler.Exec fail, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
+		log.Errorf("DeleteByCronId db.handler.Exec fail, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
 		return err
 	}
 	num, err := res.RowsAffected()
 	if err != nil {
-		log.Errorf("Delete res.RowsAffected fail, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
+		log.Errorf("DeleteByCronId res.RowsAffected fail, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
 		return  err
 	}
 	if num <= 0 {
-		log.Errorf("Delete res.RowsAffected is 0, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
+		log.Errorf("DeleteByCronId res.RowsAffected is 0, sql=[%v], cronId=[%v], error=[%+v]", sqlStr, cronId, err)
 		return ErrNoRowsAffected
 	}
-	log.Tracef("Delete success, sql=[%v], cronId=[%v], num=[%v]", sqlStr, cronId, num)
+	log.Tracef("DeleteByCronId success, sql=[%v], cronId=[%v], num=[%v]", sqlStr, cronId, num)
+	return nil
+}
+
+func (db *DbLog) DeleteByStartTime(startTime string) error {
+	log.Tracef("DeleteByStartTime start: %v", startTime)
+	if startTime == "" {
+		return ErrorStartTimeEmpty
+	}
+	sqlStr := "DELETE FROM `log` WHERE `start_time`<=?"
+	res, err := db.handler.Exec(sqlStr, startTime)
+	if err != nil {
+		log.Errorf("DeleteByStartTime db.handler.Exec fail, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
+		return err
+	}
+	num, err := res.RowsAffected()
+	if err != nil {
+		log.Errorf("DeleteByStartTime res.RowsAffected fail, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
+		return  err
+	}
+	if num <= 0 {
+		log.Errorf("DeleteByStartTime res.RowsAffected is 0, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
+		return ErrNoRowsAffected
+	}
+	log.Tracef("DeleteByStartTime success, sql=[%v], startTime=[%v], num=[%v]", sqlStr, startTime, num)
 	return nil
 }

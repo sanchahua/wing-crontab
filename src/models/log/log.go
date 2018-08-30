@@ -33,6 +33,7 @@ type LogEntity struct {
 var (
 	ErrIdInvalid = errors.New("id invalid")
 	ErrNoRowsAffected =  errors.New("no rows affected")
+	ErrorStartTimeEmpty = errors.New("starttime is empty")
 )
 
 func NewLog(handler *sql.DB) *DbLog {

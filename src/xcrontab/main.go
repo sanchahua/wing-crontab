@@ -34,7 +34,7 @@ func main() {
 	}
 	defer log.Flush()
 
-	mysqlConfig, err := config.GetMysqlConfig()
+	appConfig, err := config.GetAppConfig()
 	if err != nil {
 		log.Errorf("main config.GetMysqlConfig fail, error=[%v]", err)
 		return
@@ -46,12 +46,12 @@ func main() {
 	{
 		dataSource := fmt.Sprintf(
 			"%s:%s@tcp(%s:%d)/%s?charset=%s",
-			mysqlConfig.User,
-			mysqlConfig.Password,
-			mysqlConfig.Host,
-			mysqlConfig.Port,
-			mysqlConfig.Database,
-			mysqlConfig.Charset,
+			appConfig.User,
+			appConfig.Password,
+			appConfig.Host,
+			appConfig.Port,
+			appConfig.Database,
+			appConfig.Charset,
 		)
 		handler, err = sql.Open("mysql", dataSource)
 		if err != nil {
@@ -65,7 +65,7 @@ func main() {
 		defer handler.Close()
 	}
 	fmt.Println("start xcrontab")
-	m := manager.NewManager(handler, *listen)
+	m := manager.NewManager(handler, *listen, appConfig.LogKeepDay)
 	m.Start()
 	defer m.Stop()
 	sc := make(chan os.Signal, 1)

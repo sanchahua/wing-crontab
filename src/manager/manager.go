@@ -10,6 +10,8 @@ import (
 	shttp "net/http"
 	_ "statik"
 	"github.com/rakyll/statik/fs"
+	"time"
+	time2 "library/time"
 )
 
 type CronManager struct {
@@ -17,9 +19,10 @@ type CronManager struct {
 	cronModel *mcron.DbCron
 	logModel  *modelLog.DbLog
 	httpServer *http.HttpServer
+	logKeepDay int64
 }
 
-func NewManager(db *sql.DB, listen string) *CronManager {
+func NewManager(db *sql.DB, listen string, logKeepDay int64) *CronManager {
 	cronModel := mcron.NewCron(db)
 	logModel  := modelLog.NewLog(db)
 	cronController := cron.NewController(logModel)
@@ -27,6 +30,7 @@ func NewManager(db *sql.DB, listen string) *CronManager {
 		cronController:cronController,
 		cronModel:cronModel,
 		logModel: logModel,
+		logKeepDay: logKeepDay,
 	}
 	m.init()
 	statikFS, err := fs.New()
@@ -46,7 +50,20 @@ func NewManager(db *sql.DB, listen string) *CronManager {
 		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
 	)
 	m.httpServer.Start()
+	go m.logManager()
 	return m
+}
+
+func (m *CronManager) logManager() {
+	logKeepDay := m.logKeepDay
+	if logKeepDay < 1 {
+		logKeepDay = 1
+	}
+	// 日志清理操作，每60秒执行一次
+	for {
+		m.logModel.DeleteByStartTime(time2.TimeFormat(time.Now().Unix()-logKeepDay*86400))
+		time.Sleep(time.Second * 60)
+	}
 }
 
 func (m *CronManager) init() {

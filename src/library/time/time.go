@@ -45,3 +45,9 @@ func StrToTime(t string) int64 {
 	}
 	return s.Unix()
 }
+
+
+func TimeFormat(t int64) string {
+	tm := time.Unix(t, 0)
+	return tm.Format("2006-01-02 15:04:05")
+}
