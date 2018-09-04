@@ -42,3 +42,4 @@ bin/nohup.out
 *.pid
 *.zip
 *.log
+src/statik/statik.go
