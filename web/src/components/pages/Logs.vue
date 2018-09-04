@@ -36,7 +36,10 @@
         <td>{{item.use_time}}</td>
         <td style="word-break: break-all;">{{item.remark}}</td>
       <td style="word-break: break-all;">{{item.output}}</td>
-        <td><a class="btn" v-bind:item-process_id="item.process_id" v-bind:item-id="item.cron_id" v-on:click="kill">终止进程</a></td>
+        <td>
+          <a class="btn" v-bind:item-process_id="item.process_id" v-bind:item-id="item.cron_id" v-on:click="kill">终止进程</a>
+          <a class="btn" v-bind:item-id="item.id" v-on:click="detail">详情</a>
+        </td>
       </tr>
 
         </tbody> </table>
@@ -191,6 +194,10 @@ export default {
         }, 3000)
       }).catch(function (error) {
       });
+    },
+    detail: function (event) {
+      let id = $(event.target).attr("item-id");
+      window.location.href="/ui/#/log_detail?id="+id;
     }
   }
 }

@@ -137,8 +137,8 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	var (
 		row LogEntity
 	)
-	//`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`
-	err := data.Scan(&row.Id, &row.CronId, &row.State, &row.StartTime, &row.Output, &row.UseTime, &row.Remark)
+	//FIELDS = "`id`, `cron_id`, `process_id`, `state`, `start_time`, `output`, `use_time`, `remark`"
+	err := data.Scan(&row.Id, &row.CronId, &row.ProcessId, &row.State, &row.StartTime, &row.Output, &row.UseTime, &row.Remark)
 	if err != nil {
 		log.Errorf("Get data.Scan fail, sql=[%v], id=[%v], error=[%v]", sqlStr, rid, err)
 		return &row, err

@@ -6,6 +6,7 @@ import Add from '@/components/pages/Add'
 import CronList from '@/components/pages/CronList'
 import Edit from '@/components/pages/Edit'
 import Logs from '@/components/pages/Logs'
+import LogDetail from '@/components/pages/LogDetail'
 
 Vue.use(Router)
 //
@@ -53,6 +54,12 @@ export default new Router({
       path: '/logs',
       name: 'Logs',
       component: Logs,
+    }
+    ,
+    {
+      path: '/log_detail',
+      name: 'LogDetail',
+      component: LogDetail,
     }
   ]
 })

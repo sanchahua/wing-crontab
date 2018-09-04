@@ -59,6 +59,8 @@ func NewManager(db *sql.DB, listen string, logKeepDay int64) *CronManager {
 		http.SetRoute("GET", "/charts/{days}",   m.charts),
 		http.SetRoute("GET", "/cron/run/{id}/{timeout}",   m.cronRun),
 		http.SetRoute("GET", "/cron/kill/{id}/{process_id}",   m.cronKill),
+// /cron/log/detail/
+		http.SetRoute("GET", "/cron/log/detail/{id}",   m.cronLogDetail),
 
 		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
 	)

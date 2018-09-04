@@ -45,3 +45,16 @@ func (m *CronManager) logs(request *restful.Request, w *restful.Response) {
 		"limit":     limit,
 	})
 }
+
+//cronLogDetail
+func (m *CronManager) cronLogDetail(request *restful.Request, w *restful.Response) {
+	sid := request.PathParameter("id")
+	id, err := strconv.ParseInt(string(sid), 10, 64)
+	if err != nil || id <= 0 {
+		m.outJson(w, HttpErrorIdInvalid, "id错误", nil)
+		return
+	}
+
+	data, _ := m.logModel.Get(id)
+	m.outJson(w, HttpSuccess, "success", data)
+}
