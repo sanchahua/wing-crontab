@@ -19,11 +19,11 @@
           </div>
           <div class="form-group">
             <label for="start-time">开始时间，大于等于此时间才执行，不限留空</label>
-            <input type="text" class="form-control" id="start-time" value="">
+            <input type="text" class="form-control" id="start-time" v-bind:value="datetime">
           </div>
           <div class="form-group">
             <label for="end-time">结束时间，小于此时间才执行，不限留空</label>
-            <input type="text" class="form-control" id="end-time" value="">
+            <input type="text" class="form-control" id="end-time" value="2099-01-01 08:00:00">
           </div>
           <div class="form-group">
             <label for="command">执行命令</label>
@@ -56,6 +56,11 @@
 <script>
   export default {
     name: "Add",
+    data: function() {
+      return {
+        datetime: (new Date()).Format("yyyy-MM-dd hh:mm:ss"),
+      }
+    },
     created: function() {
       let script = document.createElement("script");
       script.src = "./static/js/add.vue.js?t=" +  (new Date()).valueOf();

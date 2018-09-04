@@ -14,7 +14,7 @@ type DbLog struct {
 }
 
 const (
-	FIELDS = "`id`, `cron_id`, `state`, `start_time`, `output`, `use_time`, `remark`"
+	FIELDS = "`id`, `cron_id`, `process_id`, `state`, `start_time`, `output`, `use_time`, `remark`"
 	MaxQueryRows = 10000
 )
 func newDbLog(handler *sql.DB) *DbLog {
@@ -29,7 +29,7 @@ func newDbLog(handler *sql.DB) *DbLog {
 // int类型的值写0表示默认值
 // 字符串类型的写为空表示默认值
 // 返回值为查询结果集合、总数量、发生的错误
-func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, int64, int64, int64, error) {
+func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64) ([]*LogEntity, int64, int64, int64, error) {
 	sqlStr  := "SELECT " + FIELDS + " FROM `log` where 1"
 	sqlStr2 := "select count(*) as num  from log where 1 "
 	var params  []interface{}
@@ -39,6 +39,10 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 		params2 = append(params2, cronId)
 		sqlStr  += " and `cron_id`=?"
 		sqlStr2 += " and `cron_id`=?"
+	}
+	if searchFail {
+		sqlStr  += " and `state`=\"fail\" "
+		sqlStr2 += " and `state`=\"fail\" "
 	}
 	sqlStr += " order by id desc limit ?,?"
 	if page < 1 {
@@ -52,7 +56,7 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 	debugSql  := fmt.Sprintf(strings.Replace(sqlStr, "?", "%v", -1), params...)
 	debugSql2 := fmt.Sprintf(strings.Replace(sqlStr2, "?", "%v", -1), params2...)
 
-	log.Infof("GetList info, sql2=[%v]", debugSql2)
+	//log.Infof("GetList info, sql2=[%v]", debugSql2)
 
 	stmtOut, err := db.handler.Prepare(sqlStr)
 	if err != nil {
@@ -70,6 +74,7 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 	var (
 		id int64
 		cron_id int64
+		process_id int
 		start_time string
 		output string
 		use_time int64
@@ -78,7 +83,7 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 	)
 	for rows.Next() {
 		//`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`
-		err = rows.Scan(&id, &cron_id, &state, &start_time, &output, &use_time, &remark)
+		err = rows.Scan(&id, &cron_id, &process_id, &state, &start_time, &output, &use_time, &remark)
 		if err != nil {
 			log.Errorf("GetList rows.Scan fail, sql=[%v], error=[%v]", debugSql, err)
 			continue
@@ -86,6 +91,7 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 		row := &LogEntity{
 			Id:        id,
 			CronId:    cron_id,
+			ProcessId: process_id,
 			StartTime: start_time,
 			Output:    output,
 			UseTime:   use_time,
@@ -116,7 +122,7 @@ func (db *DbLog) GetList(cronId int64, page int64, limit int64) ([]*LogEntity, i
 		}
 		break
 	}
-	log.Tracef("GetList success, sql=[%v], sql2=[%v], records=[%+v], num=[%v]", debugSql, debugSql2, records, num)
+	//log.Tracef("GetList success, sql=[%v], sql2=[%v], records=[%+v], num=[%v]", debugSql, debugSql2, records, num)
 	return records, num, page, limit, nil
 }
 
@@ -141,14 +147,14 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, state string, output string, useTime int64, remark, startTime string) (int64, error) {
+func (db *DbLog) Add(cronId int64, processId int, state string, output string, useTime int64, remark, startTime string) (int64, error) {
 	if cronId <= 0 {
 		log.Errorf("Add fail, error=[cron_id invalid], cronId=[%v]", cronId)
 		return 0, errors.New("cron_id invalid")
 	}
-	sqlStr := "INSERT INTO `log`(`cron_id`, `state`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?,?)"
-	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, state, startTime, output, useTime, remark)
-	res, err := db.handler.Exec(sqlStr, cronId, state, startTime, output, useTime, remark)
+	sqlStr := "INSERT INTO `log`(`cron_id`, `process_id`, `state`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?,?,?)"
+	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, processId, state, startTime, output, useTime, remark)
+	res, err := db.handler.Exec(sqlStr, cronId, processId, state, startTime, output, useTime, remark)
 	if err != nil {
 		log.Errorf("Add db.handler.Exec fail, sql=[%v], error=[%v]", debugSql, err)
 		return 0, err

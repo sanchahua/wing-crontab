@@ -6,7 +6,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "database/sql/driver"
 	log "github.com/cihub/seelog"
-	"time"
 )
 
 func main() {
@@ -14,10 +13,10 @@ func main() {
 		dataSource := fmt.Sprintf(
 			"%s:%s@tcp(%s:%d)/%s?charset=%s",
 			"root",
-			"sd-9898w",
-			"10.10.62.28",
+			"123456",
+			"127.0.0.1",
 			3306,
-			"showapp",
+			"cron",
 			"utf8",
 		)
 		handler, err := sql.Open("mysql", dataSource)
@@ -36,6 +35,6 @@ func main() {
 		r := handler.QueryRow("select * from log where 1 limit 1")
 		r.Scan(&a)
 		fmt.Println(a)
-		time.Sleep(time.Second)
+		//time.Sleep(time.Second)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"github.com/parnurzeal/gorequest"
 	"net/url"
 	"fmt"
-	"github.com/pkg/errors"
+	"errors"
 	"encoding/json"
 )
 
@@ -117,8 +117,8 @@ func addCron() (*CronEntity, error) {
 	data.Add("command", "ls /")
 	data.Add("remark", "")
 	data.Add("stop", "0")
-	data.Add("start_time", "0")
-	data.Add("end_time", "0")
+	data.Add("start_time", "2018-01-01 9:00:00")
+	data.Add("end_time", "2018-11-01 9:00:00")
 	data.Add("is_mutex", "0")
 
 	body, err := httpPost(uri, data)
@@ -140,8 +140,8 @@ func updateCron(id int64) error {
 	data.Add("command", "ls /home")
 	data.Add("remark", "new remark")
 	data.Add("stop", "1")
-	data.Add("start_time", "1")
-	data.Add("end_time", "2")
+	data.Add("start_time", "2018-01-01 9:00:00")
+	data.Add("end_time", "2018-12-01 9:00:00")
 	data.Add("is_mutex", "1")
 
 	body, err := httpPost(uri, data)

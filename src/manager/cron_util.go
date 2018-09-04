@@ -26,3 +26,24 @@ func (m *CronManager) stop(request *restful.Request, w *restful.Response, stop b
 	m.outJson(w, HttpSuccess, "success", nil)
 }
 
+func (m *CronManager) mutex(request *restful.Request, w *restful.Response, mutex bool) {
+	sid := request.PathParameter("id")
+	id, err := strconv.ParseInt(string(sid), 10, 64)
+	if err != nil || id <= 0 {
+		m.outJson(w, HttpErrorIdInvalid, "id错误", nil)
+		return
+	}
+
+	err = m.cronModel.Mutex(id, mutex)
+	if err != nil {
+		m.outJson(w, HttpErrorCronModelMutexFalseFail, "m.cronModel.Mutex fail", nil)
+		return
+	}
+	err = m.cronController.Mutex(id, mutex)
+	if err != nil {
+		m.outJson(w, HttpErrorCronControllerMutexFail, "m.cronController.Mutex fail", nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "success", nil)
+}
+

@@ -4,6 +4,8 @@ import HelloWorld from '@/components/HelloWorld'
 import Index from '@/components/pages/Index'
 import Add from '@/components/pages/Add'
 import CronList from '@/components/pages/CronList'
+import Edit from '@/components/pages/Edit'
+import Logs from '@/components/pages/Logs'
 
 Vue.use(Router)
 //
@@ -41,6 +43,16 @@ export default new Router({
       path: '/cron_list',
       name: 'CronList',
       component: CronList,
+    },
+    {
+      path: '/edit',
+      name: 'Edit',
+      component: Edit,
+    },
+    {
+      path: '/logs',
+      name: 'Logs',
+      component: Logs,
     }
   ]
 })

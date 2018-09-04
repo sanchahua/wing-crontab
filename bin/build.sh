@@ -39,7 +39,15 @@ statik -src=${root_path}"/web/dist"
 ##进入当前目录
 cd ${root_path}
 ##build构建项目
+
+if [ "$1" == "debug" ]; then
+echo "build debug"
 go build -p 4 -race ${project} ##-a强制重新编译所有的包 -v显示被编译的包 -x显示所用到的其他命令
+else
+echo "build release"
+go build -p 4 ${project} ##-a强制重新编译所有的包 -v显示被编译的包 -x显示所用到的其他命令
+fi
+
 
 ##编译不成功则退出
 if [[ $? -ne 0 ]]

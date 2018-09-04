@@ -8,9 +8,15 @@ import (
 	"sync"
 	"fmt"
 	"errors"
+	"sort"
+	"models/statistics"
+	"time"
 )
 const (
 	IsRunning = 1
+	StateStart = "start"
+	StateSuccess = "success"
+	StateFail = "fail"
 )
 type Controller struct {
 	cron     *cronV2.Cron
@@ -18,10 +24,11 @@ type Controller struct {
 	lock     *sync.RWMutex
 	status   int
 	logModel *modelLog.DbLog
-	cache    []*CronEntity
+	cache    ListCronEntity//[]*CronEntity
+	statisticsModel *statistics.Statistics
 }
 
-func NewController(logModel *modelLog.DbLog) *Controller {
+func NewController(logModel *modelLog.DbLog, statisticsModel *statistics.Statistics) *Controller {
 	c := &Controller{
 		cron:     cronV2.New(),
 		cronList: make(map[int64] *CronEntity),
@@ -29,6 +36,7 @@ func NewController(logModel *modelLog.DbLog) *Controller {
 		status:   0,
 		logModel: logModel,
 		cache:    nil,//make([]*CronEntity, 0),
+		statisticsModel: statisticsModel,
 	}
 	return c
 }
@@ -80,14 +88,31 @@ func (c *Controller) Delete(id int64) (*CronEntity, error) {
 	return e, nil
 }
 
-func (c *Controller) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime int64, isMutex bool) (*CronEntity, error) {
+func (c *Controller) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime string, isMutex bool) (*CronEntity, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	e, ok := c.cronList[id]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
-	e.Update(cronSet, command, remark, stop, startTime, endTime, isMutex)
+
+	delete(c.cronList, id)
+	c.cron.Remove(e.CronId)
+
+	//e.Update(cronSet, command, remark, stop, startTime, endTime, isMutex)
+
+	entity := newCronEntity(&cron.CronEntity{
+		Id:        id,// int64        `json:"id"`
+		CronSet:   cronSet,// string  `json:"cron_set"`
+		Command:   command,// string  `json:"command"`
+		Remark:    remark,// string   `json:"remark"`
+		Stop:      stop,// bool       `json:"stop"`
+		StartTime: startTime,// int64 `json:"start_time"`
+		EndTime:   endTime,// int64   `json:"end_time"`
+		IsMutex:   isMutex,// bool    `json:"is_mutex"`
+	}, c.onRun)
+	entity.CronId, _ = c.cron.AddJob(entity.CronSet, entity)
+	c.cronList[entity.Id] = entity
 	return e, nil
 }
 
@@ -101,20 +126,55 @@ func (c *Controller) Get(id int64) (*CronEntity, error)  {
 	return e, nil
 }
 
+// timeout 超时，单位秒
+func (c *Controller) RunCommand(id int64, timeout int64) ([]byte, int, error)  {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	e, ok := c.cronList[id]
+	if !ok {
+		return nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
+	}
+	if timeout < 1 {
+		timeout = 3
+	}
+	return e.runCommandWithTimeout(time.Duration(timeout) * time.Second)
+}
+
+func (c *Controller) Kill(id int64, processId int) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	e, ok := c.cronList[id]
+	if !ok {
+		return// nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
+	}
+	e.Kill(processId)//(time.Duration(timeout) * time.Second)
+}
+
+func (c *Controller) ProcessIsRunning(id int64, processId int) bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	e, ok := c.cronList[id]
+	if !ok {
+		return false// nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
+	}
+	return e.ProcessIsRunning(processId)//(time.Duration(timeout) * time.Second)
+}
+
 // 已处理线程安全问题
 // 所有内容使用只读cache
-func (c *Controller) GetList() []*CronEntity {
+func (c *Controller) GetList() ListCronEntity {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	l := len(c.cronList)
 	if c.cache == nil || len(c.cache) != l {
-		c.cache = make([]*CronEntity, l)
+		c.cache = make(ListCronEntity, l)
 	}
 	i := 0
 	for _, v := range c.cronList {
-		c.cache[i] = v.clone()
+		c.cache[i] = v.Clone()
 		i++
 	}
+	sort.Sort(c.cache)
 	return c.cache
 }
 
@@ -129,9 +189,28 @@ func (c *Controller) Stop(id int64, stop bool) error {
 	return nil
 }
 
-func (c *Controller) onRun(cronId int64, state, output string, useTime int64, remark, startTime string) {
-	_, err := c.logModel.Add(cronId, state, output, useTime, remark, startTime)
+func (c *Controller) Mutex(id int64, mutex bool) error {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	e, ok := c.cronList[id]
+	if !ok {
+		return errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
+	}
+	e.setMutex(mutex)
+	return nil
+}
+
+func (c *Controller) onRun(cronId int64, processId int, state, output string, useTime int64, remark, startTime string) {
+	_, err := c.logModel.Add(cronId, processId, state, output, useTime, remark, startTime)
 	if err != nil {
 		log.Errorf("onRun c.logModel.Add fail, cron_id=[%v], output=[%v], usetime=[%v], remark=[%v], startTime=[%v], error=[%v]", cronId, output, useTime, remark, startTime, err)
 	}
+	addSuccessNum := int64(0)
+	addFailNum := int64(0)
+	if state == StateSuccess {
+		addSuccessNum = 1
+	} else {
+		addFailNum = 1
+	}
+	c.statisticsModel.Add(cronId, time.Now().Format("2006-01-02"), addSuccessNum, addFailNum)
 }

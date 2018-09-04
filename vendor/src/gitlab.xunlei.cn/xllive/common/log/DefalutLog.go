@@ -10,7 +10,7 @@ var (
 	defaultLog *Log
 )
 
-func SetDefaultLogMgr(logMgr *Log) {
+func SetDefaultLog(logMgr *Log) {
 	defaultLog = logMgr
 }
 

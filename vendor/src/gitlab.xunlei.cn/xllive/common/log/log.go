@@ -55,11 +55,11 @@ const (
 	E_LOG_WRITE_CONSOLE = 0x200
 )
 
-func NewLogMgr(logConfig string) (*Log, error) {
-	Infof("NewLogMgr beg, logConfig=[%s]", logConfig)
+func NewLog(logConfig string) (*Log, error) {
+	Infof("NewLog beg, logConfig=[%s]", logConfig)
 	m := new(Log)
 	err := m.init(logConfig)
-	Infof("NewLogMgr end")
+	Infof("NewLog end")
 	return m, err
 }
 

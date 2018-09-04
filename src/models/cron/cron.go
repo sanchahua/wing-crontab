@@ -26,14 +26,14 @@ CREATE TABLE `cron` (
 
 type CronEntity struct {
 	// 数据库的基本属性
-	Id int64        `json:"id"`
-	CronSet string  `json:"cron_set"`
-	Command string  `json:"command"`
-	Remark string   `json:"remark"`
-	Stop bool       `json:"stop"`
-	StartTime int64 `json:"start_time"`
-	EndTime int64   `json:"end_time"`
-	IsMutex bool    `json:"is_mutex"`
+	Id int64         `json:"id"`
+	CronSet string   `json:"cron_set"`
+	Command string   `json:"command"`
+	Remark string    `json:"remark"`
+	Stop bool        `json:"stop"`
+	StartTime string `json:"start_time"`
+	EndTime string   `json:"end_time"`
+	IsMutex bool     `json:"is_mutex"`
 }
 const (
 	EVENT_STOP   = 1

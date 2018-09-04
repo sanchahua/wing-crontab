@@ -23,6 +23,8 @@ CREATE TABLE `log` (
 type LogEntity struct {
 	Id        int64   `json:"id"`
 	CronId    int64   `json:"cron_id"`
+	ProcessId int     `json:"process_id"`
+
 	StartTime string  `json:"start_time"`
 	Output    string  `json:"output"`
 	UseTime   int64   `json:"use_time"`

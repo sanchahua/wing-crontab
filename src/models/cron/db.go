@@ -6,6 +6,7 @@ import (
 	log "gitlab.xunlei.cn/xllive/common/log"
 	"strings"
 	"fmt"
+	"library/time"
 )
 
 type DbCron struct {
@@ -21,7 +22,7 @@ func newDbCron(handler *sql.DB) *DbCron {
 
 // 获取所有的定时任务列表
 func (db *DbCron) GetList() ([]*CronEntity, error) {
-	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `is_mutex` from cron"
+	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `is_mutex` from cron order by id desc"
 	rows, err := db.handler.Query(sqlStr)
 	if nil != err {
 		log.Errorf("GetList fail, error=[%+v]", err)
@@ -35,8 +36,8 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 		command string
 		remark string
 		stop int
-		startTime int64
-		endTime int64
+		startTime string
+		endTime string
 		isMutex int
 	)
 	for rows.Next() {
@@ -58,6 +59,20 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 		records = append(records, row)
 	}
 	return records, nil
+}
+
+func (db *DbCron) GetCount() (int64, error) {
+	sqlStr := "select count(*) as num from cron"
+	row := db.handler.QueryRow(sqlStr)
+	var (
+		num int64
+	)
+	err := row.Scan(&num)
+	if err != nil {
+		log.Errorf("GetCount row.Scan fail，sql=[%s]，error=[%+v]", sqlStr, err)
+		return 0, err
+	}
+	return num, nil
 }
 
 // 根据指定id查询行
@@ -84,7 +99,7 @@ func (db *DbCron) Get(rid int64) (*CronEntity, error) {
 	return &row, nil
 }
 
-func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTime, endTime int64, isMutex bool) (int64, error) {
+func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTime, endTime string, isMutex bool) (int64, error) {
 	cronSet = strings.Trim(cronSet, " ")
 	if cronSet == "" {
 		log.Errorf("Add fail, cronSet=[%v], error=[%v]", cronSet, ErrCronSetInvalid)
@@ -95,7 +110,10 @@ func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTi
 		log.Errorf("Add fail, command=[%v], error=[%v]", command, ErrCommandInvalid)
 		return 0, ErrCommandInvalid//errors.New("command invalid")
 	}
-	if endTime < startTime && (endTime > 0 || startTime > 0) {
+
+	st := time.StrToTime(startTime)
+	et := time.StrToTime(endTime)
+	if et < st && (et > 0 || st > 0) {
 		log.Errorf("Add fail, [endTime=[%v]<startTime=[%v]], endTime=[%v], startTime=[%v], error=[%v]", endTime, startTime, endTime, startTime, ErrEndTimeInvalid)
 		return 0, ErrEndTimeInvalid//errors.New("endTime invalid")
 	}
@@ -123,7 +141,7 @@ func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTi
 	return id, nil
 }
 
-func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime int64, isMutex bool) error {
+func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime string, isMutex bool) error {
 	if id <= 0 {
 		log.Errorf("Update fail, id=[%v], error=[%v]", id, ErrIdInvalid)
 		return ErrIdInvalid
@@ -138,7 +156,9 @@ func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop 
 		log.Errorf("Update fail, command=[%v], error=[%v]", command, ErrCommandInvalid)
 		return ErrCommandInvalid//nil, errors.New("command is empty")
 	}
-	if endTime < startTime && (endTime > 0 || startTime > 0) {
+	st := time.StrToTime(startTime)
+	et := time.StrToTime(endTime)
+	if et < st && (et > 0 || st > 0) {
 		log.Errorf("Update [endTime=[%v]<startTime=[%v]], endTime=[%v], startTime=[%v], error=[%v]", endTime, startTime, endTime, startTime, ErrEndTimeInvalid)
 		return ErrEndTimeInvalid//nil, errors.New("endTime invalid")
 	}
@@ -177,19 +197,6 @@ func (db *DbCron) Stop(id int64, stop bool) error {
 		log.Errorf("Stop fail, error=[%v]", ErrIdInvalid)
 		return ErrIdInvalid//nil, errors.New("id invalid")
 	}
-	//row, err := db.Get(id)
-	//if err != nil {
-	//	log.Errorf("Stop db.Get fail, id=[%v], stop=[%v], error=[%v]", id, stop, err)
-	//	return err
-	//}
-	//err = db.Update(id, row.CronSet, row.Command, row.Remark, stop, row.StartTime, row.EndTime, row.IsMutex)
-	//if err != nil {
-	//	log.Errorf("Stop db.Update fail, id=[%v], stop=[%v], error=[%v]", id, stop, err)
-	//	return nil, err
-	//}
-	//log.Infof("Stop success, id=[%v], stop=[%v]", id, stop)
-	//return row, nil
-
 	iStop := 0
 	if stop {
 		iStop = 1
@@ -210,6 +217,35 @@ func (db *DbCron) Stop(id int64, stop bool) error {
 		log.Errorf("Update fail, sql=[%v], error=[%+v]", debugSql, ErrNoRowsChange)
 		return ErrNoRowsChange
 	}
+	return nil
+}
+
+func (db *DbCron) Mutex(id int64, mutex bool) error {
+	if id <= 0 {
+		log.Errorf("Mutex fail, error=[%v]", ErrIdInvalid)
+		return ErrIdInvalid//nil, errors.New("id invalid")
+	}
+	iMutex := 0
+	if mutex {
+		iMutex = 1
+	}
+	sqlStr := "UPDATE `cron` SET `is_mutex`=? WHERE `id`=?"
+	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), iMutex, id)
+	res, err := db.handler.Exec(sqlStr, iMutex, id)
+	if err != nil {
+		log.Errorf("Mutex db.handler.Exec fail, sql=[%v], error=[%+v]", debugSql, err)
+		return err
+	}
+	num, err := res.RowsAffected()
+	if err != nil {
+		log.Errorf("Mutex res.RowsAffected fail, sql=[%v], error=[%+v]", debugSql, err)
+		return err
+	}
+	if num <= 0 {
+		log.Errorf("Mutex fail, sql=[%v], error=[%+v]", debugSql, ErrNoRowsChange)
+		return ErrNoRowsChange
+	}
+	log.Tracef("Mutex success, sql=[%v]", debugSql)
 	return nil
 }
 

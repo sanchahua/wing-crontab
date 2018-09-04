@@ -37,7 +37,7 @@ $(document).ready(function(){
     };
     // axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
     // JSON.stringify
-    axios.post('/cron/add', JSON.stringify(data)).then(function (response) {
+    axios.post('/cron/add', data).then(function (response) {
         console.log(response);
         if (2000 == response.data.code) {
           // 转到管理页面

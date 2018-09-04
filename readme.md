@@ -40,7 +40,8 @@ CREATE TABLE `log` (
 编译xcrontab，需要提前安装go环境
 -----
 ````
-./bin/build.sh
+./bin/build.sh debug ##发布debug版本
+./bin/build.sh ## 默认无参数发布release版本
 ````
 修改配置文件
 ------

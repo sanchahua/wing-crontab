@@ -30,7 +30,7 @@ type AppConfig struct {
 func GetAppConfig() (*AppConfig, error) {
 	var appConfig AppConfig
 	configFile := path.CurrentPath + "/config/app.toml"
-	//configFile = "/Users/yuyi/Code/go/xcrontab/bin/config/mysql.toml"
+	//configFile = "/Users/yuyi/Code/go/xcrontab/bin/config/app.toml"
 	if !file.Exists(configFile) {
 		log.Errorf("GetAppConfig config file not found, file=[%v]", configFile)
 		return nil, errors.New(fmt.Sprintf("config file not found, file=[%v]", configFile))
@@ -54,12 +54,12 @@ func SeelogInit() error {
 	//log.ReplaceLogger(logger)
 	configFile := path.CurrentPath + "/config/logger.yml"
 	//configFile = "/Users/yuyi/Code/go/xcrontab/bin/config/logger.yml"
-	ilog, err := log.NewLogMgr(configFile)
+	ilog, err := log.NewLog(configFile)
 	if err != nil {
 		fmt.Println("log init error:", err)
 		return err
 	}
-	log.SetDefaultLogMgr(ilog)
+	log.SetDefaultLog(ilog)
 	return nil
 }
 

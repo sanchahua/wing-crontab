@@ -2,6 +2,7 @@ package cron
 
 import (
 	"time"
+	time2 "library/time"
 )
 type TimeFilter struct {
 	row *CronEntity
@@ -21,12 +22,14 @@ func (f *TimeFilter) Stop() bool {
 	f.row.lock.RLock()
 	defer f.row.lock.RUnlock()
 
-	if f.row.EndTime <= 0 {
+	et := time2.StrToTime(f.row.EndTime)
+	if et <= 0 {
 		return false
 	}
 
+	st := time2.StrToTime(f.row.StartTime)
 	current := time.Now().Unix()
-	if current >= f.row.StartTime && current < f.row.EndTime {
+	if current >= st && current < et {
 		return false
 	}
 	return true
