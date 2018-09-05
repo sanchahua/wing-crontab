@@ -1181,7 +1181,7 @@ ul.dropdown {
 }
 .stats-left {
     float: left;
-    width: 45%;
+    width: 37%;
     background-color: #052963;
     text-align: center;
     padding: 0.58em;
@@ -1217,7 +1217,7 @@ ul.dropdown {
 }
 .stats-right {
        float: right;
-    width: 55%;
+    width: 63%;
     text-align: center;
     padding: 1.54em 1em;
     background-color: #eee;

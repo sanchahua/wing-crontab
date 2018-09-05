@@ -19,7 +19,7 @@
             <h4>次数</h4>
           </div>
           <div class="stats-right">
-            <label>{{history_run_count}}</label>
+            <label v-html="history_run_count">{{history_run_count}}</label>
           </div>
           <div class="clearfix"> </div>
         </div>
@@ -29,7 +29,7 @@
             <h4>次数</h4>
           </div>
           <div class="stats-right">
-            <label>{{day_run_count}}</label>
+            <label v-html="day_run_count">{{day_run_count}}</label>
           </div>
           <div class="clearfix"> </div>
         </div>
@@ -39,7 +39,7 @@
             <h4>次数</h4>
           </div>
           <div class="stats-right">
-            <label>{{day_run_fail_count}}</label>
+            <label v-html="day_run_fail_count">{{day_run_fail_count}}</label>
           </div>
           <div class="clearfix"> </div>
         </div>
@@ -160,10 +160,23 @@
         axios.get('/index').then(function (response) {
           if (2000 == response.data.code) {
             console.log(response);
-            that.cron_count = response.data.data.cron_count
-            that.history_run_count = response.data.data.history_run_count
-            that.day_run_count = response.data.data.day_run_count
+            that.cron_count         = response.data.data.cron_count
+            that.history_run_count  = response.data.data.history_run_count
+            that.day_run_count      = response.data.data.day_run_count
             that.day_run_fail_count = response.data.data.day_run_fail_count
+
+            if (that.history_run_count >= 10000) {
+              that.history_run_count = (Math.floor(that.history_run_count/10000*100)/100) + "<a style='font-size: 12px; font-weight: bold; color: #000;'>万</a>"
+            }
+
+            if (that.day_run_count >= 10000) {
+              that.day_run_count = (Math.floor(that.day_run_count/10000*100)/100) + "<a style='font-size: 12px; font-weight: bold; color: #000;'>万</a>"
+            }
+
+            if (that.day_run_fail_count >= 10000) {
+              that.day_run_fail_count = (Math.floor(that.day_run_fail_count/10000*100)/100) + "<a style='font-size: 12px; font-weight: bold; color: #000;'>万</a>"
+            }
+
           } else {
             alert(response.data.message);
           }
