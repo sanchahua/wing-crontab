@@ -157,7 +157,7 @@
     methods: {
       getStatistics: function () {
         let that = this;
-        axios.get('/index').then(function (response) {
+        axios.get('/index?time='+(new Date()).valueOf()).then(function (response) {
           if (2000 == response.data.code) {
             console.log(response);
             that.cron_count         = response.data.data.cron_count
@@ -186,7 +186,7 @@
       },
       getCharts: function (chart) {
         let that = this
-        axios.get('/charts/'+that.days).then(function (response) {
+        axios.get('/charts/'+that.days+'?time='+(new Date()).valueOf()).then(function (response) {
           console.log(response)
           if (2000 == response.data.code) {
             chart.dataProvider = response.data.data;
