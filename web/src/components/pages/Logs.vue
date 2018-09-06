@@ -116,7 +116,7 @@ export default {
       if (that.logs.searchFail) {
         sf = "1"
       }
-      axios.get('/log/list/'+params.id+'/'+sf+'/'+that.logs.page+'/'+that.logs.limit).then(function (response) {
+      axios.get('/log/list/'+params.id+'/'+sf+'/'+that.logs.page+'/'+that.logs.limit+'?time='+(new Date()).valueOf()).then(function (response) {
         if (2000 == response.data.code) {
           console.log(response);
           // that.cron_info = response.data.data
@@ -182,7 +182,7 @@ export default {
     kill: function (event) {
       let id = $(event.target).attr("item-id");
       let process_id = $(event.target).attr("item-process_id");
-      axios.get('/cron/kill/'+id+'/'+process_id).then(function (response) {
+      axios.get('/cron/kill/'+id+'/'+process_id+'?time='+(new Date()).valueOf()).then(function (response) {
         console.log(response)
         if (2000 == response.data.code) {
           $(event.target).html("kill成功")

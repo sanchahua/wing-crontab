@@ -140,7 +140,7 @@
         if (typeof params.id == "undefined") {
           return;
         }
-        axios.get('/cron/info/'+params.id).then(function (response) {
+        axios.get('/cron/info/'+params.id+'?time='+(new Date()).valueOf()).then(function (response) {
           if (2000 == response.data.code) {
             console.log(response);
             that.cron_info = response.data.data
@@ -195,7 +195,7 @@
           console.log(params)
         }
         let that = this
-        axios.post('/cron/update/' + params.id, data).then(function (response) {
+        axios.post('/cron/update/' + params.id+'?time='+(new Date()).valueOf(), data).then(function (response) {
           console.log(response);
           if (2000 == response.data.code) {
             // 转到管理页面

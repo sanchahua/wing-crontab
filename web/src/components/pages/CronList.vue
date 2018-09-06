@@ -140,7 +140,7 @@
         } else if(that.is_timeout==2) {
           uri += 'timeout=0&'
         }
-        uri += 'keyword=' + encodeURIComponent(that.keyword)
+        uri += 'keyword=' + encodeURIComponent(that.keyword)+'&time='+(new Date()).valueOf()
         console.log(uri)
           axios.get(uri).then(function (response) {
             if (2000 == response.data.code) {
@@ -169,7 +169,7 @@
           //alert("停止"+id);
           // /cron/stop/1656
           var that = this;
-          axios.get('/cron/stop/'+id).then(function (response) {
+          axios.get('/cron/stop/'+id+'?time='+(new Date()).valueOf()).then(function (response) {
             if (2000 == response.data.code) {
               console.log(response);
               let len = that.cron_list.length;// = response.data.data
@@ -190,7 +190,7 @@
       start: function (event) {
           let id = $(event.target).attr("item-id");
           var that = this;
-          axios.get('/cron/start/'+id).then(function (response) {
+          axios.get('/cron/start/'+id+'?time='+(new Date()).valueOf()).then(function (response) {
             if (2000 == response.data.code) {
               console.log(response);
               let len = that.cron_list.length;// = response.data.data
@@ -214,7 +214,7 @@
           return;
         }
         let that = this;
-        axios.get('/cron/delete/'+id).then(function (response) {
+        axios.get('/cron/delete/'+id+'?time='+(new Date()).valueOf()).then(function (response) {
           if (2000 == response.data.code) {
             console.log(response);
             //$(event.target).parents("tr").remove();
@@ -245,7 +245,7 @@
       mutex0: function (event) {
         let id = $(event.target).attr("item-id");
         let that = this;
-        axios.get('/cron/mutex/false/'+id).then(function (response) {
+        axios.get('/cron/mutex/false/'+id+'?time='+(new Date()).valueOf()).then(function (response) {
           if (2000 == response.data.code) {
             console.log(response);
             let len = that.cron_list.length;// = response.data.data
@@ -267,7 +267,7 @@
       mutex1: function (event) {
         let id = $(event.target).attr("item-id");
         let that = this;
-        axios.get('/cron/mutex/true/'+id).then(function (response) {
+        axios.get('/cron/mutex/true/'+id+'?time='+(new Date()).valueOf()).then(function (response) {
           if (2000 == response.data.code) {
             console.log(response);
             let len = that.cron_list.length;// = response.data.data
@@ -306,7 +306,7 @@
             //this.close();
             //this.remove();
 
-            axios.get('/cron/run/'+id +'/'+value).then(function (response) {
+            axios.get('/cron/run/'+id +'/'+value+'?time='+(new Date()).valueOf()).then(function (response) {
               if (2000 == response.data.code) {
                 console.log(response);
                 $("#run-command-response-show").val(response.data.data)
