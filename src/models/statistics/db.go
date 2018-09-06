@@ -61,7 +61,7 @@ func (db *Statistics) GetDayCount(day string) (int64, int64, error) {
 	)
 	err := row.Scan(&dayNum, &failNum)
 	if err != nil {
-		log.Errorf("GetCount row.Scan fail，sql=[%s]，error=[%+v]", sqlStr, err)
+		log.Errorf("GetCount row.Scan fail，sql=[%s]，day=[%s], error=[%+v]", sqlStr, day, err)
 		return 0, 0, err
 	}
 	return dayNum, failNum, nil

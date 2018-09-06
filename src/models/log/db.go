@@ -232,10 +232,10 @@ func (db *DbLog) DeleteByStartTime(startTime string) error {
 		log.Errorf("DeleteByStartTime res.RowsAffected fail, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
 		return  err
 	}
-	if num <= 0 {
-		log.Errorf("DeleteByStartTime res.RowsAffected is 0, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
-		return ErrNoRowsAffected
-	}
+	//if num <= 0 {
+		//log.Errorf("DeleteByStartTime res.RowsAffected is 0, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
+		//return nil//ErrNoRowsAffected
+	//}
 	log.Tracef("DeleteByStartTime success, sql=[%v], startTime=[%v], num=[%v]", sqlStr, startTime, num)
 	return nil
 }
