@@ -201,7 +201,7 @@ func (m *CronManager) cronRun(request *restful.Request, w *restful.Response) {
 	}
 	stimeout := request.PathParameter("timeout")
 	timeout, err := strconv.ParseInt(string(stimeout), 10, 64)
-	if err != nil || id <= timeout {
+	if err != nil {
 		m.outJson(w, HttpErrorTimeoutInvalid, "timeout设置错误：" + err.Error(), nil)
 		return
 	}
