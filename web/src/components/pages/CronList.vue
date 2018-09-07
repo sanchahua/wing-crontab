@@ -145,19 +145,31 @@
           axios.get(uri).then(function (response) {
             if (2000 == response.data.code) {
               console.log(response.data.data);
-              // let i=0;
-              // for (i=0;i<response.data.data.length;i++) {
-              //   if (response.data.data[i].start_time>0) {
-              //     response.data.data[i].start_time = new Date(response.data.data[i].start_time*1000).Format("yyyy-MM-dd hh:mm:ss");
-              //   } else {
-              //     response.data.data[i].start_time = "不限";
-              //   }
-              //   if (response.data.data[i].end_time>0) {
-              //     response.data.data[i].end_time = new Date(response.data.data[i].end_time*1000).Format("yyyy-MM-dd hh:mm:ss");
-              //   } else {
-              //     response.data.data[i].end_time = "不限";
-              //   }
-              // }
+
+
+              let i=0;
+              let current = (new Date()).valueOf()
+
+              for (i = 0; i < response.data.data.length; i++) {
+                // if (response.data.data[i].start_time>0) {
+                //   response.data.data[i].start_time = new Date(response.data.data[i].start_time*1000).Format("yyyy-MM-dd hh:mm:ss");
+                // } else {
+                //   response.data.data[i].start_time = "不限";
+                // }
+                // if (response.data.data[i].end_time>0) {
+                //   response.data.data[i].end_time = new Date(response.data.data[i].end_time*1000).Format("yyyy-MM-dd hh:mm:ss");
+                // } else {
+                //   response.data.data[i].end_time = "不限";
+                // }
+                /*
+                let st = new Date(response.data.data[i].start_time.replace(/-/g, '/')).valueOf()
+                let et = new Date(response.data.data[i].start_time.replace(/-/g, '/')).valueOf()
+                if (current < st || current > et) {
+                  response.data.data[i].stop = true
+                }*/
+              }
+
+
               that.cron_list = response.data.data
             } else {
               alert(response.data.message);
