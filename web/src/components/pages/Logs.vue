@@ -1,5 +1,6 @@
 <template>
   <div>
+    <div><input type="text" v-model="logs.keyword"/><input type="button" value="搜索" v-on:click="search"/></div>
     <div>
       <label style="cursor: pointer;" v-on:click="searchFailLogs"><input v-model="logs.searchFail" type="checkbox"/>查看失败记录</label>
       <a v-on:click="prevPage" style="cursor: pointer;">上一页</a>
@@ -59,6 +60,7 @@ export default {
         total: 0,
         totalPage: 0,
         searchFail: false,
+        keyword: "",
       },
     }
   },
@@ -116,39 +118,23 @@ export default {
       if (that.logs.searchFail) {
         sf = "1"
       }
-      axios.get('/log/list/'+params.id+'/'+sf+'/'+that.logs.page+'/'+that.logs.limit+'?time='+(new Date()).valueOf()).then(function (response) {
+      axios.get('/log/list/'+params.id+'/'+sf+'/'+that.logs.page+'/'+that.logs.limit+'?time='+(new Date()).valueOf()+"&keyword="+that.logs.keyword).then(function (response) {
         if (2000 == response.data.code) {
           console.log(response);
-          // that.cron_info = response.data.data
-          // if (that.cron_info.start_time > 0) {
-          //   that.cron_info.start_time = new Date(that.cron_info.start_time*1000).Format("yyyy-MM-dd hh:mm:ss");
-          // } else {
-          //   that.cron_info.start_time = "";
-          // }
-          // if (that.cron_info.end_time > 0) {
-          //   that.cron_info.end_time = new Date(that.cron_info.end_time*1000).Format("yyyy-MM-dd hh:mm:ss");
-          // } else {
-          //   that.cron_info.end_time = "";
-          // }
-          /**
-           *
-           * data: [],
-           limit: 50,
-           page: 1,
-           total: 0,
-           totalPage: 0,*/
           that.logs.data = response.data.data.data
           that.logs.limit = response.data.data.limit
           that.logs.page = response.data.data.page
           that.logs.total = response.data.data.total
           that.logs.totalPage = response.data.data.totalPage
-
         } else {
           alert(response.data.message);
         }
       }).catch(function (error) {
 
       });
+    },
+    search: function() {
+      this.getLogs("search")
     },
     prevPage: function () {
       let pregPage = this.logs.page-1

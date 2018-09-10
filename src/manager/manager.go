@@ -44,7 +44,8 @@ func NewManager(db *sql.DB, listen string, logKeepDay int64) *CronManager {
 	}
 	m.httpServer = http.NewHttpServer(
 		listen,
-		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}", m.logs),
+		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}",
+			m.logs),
 		http.SetRoute("GET",  "/cron/list",        m.cronList),
 		http.SetRoute("GET",  "/cron/stop/{id}",   m.stopCron),
 		http.SetRoute("GET",  "/cron/start/{id}",  m.startCron),

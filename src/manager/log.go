@@ -6,6 +6,8 @@ import (
 	"math"
 	"time"
 	time2 "library/time"
+	"fmt"
+	"net/url"
 )
 
 // http://localhost:38001/log/list/{cron_id}/{page}/{limit}
@@ -16,11 +18,15 @@ func (m *CronManager) logs(request *restful.Request, w *restful.Response) {
 	spage   := request.PathParameter("page")
 	slimit  := request.PathParameter("limit")
 
+	keyword := request.QueryParameter("keyword")
+	keyword, _ = url.QueryUnescape(keyword)
+	fmt.Println("keyword", keyword)
+
 	cronId, _ := strconv.ParseInt(scronId, 10, 64)
 	page, _   := strconv.ParseInt(spage, 10, 64)
 	limit, _  := strconv.ParseInt(slimit, 10, 64)
 
-	data, total, page, limit, _ := m.logModel.GetList(cronId, searchFail == "1", page, limit)
+	data, total, page, limit, _ := m.logModel.GetList(cronId, searchFail == "1", page, limit, keyword)
 
 	totalPage := int64(math.Ceil(float64(total/limit)))
 	nextPage := page+1

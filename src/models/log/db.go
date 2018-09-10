@@ -7,6 +7,7 @@ import (
 	"strings"
 	"fmt"
 	"errors"
+	"strconv"
 )
 
 type DbLog struct {
@@ -29,7 +30,7 @@ func newDbLog(handler *sql.DB) *DbLog {
 // int类型的值写0表示默认值
 // 字符串类型的写为空表示默认值
 // 返回值为查询结果集合、总数量、发生的错误
-func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64) ([]*LogEntity, int64, int64, int64, error) {
+func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64, keyword string) ([]*LogEntity, int64, int64, int64, error) {
 	sqlStr  := "SELECT " + FIELDS + " FROM `log` where 1"
 	sqlStr2 := "select count(*) as num  from log where 1 "
 	var params  []interface{}
@@ -44,6 +45,36 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64)
 		sqlStr  += " and `state`=\"fail\" "
 		sqlStr2 += " and `state`=\"fail\" "
 	}
+	keyword = strings.Trim(keyword, " ")
+	if keyword != "" {
+		ik, _ := strconv.ParseInt(keyword, 10, 64)
+		sqlStr += " and ("
+		sqlStr2 += " and ("
+		if ik > 0 {
+			params  = append(params, ik)
+			params  = append(params, ik)
+
+			params2 = append(params2, ik)
+			params2 = append(params2, ik)
+
+			sqlStr  += " `cron_id`=? or `process_id`=? or "
+			sqlStr2 += " `cron_id`=? or `process_id`=? or "
+		}
+
+		sqlStr  +=" `state`=? or `output` like ? or `remark` like ?"
+		sqlStr2 +=" `state`=? or `output` like ? or `remark` like ?"
+		params  = append(params, keyword)
+		params  = append(params, "%"+keyword+"%")
+		params  = append(params, "%"+keyword+"%")
+
+		params2 = append(params2, keyword)
+		params2 = append(params2, "%"+keyword+"%")
+		params2 = append(params2, "%"+keyword+"%")
+
+		sqlStr += " )"
+		sqlStr2 += " )"
+	}
+
 	sqlStr += " order by id desc limit ?,?"
 	if page < 1 {
 		page = 1
