@@ -64,11 +64,11 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 		sqlStr2 +=" `output` like ? "
 		//params  = append(params, keyword)
 		params  = append(params, "%"+keyword+"%")
-		params  = append(params, "%"+keyword+"%")
+		//params  = append(params, "%"+keyword+"%")
 
 		//params2 = append(params2, keyword)
 		params2 = append(params2, "%"+keyword+"%")
-		params2 = append(params2, "%"+keyword+"%")
+		//params2 = append(params2, "%"+keyword+"%")
 
 		sqlStr += " )"
 		sqlStr2 += " )"
