@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div><input type="text" v-model="logs.keyword"/><input type="button" value="搜索" v-on:click="search"/></div>
+    <!--<div><input type="text" v-model="logs.keyword"/><input type="button" value="搜索" v-on:click="search"/></div>-->
     <div>
       <label style="cursor: pointer;" v-on:click="searchFailLogs"><input v-model="logs.searchFail" type="checkbox"/>查看失败记录</label>
       <a v-on:click="prevPage" style="cursor: pointer;">上一页</a>
