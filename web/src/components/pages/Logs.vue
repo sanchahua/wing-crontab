@@ -118,7 +118,7 @@ export default {
       if (that.logs.searchFail) {
         sf = "1"
       }
-      axios.get('/log/list/'+params.id+'/'+sf+'/'+that.logs.page+'/'+that.logs.limit+'?time='+(new Date()).valueOf()+"&keyword="+that.logs.keyword).then(function (response) {
+      axios.get('/log/list/'+params.id+'/'+sf+'/'+that.logs.page+'/'+that.logs.limit+'?time='+(new Date()).valueOf()+"&keyword="+encodeURIComponent(that.logs.keyword)).then(function (response) {
         if (2000 == response.data.code) {
           console.log(response);
           that.logs.data = response.data.data.data

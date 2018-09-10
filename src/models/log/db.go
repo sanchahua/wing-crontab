@@ -60,8 +60,8 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 		//	sqlStr2 += " `cron_id`=? or `process_id`=? or "
 		//}
 
-		sqlStr  +=" `output` like ? or `remark` like ?"
-		sqlStr2 +=" `output` like ? or `remark` like ?"
+		sqlStr  +=" `output` like ? "
+		sqlStr2 +=" `output` like ? "
 		//params  = append(params, keyword)
 		params  = append(params, "%"+keyword+"%")
 		params  = append(params, "%"+keyword+"%")
