@@ -7,7 +7,6 @@ import (
 	"strings"
 	"fmt"
 	"errors"
-	"strconv"
 )
 
 type DbLog struct {
@@ -47,27 +46,27 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 	}
 	keyword = strings.Trim(keyword, " ")
 	if keyword != "" {
-		ik, _ := strconv.ParseInt(keyword, 10, 64)
+		//ik, _ := strconv.ParseInt(keyword, 10, 64)
 		sqlStr += " and ("
 		sqlStr2 += " and ("
-		if ik > 0 {
-			params  = append(params, ik)
-			params  = append(params, ik)
+		//if ik > 0 {
+		//	params  = append(params, ik)
+		//	params  = append(params, ik)
+		//
+		//	params2 = append(params2, ik)
+		//	params2 = append(params2, ik)
+		//
+		//	sqlStr  += " `cron_id`=? or `process_id`=? or "
+		//	sqlStr2 += " `cron_id`=? or `process_id`=? or "
+		//}
 
-			params2 = append(params2, ik)
-			params2 = append(params2, ik)
-
-			sqlStr  += " `cron_id`=? or `process_id`=? or "
-			sqlStr2 += " `cron_id`=? or `process_id`=? or "
-		}
-
-		sqlStr  +=" `state`=? or `output` like ? or `remark` like ?"
-		sqlStr2 +=" `state`=? or `output` like ? or `remark` like ?"
-		params  = append(params, keyword)
+		sqlStr  +=" `output` like ? or `remark` like ?"
+		sqlStr2 +=" `output` like ? or `remark` like ?"
+		//params  = append(params, keyword)
 		params  = append(params, "%"+keyword+"%")
 		params  = append(params, "%"+keyword+"%")
 
-		params2 = append(params2, keyword)
+		//params2 = append(params2, keyword)
 		params2 = append(params2, "%"+keyword+"%")
 		params2 = append(params2, "%"+keyword+"%")
 
