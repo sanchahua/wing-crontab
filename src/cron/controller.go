@@ -16,7 +16,7 @@ const (
 	IsRunning = 1
 	StateStart = "start"
 	StateSuccess = "success"
-	StateFail = "fail"
+	 StateFail = "fail"
 )
 type Controller struct {
 	cron     *cronV2.Cron
@@ -209,8 +209,10 @@ func (c *Controller) onRun(cronId int64, processId int, state, output string, us
 	addFailNum := int64(0)
 	if state == StateSuccess {
 		addSuccessNum = 1
-	} else {
+	} else if state == StateFail || state == StateStart+"-"+StateFail {
 		addFailNum = 1
 	}
-	c.statisticsModel.Add(cronId, time.Now().Format("2006-01-02"), addSuccessNum, addFailNum)
+	if addSuccessNum > 0 || addFailNum > 0 {
+		c.statisticsModel.Add(cronId, time.Now().Format("2006-01-02"), addSuccessNum, addFailNum)
+	}
 }
