@@ -12,6 +12,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "database/sql/driver"
 	"flag"
+	service2 "service"
 )
 
 func main() {
@@ -65,6 +66,16 @@ func main() {
 		defer handler.Close()
 	}
 	fmt.Println("start xcrontab")
+
+	service := service2.NewService(handler, *listen, []string{"hello"}, func(runTimeId int64) {
+
+	}, func(i int64) {
+		log.Warnf("#####%v is down#####", i)
+	}, func(i int64) {
+		log.Infof("#####%v is up#####", i)
+	})
+	service.Register()
+
 	m := manager.NewManager(handler, *listen, appConfig.LogKeepDay)
 	m.Start()
 	defer m.Stop()
