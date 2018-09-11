@@ -164,7 +164,7 @@ func (row *CronEntity) runCommand() {
 	state := StateStart
 	output := ""
 	if err != nil {
-		state = StateStart+"-"+StateFail
+		state = StateFail//StateStart+"-"+StateFail
 		output = err.Error()
 	}
 
