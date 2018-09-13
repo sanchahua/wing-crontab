@@ -6,8 +6,8 @@ import (
 	"math"
 	"time"
 	time2 "library/time"
-	"fmt"
 	"net/url"
+	"strings"
 )
 
 // http://localhost:38001/log/list/{cron_id}/{page}/{limit}
@@ -18,15 +18,54 @@ func (m *CronManager) logs(request *restful.Request, w *restful.Response) {
 	spage   := request.PathParameter("page")
 	slimit  := request.PathParameter("limit")
 
-	keyword := request.QueryParameter("keyword")
-	keyword, _ = url.QueryUnescape(keyword)
-	fmt.Println("keyword", keyword)
+
+	startTime := request.QueryParameter("start_time")
+	startTime, _ = url.QueryUnescape(startTime)
+	endTime := request.QueryParameter("end_time")
+	endTime, _ = url.QueryUnescape(endTime)
+	output := request.QueryParameter("output")
+	output, _ = url.QueryUnescape(output)
+
+	sSearchResult := request.QueryParameter("search_result")
+	sortBy := request.QueryParameter("sort_by")
+	sortType := request.QueryParameter("sort_type")
 
 	cronId, _ := strconv.ParseInt(scronId, 10, 64)
 	page, _   := strconv.ParseInt(spage, 10, 64)
 	limit, _  := strconv.ParseInt(slimit, 10, 64)
 
-	data, total, page, limit, _ := m.logModel.GetList(cronId, searchFail == "1", page, limit, keyword)
+	sort := " id desc "
+	tSort := " "
+	if sortBy == "id" {
+		tSort += "id"
+	} else if sortBy == "use_time" {
+		tSort += "use_time"
+	} else if sortBy == "start_time" {
+		tSort += "start_time"
+	}
+	if strings.Trim(tSort, " ") != "" {
+		tSort += " "
+		if sortType == "asc" {
+			tSort+="asc"
+		} else if sortType == "desc" {
+			tSort+="desc"
+		} else {
+			tSort+="desc"
+		}
+		sort = tSort
+	}
+
+
+	data, total, page, limit, _ := m.logModel.GetList(
+		cronId,
+		searchFail == "1",
+		page,
+		limit,
+		sSearchResult == "1",
+		startTime, endTime,
+		output,
+		sort,
+	)
 
 	totalPage := int64(math.Ceil(float64(total/limit)))
 	nextPage := page+1

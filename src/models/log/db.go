@@ -29,7 +29,7 @@ func newDbLog(handler *sql.DB) *DbLog {
 // int类型的值写0表示默认值
 // 字符串类型的写为空表示默认值
 // 返回值为查询结果集合、总数量、发生的错误
-func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64, keyword string) ([]*LogEntity, int64, int64, int64, error) {
+func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64, searchResult bool, startTime, endTime, searchOutput, sort string) ([]*LogEntity, int64, int64, int64, error) {
 	sqlStr  := "SELECT " + FIELDS + " FROM `log` where 1"
 	sqlStr2 := "select count(*) as num  from log where 1 "
 	var params  []interface{}
@@ -44,37 +44,34 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 		sqlStr  += " and `state`=\"fail\" "
 		sqlStr2 += " and `state`=\"fail\" "
 	}
-	keyword = strings.Trim(keyword, " ")
-	if keyword != "" {
-		//ik, _ := strconv.ParseInt(keyword, 10, 64)
-		sqlStr += " and ("
-		sqlStr2 += " and ("
-		//if ik > 0 {
-		//	params  = append(params, ik)
-		//	params  = append(params, ik)
-		//
-		//	params2 = append(params2, ik)
-		//	params2 = append(params2, ik)
-		//
-		//	sqlStr  += " `cron_id`=? or `process_id`=? or "
-		//	sqlStr2 += " `cron_id`=? or `process_id`=? or "
-		//}
-
-		sqlStr  +=" `output` like ? "
-		sqlStr2 +=" `output` like ? "
-		//params  = append(params, keyword)
-		params  = append(params, "%"+keyword+"%")
-		//params  = append(params, "%"+keyword+"%")
-
-		//params2 = append(params2, keyword)
-		params2 = append(params2, "%"+keyword+"%")
-		//params2 = append(params2, "%"+keyword+"%")
-
-		sqlStr += " )"
-		sqlStr2 += " )"
+	searchOutput = strings.Trim(searchOutput, " ")
+	if searchOutput != "" {
+		sqlStr  += " and `output` like ?"
+		sqlStr2 += " and `output` like ?"
+		params  = append(params, "%"+searchOutput+"%")
+		params2 = append(params2, "%"+searchOutput+"%")
 	}
 
-	sqlStr += " order by id desc limit ?,?"
+	if searchResult {
+		sqlStr += " and use_time>0"
+		sqlStr2 += " and use_time>0"
+	}
+
+	if startTime != "" {
+		sqlStr += " and start_time>=?"
+		sqlStr2 += " and start_time>=?"
+		params  = append(params, startTime)
+		params2 = append(params2, startTime)
+	}
+
+	if endTime != "" {
+		sqlStr += " and start_time<=?"
+		sqlStr2 += " and start_time<=?"
+		params  = append(params, endTime)
+		params2 = append(params2, endTime)
+	}
+
+	sqlStr += " order by "+sort+" limit ?,?"
 	if page < 1 {
 		page = 1
 	}
@@ -194,7 +191,7 @@ func (db *DbLog) Add(cronId int64, processId int, state string, output string, u
 		log.Errorf("Add res.LastInsertId fail, sql=[%v], error=[%v]", debugSql, err)
 		return 0, err
 	}
-	log.Tracef("Add success, sql=[%v], id=[%+v]", debugSql, id)
+	//log.Tracef("Add success, sql=[%v], id=[%+v]", debugSql, id)
 	return id, nil
 }
 
@@ -247,7 +244,7 @@ func (db *DbLog) DeleteByCronId(cronId int64) error {
 }
 
 func (db *DbLog) DeleteByStartTime(startTime string) error {
-	log.Tracef("DeleteByStartTime start: %v", startTime)
+	//log.Tracef("DeleteByStartTime start: %v", startTime)
 	if startTime == "" {
 		return ErrorStartTimeEmpty
 	}
@@ -257,7 +254,7 @@ func (db *DbLog) DeleteByStartTime(startTime string) error {
 		log.Errorf("DeleteByStartTime db.handler.Exec fail, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
 		return err
 	}
-	num, err := res.RowsAffected()
+	_, err = res.RowsAffected()
 	if err != nil {
 		log.Errorf("DeleteByStartTime res.RowsAffected fail, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
 		return  err
@@ -266,6 +263,6 @@ func (db *DbLog) DeleteByStartTime(startTime string) error {
 		//log.Errorf("DeleteByStartTime res.RowsAffected is 0, sql=[%v], startTime=[%v], error=[%+v]", sqlStr, startTime, err)
 		//return nil//ErrNoRowsAffected
 	//}
-	log.Tracef("DeleteByStartTime success, sql=[%v], startTime=[%v], num=[%v]", sqlStr, startTime, num)
+	//log.Tracef("DeleteByStartTime success, sql=[%v], startTime=[%v], num=[%v]", sqlStr, startTime, num)
 	return nil
 }

@@ -12,15 +12,32 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "database/sql/driver"
 	"flag"
+	_ "net/http/pprof"
+	"net/http"
 )
 
 func main() {
 	// -l "0.0.0.0:38001"
 	// -h
-
 	listen := flag.String("l", "0.0.0.0:38001", "restful http server listen")
+	pl     := flag.String("pl", "127.0.0.1:7772", "restful http server listen")
 	help   := flag.Bool("h", false, "show help info")
 	flag.Parse()
+
+	go func() {
+		//http://localhost:8880/debug/pprof/  内存性能分析工具
+		//go tool pprof logDemo.exe --text a.prof
+		//go tool pprof your-executable-name profile-filename
+		//go tool pprof your-executable-name http://localhost:8880/debug/pprof/heap
+		//go tool pprof wing-binlog-go http://localhost:8880/debug/pprof/heap
+		//https://lrita.github.io/2017/05/26/golang-memory-pprof/
+		//然后执行 text
+		//go tool pprof -alloc_space http://127.0.0.1:8880/debug/pprof/heap
+		//top20 -cum
+		//下载文件 http://localhost:8880/debug/pprof/profile
+		//分析 go tool pprof -web /Users/yuyi/Downloads/profile
+		http.ListenAndServe(*pl, nil)
+	}()
 
 	if *help {
 		fmt.Fprintf(os.Stderr, "./xcrontab -l 0.0.0.0:38001  [restful http server listen]\r\n")
@@ -59,9 +76,9 @@ func main() {
 			return
 		}
 		//设置最大空闲连接数
-		handler.SetMaxIdleConns(4)
+		handler.SetMaxIdleConns(8)
 		//设置最大允许打开的连接
-		handler.SetMaxOpenConns(4)
+		handler.SetMaxOpenConns(32)
 		defer handler.Close()
 	}
 	fmt.Println("start xcrontab")

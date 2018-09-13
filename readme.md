@@ -1,5 +1,11 @@
+在这个定时任务的备注里标明下如果要迁移，必须可以访问 admin.live.xunlei.com ，
+必须在admin.live.xunlei.com域名下soap.php 里加上访问机器的内网ip
 
-main函数：src/xcrontab/main.go
+## 已知问题
+1、修改系统时间会造成定时任务管理系统无法正常工作，需要重启
+
+
+## main函数：src/xcrontab/main.go
 
 go test 相关指令支持，将GOPATH指向项目的根目录和vendor目录，注意一下目录换成自己的真实项目路径
 `export GOPATH={project path}:{project path}/vendor`

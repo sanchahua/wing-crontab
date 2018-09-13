@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	time2 "library/time"
 	"sync"
-	"encoding/json"
 	"bytes"
 	"context"
 	"errors"
@@ -84,7 +83,7 @@ func (row *CronEntity) Run() {
 
 	if row.filter.Stop() {
 		// 外部注入，停止执行定时任务支持
-		log.Tracef("%+v was stop", row.Id)
+		//log.Tracef("%+v was stop", row.Id)
 		return
 	}
 
@@ -101,12 +100,12 @@ func (row *CronEntity) Run() {
 	}
 }
 
-func (row *CronEntity) toJson() (string,error) {
-	row.lock.RLock()
-	d, e := json.Marshal(row)
-	row.lock.RUnlock()
-	return string(d), e
-}
+//func (row *CronEntity) toJson() (string,error) {
+//	row.lock.RLock()
+//	d, e := json.Marshal(row)
+//	row.lock.RUnlock()
+//	return string(d), e
+//}
 
 func (row *CronEntity) Clone() *CronEntity {
 	row.lock.RLock()
@@ -130,15 +129,15 @@ func (row *CronEntity) Clone() *CronEntity {
 func (row *CronEntity) runCommand() {
 
 	row.lock.Lock()
-	processNum := atomic.AddInt64(&row.ProcessNum, 1)
+	atomic.AddInt64(&row.ProcessNum, 1)
 	row.lock.Unlock()
 
 	var cmd *exec.Cmd
 	var err error
-	rid := atomic.AddInt64(&row.runid, 1)
+	//rid := atomic.AddInt64(&row.runid, 1)
 
 	startTime := time2.GetDayTime()
-	log.Tracef( "##start run: %v, %v=>[%+v,%v]", rid, processNum, row.Id, row.Command)
+	//log.Tracef( "##start run: %v, %v=>[%+v,%v]", rid, processNum, row.Id, row.Command)
 	start := time.Now().UnixNano()/1000000
 	cmd = exec.Command("bash", "-c", row.Command)
 	var b bytes.Buffer
@@ -180,7 +179,7 @@ func (row *CronEntity) runCommand() {
 		res = append(res, []byte("  error: " + err.Error())...)
 		log.Errorf("runCommand fail, id=[%v], command=[%v], error=[%+v]", row.Id, row.Command, err)
 	}
-	log.Tracef( "##%v run end: %v, %v=>[%+v,%v]", rid, processNum, row.Id, row.Command, processId)
+	//log.Tracef( "##%v run end: %v, %v=>[%+v,%v]", rid, processNum, row.Id, row.Command, processId)
 	atomic.AddInt64(&row.ProcessNum, -1)
 
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
