@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 	"gitlab.xunlei.cn/xllive/common/log"
+	"os"
 )
 
 type Service struct {
@@ -18,6 +19,7 @@ type Service struct {
 	onServiceUp   func(int64)
 	status int // 1 ok 0 oofline
 	services map[int64]*Service
+	Name string
 }
 
 type OnRegisterFunc func(runTimeId int64)
@@ -30,10 +32,16 @@ func NewService(
 	onServiceDown func(int64), // 服务下线时回调
 	onServiceUp func(int64),   // 服务恢复时回调
 ) *Service {
-	s := &Service{
+	name := "xcrontab"
+	n, _ := os.Hostname()
+	if "" != n {
+		name = n
+	}
+ 	s := &Service{
 		db:            db,
 		onRegister:    onRegister,
 		Address:       Address,
+		Name:          name,
 		Tags:          Tags,
 		onServiceDown: onServiceDown,
 		onServiceUp:   onServiceUp,
@@ -48,7 +56,7 @@ func NewService(
 
 func (s *Service) init() {
 	row := s.db.QueryRow("SELECT `id`, `updated` FROM `services` WHERE `address`=?",
-		s.Address)
+		s.Name+"-"+s.Address)
 	var id int64
 	var updated int64
 	err := row.Scan(&id, &updated)
@@ -56,8 +64,6 @@ func (s *Service) init() {
 		s.ID = id
 		s.Updated = updated
 	}
-
-
 	rows, err := s.db.Query("SELECT `id`, `address`, `tags`, `updated` FROM `services` WHERE 1")
 	if err == nil {
 		for rows.Next() {
@@ -81,7 +87,7 @@ func (s *Service) Register() (int64, error) {
 	}
 	jsonTags, _ := json.Marshal(s.Tags)
 	res, err := s.db.Exec("INSERT INTO `services`(`address`, `tags`, `updated`) VALUES (?,?,?)",
-		s.Address, string(jsonTags), time.Now().Unix())
+		s.Name+"-"+s.Address, string(jsonTags), time.Now().Unix())
 	if err != nil {
 		log.Errorf("Register s.db.Exec fail, error=[%v]", err)
 		return 0, err

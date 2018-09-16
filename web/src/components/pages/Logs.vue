@@ -1,13 +1,29 @@
 <template>
   <div>
+    <!--<div><input type="text" v-model="logs.keyword"/><input type="button" value="搜索" v-on:click="search"/></div>-->
     <div>
-      <label style="cursor: pointer;" v-on:click="searchFailLogs"><input v-model="logs.searchFail" type="checkbox"/>查看失败记录</label>
+      开始时间 <input type="text" id="start-time" v-bind:value="logs.start_time">
+      - 结束时间 <input type="text" id="end-time" v-bind:value="logs.end_time">
+    </div>
+    <div>
+      定时任务id<input type="text" v-model="logs.cron_id"/> 搜索输出<input type="text" v-model="logs.output"/><input type="button" value="搜索" v-on:click="search"/>
+    </div>
+    <div>
+      <label style="cursor: pointer;" v-on:click="searchFailLogs">
+        <input v-model="logs.searchFail" type="checkbox"/>查看失败记录
+      </label>
+      <label style="cursor: pointer;" v-on:click="searchResult">
+        <input v-model="logs.searchResult" checked type="checkbox"/>只看结果
+      </label>
+      <label style="cursor: pointer;" v-on:click="hideRemarkAndOutput">
+        <input checked type="checkbox"/>隐藏备注和输出
+      </label>
       <a v-on:click="prevPage" style="cursor: pointer;">上一页</a>
       <label>{{logs.page}}/{{logs.totalPage}}</label>
       <a v-on:click="nextPage" style="cursor: pointer;">下一页</a>
       自动刷新 <select v-on:change="refresh">
-      <option value="0">不刷新</option>
-      <option value="1" selected>1s</option>
+      <option value="0" selected>不刷新</option>
+      <option value="1">1s</option>
       <option value="5">5s</option>
       <option value="10">10s</option>
       <option value="30">30s</option>
@@ -16,14 +32,14 @@
     </div>
     <table class="table table-bordered">
       <thead> <tr>
-        <th>#Id</th>
+        <th style="cursor: pointer;" v-on:click="sortbyid">#Id<img class="sort-tag" src="../../../static/images/sort.jpeg"/></th>
         <th>定时任务Id</th>
         <th>进程Id</th>
-        <th>开始执行时间</th>
+        <th style="cursor: pointer;" v-on:click="sortbystarttime">开始执行时间<img class="sort-tag" src="../../../static/images/sort.jpeg"/></th>
         <th>结果</th>
-        <th>耗时(毫秒)</th>
-        <th>备注</th>
-        <th>输出</th>
+        <th style="cursor: pointer;" v-on:click="sortbyusetime">耗时(毫秒)<img class="sort-tag" src="../../../static/images/sort.jpeg"/></th>
+        <th class="ro-text" style=" display: none;">备注</th>
+        <th class="ro-text" style=" display: none;">输出</th>
         <th>操作</th>
       </tr> </thead>
       <tbody>
@@ -34,8 +50,8 @@
         <td>{{item.start_time}}</td>
         <td>{{item.state}}</td>
         <td>{{item.use_time}}</td>
-        <td style="word-break: break-all;">{{item.remark}}</td>
-      <td style="word-break: break-all;">{{item.output}}</td>
+        <td class="ro-text" style="word-break: break-all; display: none;">{{item.remark}}</td>
+        <td class="ro-text" style="word-break: break-all; display: none;">{{item.output}}</td>
         <td>
           <a class="btn" v-bind:item-process_id="item.process_id" v-bind:item-id="item.cron_id" v-on:click="kill">终止进程</a>
           <a class="btn" v-bind:item-id="item.id" v-on:click="detail">详情</a>
@@ -59,12 +75,50 @@ export default {
         total: 0,
         totalPage: 0,
         searchFail: false,
+        searchResult: true,
+       // keyword: "",
+        sort_by: "id",
+        sort_type: "desc",
+        start_time: "",
+        end_time: "",
+        cron_id: "",
+        output: "",
       },
     }
   },
   mounted: function() {
     let oldhref = window.location.href;
     let that = this
+
+    //////////
+    let h = window.location.hash;
+    let arr = h.split("?", -1)
+    let params = {}
+    if (arr.length > 1) {
+      let pk = arr[1].split("&")
+      let i = 0;
+      let len = pk.length
+      for (i = 0; i < len; i++) {
+        let t = pk[i].split("=")
+        if (t.length > 1) {
+          params[t[0]] = t[1]
+        }
+      }
+      console.log(params)
+    }
+    if (typeof params.id == "undefined") {
+      params.id = 0;
+    }
+    if (params.id > 0) {
+      that.logs.cron_id = params.id
+    }
+
+    // window.setInterval(function () {
+    //   console.log(that.logs.cron_id)
+    // }, 1000)
+
+    ////////////////////
+
     // if (!intv) {
     //   intv = true
     //   window.setInterval(function () {
@@ -75,9 +129,49 @@ export default {
     //   }, 5000);
     // }
     that.getLogs("mounted")
-    re = window.setInterval(function () {
-      that.getLogs("refresh setInterval")
-    }, 1000)
+    // re = window.setInterval(function () {
+    //   that.getLogs("refresh setInterval")
+    // }, 1000)
+
+    jeDate("#start-time",{
+      festival:true,
+      minDate:"1900-01-01",              //最小日期
+      maxDate:"2099-12-31",              //最大日期
+      method:{
+        choose:function (params) {
+          // alert(1)
+        }
+      },
+      format: "YYYY-MM-DD hh:mm:ss",
+      toggle: function(obj){
+        // console.log(obj.val);      //得到日期生成的值，如：2017-06-16
+        // alert(obj.val)
+      },
+      donefun: function(obj) {
+        console.log(obj)
+        that.logs.start_time = obj.val
+      }
+    });
+    jeDate("#end-time",{
+      festival:true,
+      minDate:"1900-01-01",              //最小日期
+      maxDate:"2099-12-31",              //最大日期
+      method:{
+        choose:function (params) {
+          // console.log(params)
+          // alert(1)
+        }
+      },
+      format: "YYYY-MM-DD hh:mm:ss",
+      toggle: function(obj){
+        // console.log(obj.val);      //得到日期生成的值，如：2017-06-16
+        // alert(obj.val)
+      },
+      donefun: function(obj) {
+        console.log(obj)
+        that.logs.end_time = obj.val
+      }
+    });
   },
   methods:{
     searchFailLogs: function(){
@@ -89,66 +183,111 @@ export default {
         that.getLogs("setTimeout")
       }, 20)
     },
+    searchResult: function() {
+      this.logs.page=1
+      let that = this
+      console.log(this.logs.searchResult)
+      window.setTimeout(function () {
+        console.log(that.logs.searchResult)
+        that.getLogs("setTimeout")
+      }, 20)
+    },
+    sortbyid: function(event) {
+      this.logs.page=1
+      this.logs.sort_by = "id"// $(event.target).attr("data-sort")
+      if (this.logs.sort_type == "asc") {
+        this.logs.sort_type = "desc"
+      } else {
+        this.logs.sort_type = "asc"
+      }
+      this.getLogs("sort")
+    },
+    sortbyusetime: function(event) {
+      this.logs.page=1
+      this.logs.sort_by = "use_time"// $(event.target).attr("data-sort")
+      if (this.logs.sort_type == "asc") {
+        this.logs.sort_type = "desc"
+      } else {
+        this.logs.sort_type = "asc"
+      }
+      this.getLogs("sort")
+    },
+    sortbystarttime: function(){
+      this.logs.page=1
+      this.logs.sort_by = "start_time"// $(event.target).attr("data-sort")
+      if (this.logs.sort_type == "asc") {
+        this.logs.sort_type = "desc"
+      } else {
+        this.logs.sort_type = "asc"
+      }
+      this.getLogs("sort")
+    },
     getLogs: function (callfrom) {
       console.log(callfrom)
-      // /log/list/0/0/0
-      let h = window.location.hash;
-      let arr = h.split("?", -1)
-      console.log(arr)
       let that = this;
-      let params = {}
-      if (arr.length > 1) {
-        let pk = arr[1].split("&")
-        let i = 0;
-        let len = pk.length
-        for (i = 0; i < len; i++) {
-          let t = pk[i].split("=")
-          if (t.length > 1) {
-            params[t[0]] = t[1]
-          }
-        }
-        console.log(params)
-      }
-      if (typeof params.id == "undefined") {
-        params.id = 0;
-      }
+      // /log/list/0/0/0
+      // let h = window.location.hash;
+      // let arr = h.split("?", -1)
+      // console.log(arr)
+      //
+      // let params = {}
+      // if (arr.length > 1) {
+      //   let pk = arr[1].split("&")
+      //   let i = 0;
+      //   let len = pk.length
+      //   for (i = 0; i < len; i++) {
+      //     let t = pk[i].split("=")
+      //     if (t.length > 1) {
+      //       params[t[0]] = t[1]
+      //     }
+      //   }
+      //   console.log(params)
+      // }
+      // if (typeof params.id == "undefined") {
+      //   params.id = 0;
+      // }
       let sf = "0"
       if (that.logs.searchFail) {
         sf = "1"
       }
-      axios.get('/log/list/'+params.id+'/'+sf+'/'+that.logs.page+'/'+that.logs.limit+'?time='+(new Date()).valueOf()).then(function (response) {
+      let searchResult = 1
+      console.log(that.logs.searchResult)
+      if (!that.logs.searchResult) {
+        searchResult = 0
+      }
+      console.log(that.logs.cron_id)
+
+      let scronid  = that.logs.cron_id
+      if (scronid == "") {
+        scronid = 0
+      }
+
+      axios.get('/log/list/'+scronid+'/'+sf+'/'+that.logs.page+'/'+that.logs.limit+
+        '?time='+(new Date()).valueOf()+
+        // "&keyword="+encodeURIComponent(that.logs.keyword) +
+        "&search_result="+searchResult+
+        "&sort_by=" + that.logs.sort_by+
+        "&sort_type=" + that.logs.sort_type+
+        "&start_time=" + encodeURIComponent(that.logs.start_time) +
+        "&end_time=" + encodeURIComponent(that.logs.end_time) +
+        "&output=" + encodeURIComponent(that.logs.output)
+      ).then(function (response) {
         if (2000 == response.data.code) {
           console.log(response);
-          // that.cron_info = response.data.data
-          // if (that.cron_info.start_time > 0) {
-          //   that.cron_info.start_time = new Date(that.cron_info.start_time*1000).Format("yyyy-MM-dd hh:mm:ss");
-          // } else {
-          //   that.cron_info.start_time = "";
-          // }
-          // if (that.cron_info.end_time > 0) {
-          //   that.cron_info.end_time = new Date(that.cron_info.end_time*1000).Format("yyyy-MM-dd hh:mm:ss");
-          // } else {
-          //   that.cron_info.end_time = "";
-          // }
-          /**
-           *
-           * data: [],
-           limit: 50,
-           page: 1,
-           total: 0,
-           totalPage: 0,*/
           that.logs.data = response.data.data.data
           that.logs.limit = response.data.data.limit
           that.logs.page = response.data.data.page
           that.logs.total = response.data.data.total
           that.logs.totalPage = response.data.data.totalPage
-
         } else {
           alert(response.data.message);
         }
       }).catch(function (error) {
 
       });
+    },
+    search: function() {
+      this.getLogs("search")
     },
     prevPage: function () {
       let pregPage = this.logs.page-1
@@ -198,7 +337,19 @@ export default {
     detail: function (event) {
       let id = $(event.target).attr("item-id");
       window.location.href="/ui/#/log_detail?id="+id;
+    },
+    hideRemarkAndOutput: function (event) {
+      if ($(event.target).prop("checked")) {
+        $(".ro-text").hide()
+      } else {
+        $(".ro-text").show()
+      }
     }
   }
 }
 </script>
+<style>
+  .sort-tag{
+    width: 20px;
+  }
+</style>
