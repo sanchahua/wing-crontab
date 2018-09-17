@@ -227,8 +227,11 @@ func (c *Controller) onRun(cronId int64, processId int, state, output string, us
 	if err != nil {
 		log.Errorf("onRun c.logModel.Add fail, cron_id=[%v], output=[%v], usetime=[%v], remark=[%v], startTime=[%v], error=[%v]", cronId, output, useTime, remark, startTime, err)
 	}
+	// onRun 在start状态时会被调用一遍
+	// 运行结束的时候也会被运行一遍
+	// 所以下面判断真正有写入 +1 > 0 时才写入数据库
 	addSuccessNum := int64(0)
-	addFailNum := int64(0)
+	addFailNum    := int64(0)
 	if state == StateSuccess {
 		addSuccessNum = 1
 	} else if state == StateFail || state == StateStart+"-"+StateFail {
