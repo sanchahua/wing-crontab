@@ -16,14 +16,18 @@ import (
 // 配置文件管理相关实现
 // 这里主要使用到了mysql的配置
 type AppConfig struct {
-	User string       `toml:"user"`
-	Password string   `toml:"password"`
-	Host string       `toml:"host"`
-	Port int          `toml:"port"`
-	Database string   `toml:"database"`
-	Charset string    `toml:"charset"`
+	User          string `toml:"user"`
+	Password      string `toml:"password"`
+	Host          string `toml:"host"`
+	Port          int    `toml:"port"`
+	Database      string `toml:"database"`
+	Charset       string `toml:"charset"`
 	// log表日志最长保留天数
-	LogKeepDay int64  `toml:"log_keep_day"`
+	LogKeepDay    int64  `toml:"log_keep_day"`
+	// Redis 配置
+	RedisAddress  string `toml:"redis_address"`
+	RedisPassword string `toml:"redis_password"`
+	LeaderKey     string `toml:"leader_key"`
 }
 
 // 读取mysql配置

@@ -15,6 +15,7 @@ import (
 	service2 "service"
 	_ "net/http/pprof"
 	"net/http"
+	"github.com/go-redis/redis"
 )
 
 func main() {
@@ -84,15 +85,27 @@ func main() {
 	}
 	fmt.Println("start xcrontab")
 
-	service := service2.NewService(handler, *listen, []string{"hello"}, func(runTimeId int64) {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     appConfig.RedisAddress,
+		Password: appConfig.RedisPassword, // no password set
+		DB:       0,  // use default DB
+	})
+
+	_, err = redisClient.Ping().Result()
+	if err != nil {
+		log.Errorf("%v", err)
+		panic(0);
+	}
+
+	service2.NewService(handler, *listen, appConfig.LeaderKey, redisClient, func(runTimeId int64) {
 
 	}, func(i int64) {
 		log.Warnf("#####%v is down#####", i)
 	}, func(i int64) {
 		log.Infof("#####%v is up#####", i)
+	}, func(id int64) {
+		
 	})
-	service.Register()
-
 	m := manager.NewManager(handler, *listen, appConfig.LogKeepDay)
 	m.Start()
 	defer m.Stop()

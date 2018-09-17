@@ -39,26 +39,26 @@ func NewController(logModel *modelLog.DbLog, statisticsModel *statistics.Statist
 		cache:    nil,//make([]*CronEntity, 0),
 		statisticsModel: statisticsModel,
 	}
-	//go c.checkDateTime()
+	go c.checkDateTime()
 	return c
 }
 
 // 系统时间的修改会对系统造成致命错误
 // 这里检测时间变化，对cron进行reload操作避免bug
-//func (c *Controller) checkDateTime() {
-//	t := time.Now().Unix()
-//	for {
-//		time.Sleep(time.Second)
-//		d := time.Now().Unix() - t
-//		t = time.Now().Unix()
-//		if d > 3 || d < 0 {
-//			fmt.Fprintf(os.Stderr,"%v", "########################system time is change######################\r\n")
-//			c.StopCron()
-//			time.Sleep(time.Second)
-//			c.StartCron()
-//		}
-//	}
-//}
+func (c *Controller) checkDateTime() {
+	t := time.Now().Unix()
+	for {
+		time.Sleep(time.Second)
+		d := time.Now().Unix() - t
+		t = time.Now().Unix()
+		if d > 3 || d < 0 {
+			fmt.Fprintf(os.Stderr,"%v", "########################system time is change######################\r\n")
+			c.StopCron()
+			time.Sleep(1 * time.Second)
+			c.StartCron()
+		}
+	}
+}
 
 func (c *Controller) StartCron() {
 	c.lock.Lock()
@@ -77,6 +77,7 @@ func (c *Controller) StopCron() {
 	if c.status & IsRunning <= 0 {
 		return
 	}
+	c.status ^= IsRunning
 	fmt.Fprintf(os.Stderr,"%v", "stop run\r\n")
 	c.cron.Stop()
 }
