@@ -180,8 +180,8 @@ func (c *Cron) run() {
 		}
 		select {
 		case now = <-time.After(effective.Sub(now)):
-			// 如果是修改系统时间造成的紊乱，这里的cache会一直占用for循环
-			// 即使stop也没有，因为跑不到stop哪里
+			// 如果是修改系统时间造成的紊乱，这里的case会一直占用for循环
+			// 即使stop也没有用，因为跑不到stop哪里
 			// 这里加一个判断，直接判断running运行状态，如果是非运行中，直接return
 			// 解决修改系统时间造成的bug
 			if !c.running {
