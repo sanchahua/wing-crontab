@@ -6,6 +6,7 @@ import (
 	"gitlab.xunlei.cn/xllive/common/log"
 	"os"
 	"github.com/go-redis/redis"
+	"sync"
 )
 
 type Service struct {
@@ -16,12 +17,13 @@ type Service struct {
 	onRegister    OnRegisterFunc
 	onServiceDown func(int64)
 	onServiceUp   func(int64)
-	onLeader      func(id int64)
+	onLeader      func(isLeader bool, id int64)
 	Status        int       // 1在线 0离线
 	Name          string
 	Leader        bool
 	leaderKey     string
 	redis         *redis.Client
+	lock          *sync.RWMutex
 }
 
 type OnRegisterFunc func(runTimeId int64)
@@ -34,7 +36,7 @@ func NewService(
 	onRegister OnRegisterFunc, // 服务注册成功回调
 	onServiceDown func(int64), // 服务下线时回调
 	onServiceUp func(int64),   // 服务恢复时回调
-	onLeader func(id int64),
+	onLeader func(isLeader bool, id int64),
 ) *Service {
 	name := "xcrontab"
 	n, _ := os.Hostname()
@@ -53,6 +55,7 @@ func NewService(
 		redis:         redis,
 		Leader:        false,
 		onLeader:      onLeader,
+		lock:          new(sync.RWMutex),
 	}
 	// 初始化，主要检查服务是否存在，如果存在会初始化ID
 	s.init()
@@ -82,8 +85,9 @@ func (s *Service) selectLeader() {
 		return
 	}
 	s.Leader = v == 1
+	s.onLeader(s.Leader, s.ID)
+	s.redis.Expire(s.leaderKey, time.Second * 6)
 	if s.Leader {
-		s.onLeader(s.ID)
 		s.updateIsLeader()
 	}
 }
@@ -98,11 +102,13 @@ func (s *Service) tryGetLeader()  {
 			continue
 		}
 		if v == 1 {
+			s.lock.Lock()
 			s.Leader = true
-			s.onLeader(s.ID)
+			s.lock.Unlock()
+			s.onLeader(s.Leader, s.ID)
 			s.updateIsLeader()
 		}
-		time.Sleep(time.Second*6)
+		time.Sleep(time.Second * 6)
 	}
 }
 
@@ -135,9 +141,11 @@ func (s *Service) keepAlive() (error) {
 			continue
 		}
 
+		s.lock.RLock()
 		if s.Leader {
 			s.redis.Expire(s.leaderKey, time.Second * 6)
 		}
+		s.lock.RUnlock()
 
 		t := time.Now().Unix()
 		res, err := s.db.Exec("UPDATE `services` SET `updated`=? WHERE id=?", t, s.ID)

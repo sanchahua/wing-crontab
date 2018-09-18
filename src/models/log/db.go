@@ -266,3 +266,38 @@ func (db *DbLog) DeleteByStartTime(startTime string) error {
 	//log.Tracef("DeleteByStartTime success, sql=[%v], startTime=[%v], num=[%v]", sqlStr, startTime, num)
 	return nil
 }
+
+// 获取平均运行时长
+func (db *DbLog) GetAvgRunTime() (map[int64]int64, error) {
+	sqlStr := "SELECT `cron_id`, sum(`use_time`)/count(*) as avg_time FROM `log` WHERE `state`=\"success\" group by `cron_id`"
+	rows, err := db.handler.Query(sqlStr)
+	if err != nil {
+		log.Errorf("GetAvgRunTime db.handler.Query fail, error=[%v]", err)
+		return nil, err
+	}
+	var data = make(map[int64]int64)
+	for rows.Next() {
+		var id int64
+		var useTime float64
+		err = rows.Scan(&id, &useTime)
+		if err != nil {
+			log.Errorf("GetAvgRunTime rows.Scan fail, error=[%v]", err)
+			continue
+		}
+		data[id] = int64(useTime)
+	}
+	return data, nil
+}
+
+// 获取指定定时任务的最大运行时间
+func (db *DbLog) GetMAxRunTime(cronId int64) (int64, error) {
+	sqlStr := "SELECT max(`use_time`) as use_time FROM `log` WHERE  `cron_id`=?"
+	row := db.handler.QueryRow(sqlStr, cronId)
+	var useTime int64
+	err := row.Scan(&useTime)
+	if err != nil {
+		log.Errorf("GetMAxRunTime rows.Scan fail, error=[%v]", err)
+		return 0, err
+	}
+	return useTime, nil
+}

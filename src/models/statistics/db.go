@@ -131,3 +131,13 @@ func (db *Statistics) GetCharts(days int) ([]*Entity, error) {
 	}
 	return records, nil
 }
+
+func (db *Statistics) SetAvgMAxUseTime(avgUseTime, maxUseTime, cronId int64) error {
+	sqlStr := "UPDATE `statistics` SET `avg_use_time`=?,`max_use_time`=? WHERE `cron_id`=? and `day`=?"
+	_, err := db.handler.Exec(sqlStr, avgUseTime, maxUseTime, cronId, time.Now().Format("2006-01-02"))
+	if err != nil {
+		log.Errorf("SetAvgMAxUseTime db.handler.Exec fail，sql=[%s]，error=[%+v]", sqlStr, err)
+		return err
+	}
+	return nil
+}

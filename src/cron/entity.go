@@ -7,7 +7,6 @@ import (
 	"models/cron"
 	"os/exec"
 	"time"
-	"sync/atomic"
 	time2 "library/time"
 	"sync"
 	"bytes"
@@ -15,6 +14,8 @@ import (
 	"errors"
 	"os"
 	"fmt"
+	"github.com/go-redis/redis"
+	"sync/atomic"
 )
 
 // 数据库的基本属性
@@ -36,36 +37,62 @@ type CronEntity struct {
 	lock       *sync.RWMutex      `json:"-"`
 	copy       *CronEntity        `json:"-"`
 	Process    map[int]*os.Process        `json:"-"`
+	Leader bool  `json:"-"`
+	redis *redis.Client `json:"-"`
+	redisKeyPrex string  `json:"-"`
+	AvgRunTime int64 `json:"avg_run_time"`
+	MaxRunTime int64 `json:"max_run_time"`
+	exit bool `json:"-"`
+
 }
 var ErrTimeout = errors.New("timeout")
 var ErrUnknown = errors.New("unknown error")
 
+var GoId int64 = 0
+
 type FilterMiddleWare func(entity *CronEntity) IFilter
 type OnRunCommandFunc func(cron_id int64, processId int, state, output string, usetime int64, remark, startTime string)
-func newCronEntity(entity *cron.CronEntity, onRun OnRunCommandFunc) *CronEntity {
+func newCronEntity(
+	redis *redis.Client,
+	redisKeyPrex string,
+	entity *cron.CronEntity,
+	onRun OnRunCommandFunc,
+) *CronEntity {
 	e := &CronEntity{
-		Id:         entity.Id,
-		CronSet:    entity.CronSet,
-		Command:    entity.Command,
-		Remark:     entity.Remark,
-		Stop:       entity.Stop,
-		CronId:     0,
-		StartTime:  entity.StartTime,
-		EndTime:    entity.EndTime,
-		IsMutex:    entity.IsMutex,
-		onRun:      onRun,
-		ProcessNum: 0,
-		runid:      0,
-		lock:       new(sync.RWMutex),
-		copy:       nil,
-		Process:    make(map[int]*os.Process),
+		Id:           entity.Id,
+		CronSet:      entity.CronSet,
+		Command:      entity.Command,
+		Remark:       entity.Remark,
+		Stop:         entity.Stop,
+		CronId:       0,
+		StartTime:    entity.StartTime,
+		EndTime:      entity.EndTime,
+		IsMutex:      entity.IsMutex,
+		onRun:        onRun,
+		ProcessNum:   0,
+		runid:        0,
+		lock:         new(sync.RWMutex),
+		copy:         nil,
+		Process:      make(map[int]*os.Process),
+		redis:        redis,
+		redisKeyPrex: redisKeyPrex,
+		MaxRunTime:   10000,
+		AvgRunTime:   10000,
+		exit: false,
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
 	// 如果不在指定运行时间范围之内
 	e.filter = StopMiddleware()(e)
 	e.filter = TimeMiddleware(e.filter)(e)
+	go e.dispatch(atomic.AddInt64(&GoId, 1))
 	return e
+}
+
+func (row *CronEntity) Exit() {
+	row.lock.Lock()
+	row.exit = true
+	row.lock.Unlock()
 }
 
 func (row *CronEntity) setStop(stop bool) {
@@ -73,39 +100,135 @@ func (row *CronEntity) setStop(stop bool) {
 	row.Stop = stop
 	row.lock.Unlock()
 }
+
 func (row *CronEntity) setMutex(mutex bool) {
 	row.lock.Lock()
 	row.IsMutex = mutex
 	row.lock.Unlock()
 }
 
-func (row *CronEntity) Run() {
+func (row *CronEntity) setAvgMAx(avg, max int64) {
+	row.lock.Lock()
+	log.Tracef("%v set avg=%v, max=%v", row.Id, avg, max)
+	row.AvgRunTime = avg
+	row.MaxRunTime = max
+	row.lock.Unlock()
+}
 
-	if row.filter.Stop() {
-		// 外部注入，停止执行定时任务支持
-		//log.Tracef("%+v was stop", row.Id)
-		return
+func (row *CronEntity) addProcessNum()  {
+	// 这里使用redis incr原子递增增加正在运行的并行进程数
+	// 超时时间设置为该进程历史运行的平均时间，单位为秒
+	key := fmt.Sprintf(row.redisKeyPrex+"/%v/process_num", row.Id)
+	err := row.redis.Incr(key).Err()
+	if err != nil {
+		log.Errorf("addProcessNum row.redis.Incr fail, key=[%v], error=[%v]", key, err)
 	}
-
-	// 不需要互斥运行
-	if !row.IsMutex {
-		go row.runCommand()
-		return
-	}
-
-	// 如果需要互斥运行
-	// 判断是否正在运行，0代表不是正在运行中
-	if 0 == atomic.LoadInt64(&row.ProcessNum) {
-		go row.runCommand()
+	err = row.redis.Expire(key, time.Millisecond * time.Duration(row.MaxRunTime)).Err()
+	if err != nil {
+		log.Errorf("addProcessNum row.redis.Expire fail, key=[%v], error=[%v]", key, err)
 	}
 }
 
-//func (row *CronEntity) toJson() (string,error) {
-//	row.lock.RLock()
-//	d, e := json.Marshal(row)
-//	row.lock.RUnlock()
-//	return string(d), e
-//}
+func (row *CronEntity) subProcessNum()  {
+	// 这里使用redis incr原子递减减少正在运行的并行进程数
+	// 超时时间设置为该进程历史运行的平均时间，单位为秒
+	key := fmt.Sprintf(row.redisKeyPrex+"/%v/process_num", row.Id)
+	err := row.redis.IncrBy(key, -1).Err()
+	if err != nil {
+		log.Errorf("subProcessNum row.redis.IncrBy fail, key=[%v], error=[%v]", key, err)
+	}
+	//log.Tracef("%v expire %v", key, row.MaxRunTime)
+	err = row.redis.Expire(key, time.Millisecond * time.Duration(row.MaxRunTime)).Err()
+	if err != nil {
+		log.Errorf("subProcessNum row.redis.Expire fail, key=[%v], error=[%v]", key, err)
+	}
+}
+
+func (row *CronEntity) getProcessNum() (int64, error)  {
+	key := fmt.Sprintf(row.redisKeyPrex+"/%v/process_num", row.Id)
+	return row.redis.Get(key).Int64()
+}
+
+// 定时任务管理引擎 接口
+func (row *CronEntity) Run() {
+	// 只有leader负责定时任务调度
+	row.lock.RLock()
+	if !row.Leader {
+		row.lock.RUnlock()
+		return
+	}
+	row.lock.RUnlock()
+	if row.filter.Stop() {
+		// 外部注入，停止执行定时任务支持
+		return
+	}
+	// 推送到redis
+	row.push()
+}
+
+func (row *CronEntity) dispatch(goid int64) {
+	queue := fmt.Sprintf(row.redisKeyPrex+"/%v", row.Id)
+	for {
+		row.lock.RLock()
+		if row.exit {
+			row.lock.RUnlock()
+			return
+		}
+
+		//goid := goroutine.GoroutineId()
+		row.lock.RUnlock()
+		data, err := row.redis.BLPop(time.Second*3, queue).Result()
+		if err != nil {
+			if err != redis.Nil {
+				log.Errorf("dispatch row.redis.BLPop fail, queue=[%v], error=[%v]", queue, err)
+			}
+			continue
+		}
+
+		if len(data) < 2 {
+			continue
+		}
+
+		fmt.Println(data)
+		//for _, id := range data {
+			//log.Tracef("goid is dispatched", goid)
+			id := data[1]
+			if !row.IsMutex {
+				log.Infof("##%v => %v was run", goid, id)
+				// 不需要互斥运行
+				go row.runCommand()
+			} else {
+				// 必须严格互斥运行
+				processNum, err := row.getProcessNum()
+				if processNum > 0 {
+					log.Infof("%v => %v has running process", goid, id)
+				}
+				if processNum <= 0 && err == nil {
+					log.Infof("###%v => %v was run", goid, id)
+					go row.runCommand()
+				}
+				if err != nil {
+					log.Errorf("dispatch row.getProcessNum fail, queue=[%v], error=[%v]", queue, err)
+				}
+			}
+		}
+	//}
+}
+
+func (row *CronEntity) push() {
+	key := fmt.Sprintf(row.redisKeyPrex+"/%v", row.Id)
+	log.Tracef("push %v to %v", row.Id, key)
+	err := row.redis.RPush(key, row.Id).Err()
+	if err != nil {
+		log.Errorf("push fail, [%v] to [%v/%v], error=[%v]", row.Id, row.redisKeyPrex, row.Id, err)
+	}
+}
+
+func (row *CronEntity) SetLeader(isLeader bool) {
+	row.lock.Lock()
+	row.Leader = isLeader
+	row.lock.Unlock()
+}
 
 func (row *CronEntity) Clone() *CronEntity {
 	row.lock.RLock()
@@ -122,22 +245,19 @@ func (row *CronEntity) Clone() *CronEntity {
 	row.copy.StartTime  = row.StartTime
 	row.copy.EndTime    = row.EndTime
 	row.copy.IsMutex    = row.IsMutex
-	row.copy.ProcessNum = atomic.LoadInt64(&row.ProcessNum)
+	row.copy.ProcessNum, _ = row.getProcessNum()
+	row.copy.AvgRunTime = row.AvgRunTime
+	row.copy.MaxRunTime = row.MaxRunTime
 	return row.copy
 }
 
 func (row *CronEntity) runCommand() {
-
-	row.lock.Lock()
-	atomic.AddInt64(&row.ProcessNum, 1)
-	row.lock.Unlock()
+	row.addProcessNum()
 
 	var cmd *exec.Cmd
 	var err error
-	//rid := atomic.AddInt64(&row.runid, 1)
 
 	startTime := time2.GetDayTime()
-	//log.Tracef( "##start run: %v, %v=>[%+v,%v]", rid, processNum, row.Id, row.Command)
 	start := time.Now().UnixNano()/1000000
 	cmd = exec.Command("bash", "-c", row.Command)
 	var b bytes.Buffer
@@ -179,12 +299,12 @@ func (row *CronEntity) runCommand() {
 		res = append(res, []byte("  error: " + err.Error())...)
 		log.Errorf("runCommand fail, id=[%v], command=[%v], error=[%+v]", row.Id, row.Command, err)
 	}
-	//log.Tracef( "##%v run end: %v, %v=>[%+v,%v]", rid, processNum, row.Id, row.Command, processId)
-	atomic.AddInt64(&row.ProcessNum, -1)
+	row.subProcessNum()
 
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
 	// todo 程序退出时，定时任务的日志可能会失败，因为这个时候数据库已经关闭，这个问题需要处理一下
 	// 即安全退出问题，kill -9没办法了
+	// todo 日志需要加上dispatch调度服务器，run运行服务器记录
 	row.onRun(row.Id, processId, state, string(res), useTime, row.Command, startTime)
 }
 

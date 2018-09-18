@@ -97,16 +97,16 @@ func main() {
 		panic(0);
 	}
 
+	m := manager.NewManager(redisClient, appConfig.RedisKeyPrex, handler, *listen, appConfig.LogKeepDay)
 	service2.NewService(handler, *listen, appConfig.LeaderKey, redisClient, func(runTimeId int64) {
-
 	}, func(i int64) {
 		log.Warnf("#####%v is down#####", i)
 	}, func(i int64) {
 		log.Infof("#####%v is up#####", i)
-	}, func(id int64) {
-		
+	}, func(isLeader bool, id int64) {
+		log.Infof("########leader callback: %v", isLeader)
+		m.SetLeader(isLeader)
 	})
-	m := manager.NewManager(handler, *listen, appConfig.LogKeepDay)
 	m.Start()
 	defer m.Stop()
 	sc := make(chan os.Signal, 1)
