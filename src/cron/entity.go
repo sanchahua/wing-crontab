@@ -16,10 +16,12 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"sync/atomic"
+	"encoding/json"
 )
 
 // 数据库的基本属性
 type CronEntity struct {
+	ServiceId  int64              `json:"service_id"`
 	CronId     cronv2.EntryID     `json:"cron_id"`
 	Id         int64              `json:"id"`
 	CronSet    string             `json:"cron_set"`
@@ -47,11 +49,11 @@ type CronEntity struct {
 }
 var ErrTimeout = errors.New("timeout")
 var ErrUnknown = errors.New("unknown error")
-
 var GoId int64 = 0
+const DefaultTimeout = 6 //秒
 
 type FilterMiddleWare func(entity *CronEntity) IFilter
-type OnRunCommandFunc func(cron_id int64, processId int, state, output string, usetime int64, remark, startTime string)
+type OnRunCommandFunc func(dispatchServer, runServer int64, cron_id int64, processId int, state, output string, usetime int64, remark, startTime string)
 func newCronEntity(
 	redis *redis.Client,
 	redisKeyPrex string,
@@ -59,6 +61,7 @@ func newCronEntity(
 	onRun OnRunCommandFunc,
 ) *CronEntity {
 	e := &CronEntity{
+		ServiceId:    0,
 		Id:           entity.Id,
 		CronSet:      entity.CronSet,
 		Command:      entity.Command,
@@ -123,10 +126,16 @@ func (row *CronEntity) addProcessNum()  {
 	if err != nil {
 		log.Errorf("addProcessNum row.redis.Incr fail, key=[%v], error=[%v]", key, err)
 	}
-	err = row.redis.Expire(key, time.Millisecond * time.Duration(row.MaxRunTime)).Err()
+	err = row.redis.Expire(key, DefaultTimeout * time.Second).Err()
 	if err != nil {
 		log.Errorf("addProcessNum row.redis.Expire fail, key=[%v], error=[%v]", key, err)
 	}
+}
+
+func (row *CronEntity) SetServiceId(serviceId int64) {
+	row.lock.Lock()
+	row.ServiceId = serviceId
+	row.lock.Unlock()
 }
 
 func (row *CronEntity) subProcessNum()  {
@@ -137,8 +146,7 @@ func (row *CronEntity) subProcessNum()  {
 	if err != nil {
 		log.Errorf("subProcessNum row.redis.IncrBy fail, key=[%v], error=[%v]", key, err)
 	}
-	//log.Tracef("%v expire %v", key, row.MaxRunTime)
-	err = row.redis.Expire(key, time.Millisecond * time.Duration(row.MaxRunTime)).Err()
+	err = row.redis.Expire(key, DefaultTimeout * time.Second).Err()
 	if err != nil {
 		log.Errorf("subProcessNum row.redis.Expire fail, key=[%v], error=[%v]", key, err)
 	}
@@ -146,7 +154,11 @@ func (row *CronEntity) subProcessNum()  {
 
 func (row *CronEntity) getProcessNum() (int64, error)  {
 	key := fmt.Sprintf(row.redisKeyPrex+"/%v/process_num", row.Id)
-	return row.redis.Get(key).Int64()
+	num, err := row.redis.Get(key).Int64()
+	if err == redis.Nil || err == nil {
+		return num, nil
+	}
+	return num, err
 }
 
 // 定时任务管理引擎 接口
@@ -168,6 +180,8 @@ func (row *CronEntity) Run() {
 
 func (row *CronEntity) dispatch(goid int64) {
 	queue := fmt.Sprintf(row.redisKeyPrex+"/%v", row.Id)
+	var raw = make([]int64, 0)
+
 	for {
 		row.lock.RLock()
 		if row.exit {
@@ -175,7 +189,6 @@ func (row *CronEntity) dispatch(goid int64) {
 			return
 		}
 
-		//goid := goroutine.GoroutineId()
 		row.lock.RUnlock()
 		data, err := row.redis.BLPop(time.Second*3, queue).Result()
 		if err != nil {
@@ -190,37 +203,50 @@ func (row *CronEntity) dispatch(goid int64) {
 		}
 
 		fmt.Println(data)
-		//for _, id := range data {
-			//log.Tracef("goid is dispatched", goid)
-			id := data[1]
-			if !row.IsMutex {
-				log.Infof("##%v => %v was run", goid, id)
-				// 不需要互斥运行
-				go row.runCommand()
-			} else {
-				// 必须严格互斥运行
-				processNum, err := row.getProcessNum()
-				if processNum > 0 {
-					log.Infof("%v => %v has running process", goid, id)
-				}
-				if processNum <= 0 && err == nil {
-					log.Infof("###%v => %v was run", goid, id)
-					go row.runCommand()
-				}
-				if err != nil {
-					log.Errorf("dispatch row.getProcessNum fail, queue=[%v], error=[%v]", queue, err)
-				}
+		err = json.Unmarshal([]byte(data[1]), &raw)
+		if err != nil {
+			log.Errorf("dispatch json.Unmarshal fail, queue=[%v], error=[%v]", queue, err)
+			continue
+		}
+		if len(raw) < 2 {
+			log.Errorf("dispatch raw len fail, queue=[%v], error=[%v]", queue, err)
+			continue
+		}
+		serviceId := raw[0]
+		id        := raw[1]
+		if !row.IsMutex {
+			log.Infof("##%v => %v was run", goid, id)
+			// 不需要互斥运行
+			go row.runCommand(serviceId)
+		} else {
+			// 必须严格互斥运行
+			processNum, err := row.getProcessNum()
+			if processNum > 0 {
+				log.Infof("%v => %v has running process", goid, id)
+			}
+			if processNum <= 0 && err == nil {
+				log.Infof("###%v => %v was run", goid, id)
+				go row.runCommand(serviceId)
+			}
+			if err != nil {
+				log.Errorf("dispatch row.getProcessNum fail, queue=[%v], error=[%v]", queue, err)
 			}
 		}
-	//}
+	}
 }
 
 func (row *CronEntity) push() {
 	key := fmt.Sprintf(row.redisKeyPrex+"/%v", row.Id)
 	log.Tracef("push %v to %v", row.Id, key)
-	err := row.redis.RPush(key, row.Id).Err()
+
+	data, err := json.Marshal([]int64{row.ServiceId, row.Id})
 	if err != nil {
-		log.Errorf("push fail, [%v] to [%v/%v], error=[%v]", row.Id, row.redisKeyPrex, row.Id, err)
+		log.Errorf("push json.Marshal fail, [%v] to [%v/%v], error=[%v]", row.Id, row.redisKeyPrex, row.Id, err)
+		return
+	}
+	err = row.redis.RPush(key, string(data)).Err()
+	if err != nil {
+		log.Errorf("push row.redis.RPush fail, [%v] to [%v/%v], error=[%v]", row.Id, row.redisKeyPrex, row.Id, err)
 	}
 }
 
@@ -251,7 +277,11 @@ func (row *CronEntity) Clone() *CronEntity {
 	return row.copy
 }
 
-func (row *CronEntity) runCommand() {
+// serviceId 为leader服务id
+func (row *CronEntity) runCommand(serviceId int64) {
+
+	// todo 这里需要加上平行锁策略，防止死锁，过长锁定等等
+
 	row.addProcessNum()
 
 	var cmd *exec.Cmd
@@ -287,12 +317,10 @@ func (row *CronEntity) runCommand() {
 		output = err.Error()
 	}
 
-	row.onRun(row.Id, processId, state, output, 0, row.Command, startTime)
+	row.onRun(serviceId, row.ServiceId, row.Id, processId, state, output, 0, row.Command, startTime)
 	err = cmd.Wait()
-
 	res := b.Bytes()
 
-	//res, err := cmd.CombinedOutput()
 	state = StateSuccess
 	if err != nil {
 		state = StateFail
@@ -304,8 +332,7 @@ func (row *CronEntity) runCommand() {
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
 	// todo 程序退出时，定时任务的日志可能会失败，因为这个时候数据库已经关闭，这个问题需要处理一下
 	// 即安全退出问题，kill -9没办法了
-	// todo 日志需要加上dispatch调度服务器，run运行服务器记录
-	row.onRun(row.Id, processId, state, string(res), useTime, row.Command, startTime)
+	row.onRun(serviceId, row.ServiceId,row.Id, processId, state, string(res), useTime, row.Command, startTime)
 }
 
 func (row *CronEntity) runCommandWithTimeout(duration time.Duration) ([]byte, int, error) {

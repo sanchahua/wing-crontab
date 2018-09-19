@@ -21,6 +21,7 @@ const (
 	 StateFail = "fail"
 )
 type Controller struct {
+	serviceId int64
 	cron     *cronV2.Cron
 	cronList map[int64] *CronEntity
 	lock     *sync.RWMutex
@@ -35,6 +36,7 @@ type Controller struct {
 
 func NewController(redis *redis.Client, RedisKeyPrex string, logModel *modelLog.DbLog, statisticsModel *statistics.Statistics) *Controller {
 	c := &Controller{
+		serviceId: 0,
 		cron:     cronV2.New(),
 		cronList: make(map[int64] *CronEntity),
 		lock:     new(sync.RWMutex),
@@ -54,6 +56,15 @@ func (c *Controller) SetLeader(isLeader bool) {
 	c.Leader = isLeader
 	for _, v := range c.cronList {
 		v.SetLeader(isLeader)
+	}
+	c.lock.Unlock()
+}
+
+func (c *Controller) SetServiceId(serviceId int64) {
+	c.lock.Lock()
+	c.serviceId = serviceId
+	for _, v := range c.cronList {
+		v.SetServiceId(serviceId)
 	}
 	c.lock.Unlock()
 }
@@ -78,6 +89,12 @@ func (c *Controller) StopCron() {
 	c.status ^= IsRunning
 	fmt.Fprintf(os.Stderr,"%v", "stop run\r\n")
 	c.cron.Stop()
+}
+
+func (c *Controller) RestartCron() {
+	c.StopCron()
+	time.Sleep(1 * time.Second)
+	c.StartCron()
 }
 
 func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
@@ -219,9 +236,9 @@ func (c *Controller) Mutex(id int64, mutex bool) error {
 	return nil
 }
 
-func (c *Controller) onRun(cronId int64, processId int, state, output string, useTime int64, remark, startTime string) {
+func (c *Controller) onRun(dispatchServer, runServer int64, cronId int64, processId int, state, output string, useTime int64, remark, startTime string) {
 	log.Tracef("%v %v write log", cronId, state)
-	_, err := c.logModel.Add(cronId, processId, state, output, useTime, remark, startTime)
+	_, err := c.logModel.Add(dispatchServer, runServer, cronId, processId, state, output, useTime, remark, startTime)
 	if err != nil {
 		log.Errorf("onRun c.logModel.Add fail, cron_id=[%v], output=[%v], usetime=[%v], remark=[%v], startTime=[%v], error=[%v]", cronId, output, useTime, remark, startTime, err)
 	}
@@ -240,8 +257,8 @@ func (c *Controller) onRun(cronId int64, processId int, state, output string, us
 	}
 }
 
-func (c *Controller) SetAvgAndMaxData() {
-	log.Tracef("start SetAvgAndMaxData ...")
+func (c *Controller) SetAvgMaxData() {
+	log.Tracef("start SetAvgMaxData ...")
 	// 防止锁定时间过长，这里先获取id
 	var ids = make([]int64, 0)
 	c.lock.RLock()
@@ -260,18 +277,16 @@ func (c *Controller) SetAvgAndMaxData() {
 			avgUseTime = avg[id]
 		}
 		// 获取最大运行时长
-		maxUseTime, _ = c.logModel.GetMAxRunTime(id)
+		maxUseTime, _ = c.logModel.GetMaxRunTime(id)
 		// 记录数据
 		c.statisticsModel.SetAvgMAxUseTime(avgUseTime, maxUseTime, id)
 		// 写平均运行时长
 		// 写最大运行时长
-		c.lock.Lock()
+		c.lock.RLock()
 		r, ok := c.cronList[id]
 		if ok {
 			r.setAvgMAx(avgUseTime, maxUseTime)
-			//AvgRunTime = avgUseTime
-			//r.MaxRunTime = maxUseTime
 		}
-		c.lock.Unlock()
+		c.lock.RUnlock()
 	}
 }

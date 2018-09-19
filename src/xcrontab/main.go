@@ -90,15 +90,13 @@ func main() {
 		Password: appConfig.RedisPassword, // no password set
 		DB:       0,  // use default DB
 	})
-
 	_, err = redisClient.Ping().Result()
 	if err != nil {
 		log.Errorf("%v", err)
 		panic(0);
 	}
-
 	m := manager.NewManager(redisClient, appConfig.RedisKeyPrex, handler, *listen, appConfig.LogKeepDay)
-	service2.NewService(handler, *listen, appConfig.LeaderKey, redisClient, func(runTimeId int64) {
+	service := service2.NewService(handler, *listen, appConfig.LeaderKey, redisClient, func(runTimeId int64) {
 	}, func(i int64) {
 		log.Warnf("#####%v is down#####", i)
 	}, func(i int64) {
@@ -107,6 +105,7 @@ func main() {
 		log.Infof("########leader callback: %v", isLeader)
 		m.SetLeader(isLeader)
 	})
+	m.SetServiceId(service.ID)
 	m.Start()
 	defer m.Stop()
 	sc := make(chan os.Signal, 1)

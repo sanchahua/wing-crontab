@@ -7,7 +7,7 @@ database = "cron"
 charset = "utf8"
 
 ## log表日至最长保留天数，默认保留30天的日志数据
-log_keep_day = 30
+log_keep_day = 1
 
 ## redis 配置
 redis_address = "127.0.0.1:6379"

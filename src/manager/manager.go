@@ -45,6 +45,8 @@ func NewManager(redis *redis.Client, RedisKeyPrex string, db *sql.DB, listen str
 		panic(err)
 		return nil
 	}
+
+	// restful api 路由
 	m.httpServer = http.NewHttpServer(
 		listen,
 		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}", m.logs),
@@ -65,20 +67,25 @@ func NewManager(redis *redis.Client, RedisKeyPrex string, db *sql.DB, listen str
 		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
 	)
 	m.httpServer.Start()
-	cronController.SetAvgAndMaxData()
+	cronController.SetAvgMaxData()
 	go m.logManager()
 	go m.checkDateTime()
 	go m.updateAvgMax()
 	return m
 }
 
+func (m *CronManager) SetServiceId(serviceId int64) {
+	m.cronController.SetServiceId(serviceId)
+}
+
 func (m *CronManager) updateAvgMax() {
 	// 周期性的收集平均运行时长和最大运行时长数据
 	for {
 		time.Sleep(time.Second * 60)
-		m.cronController.SetAvgAndMaxData()
+		m.cronController.SetAvgMaxData()
 	}
 }
+
 // 系统时间的修改会对系统造成致命错误
 // 这里检测时间变化，对cron进行reload操作避免bug
 func (m *CronManager) checkDateTime() {
@@ -89,9 +96,7 @@ func (m *CronManager) checkDateTime() {
 		t = time.Now().Unix()
 		if d > 3 || d < 0 {
 			fmt.Fprintf(os.Stderr,"%v", "########################system time is change######################\r\n")
-			m.cronController.StopCron()
-			time.Sleep(1 * time.Second)
-			m.cronController.StartCron()
+			m.cronController.RestartCron()
 		}
 	}
 }

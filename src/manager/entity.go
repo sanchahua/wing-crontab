@@ -10,13 +10,13 @@ import (
 
 type httpParamsEntity struct {
 	// 数据库的基本属性
-	Id interface{}   `json:"id"`
-	CronSet string   `json:"cron_set"`
-	Command string   `json:"command"`
-	Remark string    `json:"remark"`
-	Stop interface{} `json:"stop"`
-	StartTime string `json:"start_time"`
-	EndTime string   `json:"end_time"`
+	Id interface{}      `json:"id"`
+	CronSet string      `json:"cron_set"`
+	Command string      `json:"command"`
+	Remark string       `json:"remark"`
+	Stop interface{}    `json:"stop"`
+	StartTime string    `json:"start_time"`
+	EndTime string      `json:"end_time"`
 	IsMutex interface{} `json:"is_mutex"`
 }
 var ErrNil = errors.New("nil")

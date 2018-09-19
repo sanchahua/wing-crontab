@@ -14,7 +14,7 @@ type DbLog struct {
 }
 
 const (
-	FIELDS = "`id`, `cron_id`, `process_id`, `state`, `start_time`, `output`, `use_time`, `remark`"
+	FIELDS = "`id`, `dispatch_server`, `run_server`, `cron_id`, `process_id`, `state`, `start_time`, `output`, `use_time`, `remark`"
 	MaxQueryRows = 10000
 )
 func newDbLog(handler *sql.DB) *DbLog {
@@ -100,6 +100,7 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 	var records []*LogEntity
 	var (
 		id int64
+		dispatch_server, run_server int64
 		cron_id int64
 		process_id int
 		start_time string
@@ -110,20 +111,22 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 	)
 	for rows.Next() {
 		//`id`, `cron_id`, `start_time`, `output`, `use_time`, `remark`
-		err = rows.Scan(&id, &cron_id, &process_id, &state, &start_time, &output, &use_time, &remark)
+		err = rows.Scan(&id, &dispatch_server, &run_server, &cron_id, &process_id, &state, &start_time, &output, &use_time, &remark)
 		if err != nil {
 			log.Errorf("GetList rows.Scan fail, sql=[%v], error=[%v]", debugSql, err)
 			continue
 		}
 		row := &LogEntity{
-			Id:        id,
-			CronId:    cron_id,
-			ProcessId: process_id,
-			StartTime: start_time,
-			Output:    output,
-			UseTime:   use_time,
-			Remark:    remark,
-			State:     state,
+			Id:             id,
+			DispatchServer: dispatch_server,
+			RunServer:      run_server,
+			CronId:         cron_id,
+			ProcessId:      process_id,
+			StartTime:      start_time,
+			Output:         output,
+			UseTime:        use_time,
+			Remark:         remark,
+			State:          state,
 		}
 		records = append(records, row)
 	}
@@ -165,7 +168,7 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 		row LogEntity
 	)
 	//FIELDS = "`id`, `cron_id`, `process_id`, `state`, `start_time`, `output`, `use_time`, `remark`"
-	err := data.Scan(&row.Id, &row.CronId, &row.ProcessId, &row.State, &row.StartTime, &row.Output, &row.UseTime, &row.Remark)
+	err := data.Scan(&row.Id, &row.DispatchServer, &row.RunServer, &row.CronId, &row.ProcessId, &row.State, &row.StartTime, &row.Output, &row.UseTime, &row.Remark)
 	if err != nil {
 		log.Errorf("Get data.Scan fail, sql=[%v], id=[%v], error=[%v]", sqlStr, rid, err)
 		return &row, err
@@ -174,14 +177,14 @@ func (db *DbLog) Get(rid int64) (*LogEntity, error) {
 	return &row, nil
 }
 
-func (db *DbLog) Add(cronId int64, processId int, state string, output string, useTime int64, remark, startTime string) (int64, error) {
+func (db *DbLog) Add(dispatchServer, runServer int64, cronId int64, processId int, state string, output string, useTime int64, remark, startTime string) (int64, error) {
 	if cronId <= 0 {
 		log.Errorf("Add fail, error=[cron_id invalid], cronId=[%v]", cronId)
 		return 0, errors.New("cron_id invalid")
 	}
-	sqlStr := "INSERT INTO `log`(`cron_id`, `process_id`, `state`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?,?,?)"
-	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronId, processId, state, startTime, output, useTime, remark)
-	res, err := db.handler.Exec(sqlStr, cronId, processId, state, startTime, output, useTime, remark)
+	sqlStr := "INSERT INTO `log`(`dispatch_server`, `run_server`,`cron_id`, `process_id`, `state`, `start_time`, `output`, `use_time`, `remark`) VALUES (?,?,?,?,?,?,?,?,?)"
+	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), dispatchServer, runServer, cronId, processId, state, startTime, output, useTime, remark)
+	res, err := db.handler.Exec(sqlStr, dispatchServer, runServer, cronId, processId, state, startTime, output, useTime, remark)
 	if err != nil {
 		log.Errorf("Add db.handler.Exec fail, sql=[%v], error=[%v]", debugSql, err)
 		return 0, err
@@ -290,13 +293,13 @@ func (db *DbLog) GetAvgRunTime() (map[int64]int64, error) {
 }
 
 // 获取指定定时任务的最大运行时间
-func (db *DbLog) GetMAxRunTime(cronId int64) (int64, error) {
-	sqlStr := "SELECT max(`use_time`) as use_time FROM `log` WHERE  `cron_id`=?"
+func (db *DbLog) GetMaxRunTime(cronId int64) (int64, error) {
+	sqlStr := "SELECT ifnull(max(`use_time`),0) as use_time FROM `log` WHERE  `cron_id`=?"
 	row := db.handler.QueryRow(sqlStr, cronId)
-	var useTime int64
+	var useTime int64//sql.NullInt64
 	err := row.Scan(&useTime)
 	if err != nil {
-		log.Errorf("GetMAxRunTime rows.Scan fail, error=[%v]", err)
+		log.Errorf("GetMaxRunTime rows.Scan fail, cronId=[%v], error=[%v]", cronId, err)
 		return 0, err
 	}
 	return useTime, nil
