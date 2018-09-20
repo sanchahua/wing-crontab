@@ -18,6 +18,7 @@ type httpParamsEntity struct {
 	StartTime string    `json:"start_time"`
 	EndTime string      `json:"end_time"`
 	IsMutex interface{} `json:"is_mutex"`
+	Blame string        `json:"blame"`
 }
 var ErrNil = errors.New("nil")
 func (p *httpParamsEntity) IsStop() bool {

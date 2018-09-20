@@ -24,6 +24,7 @@ $(document).ready(function(){
   });
 
   $("#do-submit").click(function(){
+    var blame    = $("#cron-blame").val();
     var stop     = $("#cron-stop").prop("checked")?"1":"0";
     var is_mutex = $("#cron-is-mutex").prop("checked")?"1":"0";
     var data = {
@@ -34,6 +35,7 @@ $(document).ready(function(){
       remark:     $("#remark").val(),
       stop:       stop,
       is_mutex:   is_mutex,
+      blame:      blame,
     };
     // axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
     // JSON.stringify

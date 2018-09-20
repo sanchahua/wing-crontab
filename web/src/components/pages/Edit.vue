@@ -14,6 +14,10 @@
       <div class="graph-form">
         <div class="form-body">
           <div class="form-group">
+            <label for="cron-blame">责任人</label>
+            <input type="text" class="form-control" id="cron-blame" v-bind:value="cron_info.blame" v-model="cron_info.blame">
+          </div>
+          <div class="form-group">
             <label for="cron-set">定时配置，如：*/1 * * * * *，这里精确到秒，前面的意思是每秒执行一次，分别对应，秒分时日月周</label>
             <input type="text" class="form-control" id="cron-set" v-bind:value="cron_info.cron_set" v-model="cron_info.cron_set">
           </div>
@@ -174,6 +178,7 @@
           remark:     this.cron_info.remark,
           stop:       this.cron_info.stop?1:0,
           is_mutex:   this.cron_info.is_mutex?1:0,
+          blame:      this.cron_info.blame,
         };
         // axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
         // JSON.stringify

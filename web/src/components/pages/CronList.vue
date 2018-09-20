@@ -51,6 +51,7 @@
             <tr v-for="item in cron_list">
               <td scope="row">
                 <div><span>id：</span><span>{{item.id}}</span></div>
+                <div><span>责任人：</span><span>{{item.blame}}</span></div>
                 <div><span>定时配置：</span><span>{{item.cron_set}}</span></div>
                 <div>
                   <span>互斥：</span>

@@ -22,7 +22,8 @@ func newDbCron(handler *sql.DB) *DbCron {
 
 // 获取所有的定时任务列表
 func (db *DbCron) GetList() ([]*CronEntity, error) {
-	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `is_mutex` from cron order by id desc"
+	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, " +
+		"`start_time`, `end_time`, `is_mutex`, `blame` from cron order by id desc"
 	rows, err := db.handler.Query(sqlStr)
 	if nil != err {
 		log.Errorf("GetList fail, error=[%+v]", err)
@@ -39,9 +40,11 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 		startTime string
 		endTime string
 		isMutex int
+		blame string
 	)
 	for rows.Next() {
-		err = rows.Scan(&id, &cronSet, &command, &stop, &remark, &startTime, &endTime, &isMutex)
+		err = rows.Scan(&id, &cronSet, &command, &stop, &remark,
+			&startTime, &endTime, &isMutex, &blame)
 		if err != nil {
 			log.Errorf("GetList rows.Scan fail，sql=[%s]，error=[%+v]", sqlStr, err)
 			continue
@@ -55,6 +58,7 @@ func (db *DbCron) GetList() ([]*CronEntity, error) {
 			StartTime:startTime,
 			EndTime:endTime,
 			IsMutex:isMutex == 1,
+			Blame: blame,
 		}
 		records = append(records, row)
 	}
@@ -81,14 +85,16 @@ func (db *DbCron) Get(rid int64) (*CronEntity, error) {
 		log.Errorf("Get fail, error=[%v]", ErrIdInvalid)
 		return nil, ErrIdInvalid//errors.New("rid invalid")
 	}
-	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `is_mutex` from cron where id=?"
+	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, " +
+		"`start_time`, `end_time`, `is_mutex`, `blame` from cron where id=?"
 	data := db.handler.QueryRow(sqlStr, rid)
 	var (
 		row CronEntity
 		stop int
 		isMutex int
 	)
-	err := data.Scan(&row.Id, &row.CronSet, &row.Command, &stop, &row.Remark, &row.StartTime, &row.EndTime, &isMutex)
+	err := data.Scan(&row.Id, &row.CronSet, &row.Command, &stop,
+		&row.Remark, &row.StartTime, &row.EndTime, &isMutex, &row.Blame)
 	if err != nil {
 		log.Errorf("Get data.Scan fail, sql=[%s], id=[%v], error=[%+v]", sqlStr, rid, err)
 		return nil, err
@@ -99,13 +105,14 @@ func (db *DbCron) Get(rid int64) (*CronEntity, error) {
 	return &row, nil
 }
 
-func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTime, endTime string, isMutex bool) (int64, error) {
+func (db *DbCron) Add(blame, cronSet, command string, remark string, stop bool, startTime, endTime string, isMutex bool) (int64, error) {
 	cronSet = strings.Trim(cronSet, " ")
 	if cronSet == "" {
 		log.Errorf("Add fail, cronSet=[%v], error=[%v]", cronSet, ErrCronSetInvalid)
 		return 0, ErrCronSetInvalid//errors.New("cronSet is empty")
 	}
 	command = strings.Trim(command, " ")
+	blame = strings.Trim(blame, " ")
 	if command == "" {
 		log.Errorf("Add fail, command=[%v], error=[%v]", command, ErrCommandInvalid)
 		return 0, ErrCommandInvalid//errors.New("command invalid")
@@ -125,8 +132,8 @@ func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTi
 	if isMutex {
 		iIsMutex = 1
 	}
-	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `is_mutex`) VALUES (?,?,?,?,?,?,?)"
-	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronSet, command, iStop, remark, startTime, endTime, iIsMutex)
+	sqlStr := "INSERT INTO `cron`(`cron_set`, `command`, `stop`, `remark`, `start_time`, `end_time`, `is_mutex`, `blame`) VALUES (?,?,?,?,?,?,?,?)"
+	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronSet, command, iStop, remark, startTime, endTime, iIsMutex, blame)
 	res, err := db.handler.Exec(sqlStr, cronSet, command, iStop, remark, startTime, endTime, iIsMutex)
 	if err != nil {
 		log.Errorf("Add db.handler.Exec fail, sql=[%v], error=[%+v]", debugSql, err)
@@ -141,7 +148,8 @@ func (db *DbCron) Add(cronSet, command string, remark string, stop bool, startTi
 	return id, nil
 }
 
-func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime string, isMutex bool) error {
+func (db *DbCron) Update(id int64, cronSet, command string,
+	remark string, stop bool, startTime, endTime string, isMutex bool, blame string) error {
 	if id <= 0 {
 		log.Errorf("Update fail, id=[%v], error=[%v]", id, ErrIdInvalid)
 		return ErrIdInvalid
@@ -170,9 +178,9 @@ func (db *DbCron) Update(id int64, cronSet, command string, remark string, stop 
 	if isMutex {
 		iIsMutex = 1
 	}
-	sqlStr := "UPDATE `cron` SET `cron_set`=?,`command`=?,`remark`=?, `stop`=?, `start_time`=?, `end_time`=?, `is_mutex`=? WHERE `id`=?"
-	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronSet, command, remark, iStop, startTime, endTime, iIsMutex, id)
-	res, err := db.handler.Exec(sqlStr, cronSet, command, remark, iStop, startTime, endTime, iIsMutex, id)
+	sqlStr := "UPDATE `cron` SET `cron_set`=?,`command`=?,`remark`=?, `stop`=?, `start_time`=?, `end_time`=?, `is_mutex`=?, `blame`=? WHERE `id`=?"
+	debugSql := fmt.Sprintf(strings.Replace(sqlStr, "?", "\"%v\"", -1), cronSet, command, remark, iStop, startTime, endTime, iIsMutex, blame, id)
+	res, err := db.handler.Exec(sqlStr, cronSet, command, remark, iStop, startTime, endTime, iIsMutex, blame, id)
 	if err != nil {
 		log.Errorf("Update db.handler.Exec fail, sql=[%v], error=[%+v]", debugSql, err)
 		return err

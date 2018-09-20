@@ -38,7 +38,7 @@ func (m *CronManager) addCron(request *restful.Request, w *restful.Response) {
 		return
 	}
 	// 添加到数据库
-	id, err := m.cronModel.Add(params.GetCronSet(),
+	id, err := m.cronModel.Add(params.Blame, params.GetCronSet(),
 		params.Command, params.Remark, params.IsStop(),
 		st, et, params.Mutex())
 	if err != nil || id <= 0 {
@@ -143,7 +143,7 @@ func (m *CronManager) updateCron(request *restful.Request, w *restful.Response) 
 
 	err = m.cronModel.Update(id, params.GetCronSet(),
 		params.GetCommand(), params.GetRemark(),
-		params.IsStop(), st, et, params.Mutex())
+		params.IsStop(), st, et, params.Mutex(), params.Blame)
 	if err != nil {
 		m.outJson(w, HttpErrorCronModelUpdateFail, "更新失败", err.Error())
 		return
@@ -151,7 +151,7 @@ func (m *CronManager) updateCron(request *restful.Request, w *restful.Response) 
 	m.broadcast(EV_UPDATE, id)
 	m.cronController.Update(id, params.GetCronSet(), params.GetCommand(),
 		params.GetRemark(), params.IsStop(),
-		st, et, params.Mutex())
+		st, et, params.Mutex(), params.Blame)
 	m.outJson(w, HttpSuccess, "success", nil)
 }
 

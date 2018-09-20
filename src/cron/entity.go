@@ -38,12 +38,12 @@ type CronEntity struct {
 	lock       *sync.RWMutex       `json:"-"`
 	copy       *CronEntity         `json:"-"`
 	Process    map[int]*os.Process `json:"-"`
-	Leader bool                    `json:"-"`
-	redis *redis.Client            `json:"-"`
+	Leader       bool              `json:"-"`
+	redis        *redis.Client     `json:"-"`
 	redisKeyPrex string            `json:"-"`
-	AvgRunTime int64               `json:"avg_run_time"`
-	MaxRunTime int64               `json:"max_run_time"`
-
+	AvgRunTime   int64             `json:"avg_run_time"`
+	MaxRunTime   int64             `json:"max_run_time"`
+	Blame        string            `json:"blame"`
 }
 var ErrTimeout = errors.New("timeout")
 var ErrUnknown = errors.New("unknown error")
@@ -78,6 +78,7 @@ func newCronEntity(
 		redisKeyPrex: redisKeyPrex,
 		MaxRunTime:   10000,
 		AvgRunTime:   10000,
+		Blame:        entity.Blame,
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
@@ -245,6 +246,7 @@ func (row *CronEntity) Clone() *CronEntity {
 	row.copy.ProcessNum, _ = row.getProcessNum()
 	row.copy.AvgRunTime = row.AvgRunTime
 	row.copy.MaxRunTime = row.MaxRunTime
+	row.copy.Blame      = row.Blame
 	return row.copy
 }
 

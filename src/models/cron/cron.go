@@ -34,14 +34,8 @@ type CronEntity struct {
 	StartTime string `json:"start_time"`
 	EndTime string   `json:"end_time"`
 	IsMutex bool     `json:"is_mutex"`
+	Blame string     `json:"blame"`
 }
-const (
-	EVENT_STOP   = 1
-	EVENT_START  = 2
-	EVENT_UPDATE = 3
-	EVENT_ADD    = 4
-	EVENT_DELETE = 5
-)
 
 func NewCron(handler *sql.DB) *DbCron {
 	return newDbCron(handler)

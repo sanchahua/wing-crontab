@@ -13,6 +13,10 @@
     <h2 class="inner-tittle">增加定时任务 </h2>
     <div class="graph-form">
       <div class="form-body">
+        <div class="form-group">
+          <label for="cron-blame">责任人</label>
+          <input type="text" class="form-control" id="cron-blame">
+        </div>
           <div class="form-group">
             <label for="cron-set">定时配置，如：*/1 * * * * *，这里精确到秒，前面的意思是每秒执行一次，分别对应，秒分时日月周</label>
             <input type="text" class="form-control" id="cron-set">

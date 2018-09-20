@@ -292,6 +292,7 @@ func (m *CronManager) init() {
 		return
 	}
 	for _, data := range list {
+		log.Tracef("add cron: %+v", *data)
 		m.cronController.Add(data)
 	}
 }

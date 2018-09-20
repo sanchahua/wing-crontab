@@ -191,7 +191,9 @@ func (c *Controller) Delete(id int64) (*CronEntity, error) {
 	return e, nil
 }
 
-func (c *Controller) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime string, isMutex bool) (*CronEntity, error) {
+func (c *Controller) Update(id int64, cronSet, command string,
+	remark string, stop bool, startTime,
+	endTime string, isMutex bool, blame string) (*CronEntity, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	e, ok := c.cronList[id]
@@ -212,6 +214,7 @@ func (c *Controller) Update(id int64, cronSet, command string, remark string, st
 		StartTime: startTime,// int64 `json:"start_time"`
 		EndTime:   endTime,// int64   `json:"end_time"`
 		IsMutex:   isMutex,// bool    `json:"is_mutex"`
+		Blame: blame,
 	}, c.onRun)
 
 	entity.SetLeader(c.Leader)
