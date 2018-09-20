@@ -16,6 +16,9 @@ import (
 	"github.com/go-redis/redis"
 	"fmt"
 	"os"
+	"encoding/json"
+	"service"
+	"gitlab.xunlei.cn/xllive/common/log"
 )
 
 type CronManager struct {
@@ -25,19 +28,51 @@ type CronManager struct {
 	httpServer *http.HttpServer
 	logKeepDay int64
 	statisticsModel *statistics.Statistics
+	service *service.Service
+	serviceId int64
+	redis *redis.Client
+	watchKey string
 }
 
-func NewManager(redis *redis.Client, RedisKeyPrex string, db *sql.DB, listen string, logKeepDay int64) *CronManager {
+const (
+	EV_ADD = 1
+	EV_DELETE = 2
+	EV_UPDATE = 3
+	EV_START = 4
+	EV_STOP = 5
+	EV_DISABLE_MUTEX = 6
+	EV_ENABLE_MUTEX = 7
+	EV_KILL = 8
+)
+
+func NewManager(
+	service *service.Service,
+	redis *redis.Client,
+	RedisKeyPrex string, db *sql.DB,
+	listen string, logKeepDay int64) *CronManager {
 	cronModel := mcron.NewCron(db)
 	logModel  := modelLog.NewLog(db)
 	statisticsModel := statistics.NewStatistics(db)
 	cronController := cron.NewController(redis, RedisKeyPrex, logModel, statisticsModel)
+
+
+	//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
+	name, err := os.Hostname()
+	if err != nil {
+		seelog.Errorf("%v", err)
+		panic(1)
+	}
+	watchKey := name + "-" + listen
+
 	m := &CronManager{
 		cronController:cronController,
 		cronModel:cronModel,
 		logModel: logModel,
 		logKeepDay: logKeepDay,
 		statisticsModel: statisticsModel,
+		service: service,
+		redis: redis,
+		watchKey: watchKey,
 	}
 	m.init()
 	statikFS, err := fs.New()
@@ -71,10 +106,118 @@ func NewManager(redis *redis.Client, RedisKeyPrex string, db *sql.DB, listen str
 	go m.logManager()
 	go m.checkDateTime()
 	go m.updateAvgMax()
+	go m.watchCron()
 	return m
 }
 
+// 广播通知相关事件
+func (m *CronManager) broadcast(ev, id int64, p...int64) {
+	// 查询服务列表 逐个push redis队列广播通知数据变化
+	services, err := m.service.GetServices()
+	if err != nil {
+		seelog.Errorf("broadcast m.service.GetServices fail, error=[%v]", err)
+		return
+	}
+	log.Tracef("broadcast ev=[%v], id=[%v], p=[%v], serviceId=[%v]", ev, id, p, m.serviceId)
+	name, err := os.Hostname()
+	if err != nil {
+		seelog.Errorf("%v", err)
+		panic(1)
+	}
+	for _, sv := range services {
+		if sv.ID == m.serviceId {
+			continue
+		}
+		var data []byte
+		var err error
+		if ev == EV_KILL {
+			data, err = json.Marshal([]int64{ev, id, p[0]})
+		} else {
+			data, err = json.Marshal([]int64{ev, id})
+		}
+		if err != nil {
+			seelog.Errorf("broadcast json.Marshal fail, error=[%v]", err)
+			continue
+		}
+
+		//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
+
+		watchKey := name + "-" + sv.Address
+
+		log.Tracef("push [%v] to [%v]", string(data), watchKey)
+		err = m.redis.RPush(watchKey, string(data)).Err()
+		if err != nil {
+			seelog.Errorf("broadcast m.redis.RPush fail, error=[%v]", err)
+		}
+	}
+}
+
+func (m *CronManager) watchCron() {
+	//[event, id]
+	var raw = make([]int64, 0)
+	for {
+		data, err := m.redis.BRPop(time.Second * 3, m.watchKey).Result()
+		if err != nil {
+			if err != redis.Nil {
+				seelog.Errorf("watchCron redis.BRPop fail, error=[%v]", err)
+			}
+			continue
+		}
+		if len(data) < 2 {
+			seelog.Errorf("watchCron data len fail, error=[%v]", err)
+			continue
+		}
+		err = json.Unmarshal([]byte(data[1]), &raw)
+		if err != nil {
+			seelog.Errorf("watchCron json.Unmarshal fail, error=[%v]", err)
+			continue
+		}
+		if len(raw) < 2 {
+			seelog.Errorf("watchCron raw len fail, error=[%v]", err)
+			continue
+		}
+		ev := raw[0]
+		id := raw[1]
+		switch ev {
+		case EV_ADD:
+			// 新增定时任务
+			info, err := m.cronModel.Get(id)
+			if err != nil {
+				seelog.Errorf("watchCron EV_ADD m.cronModel.Get fail, id=[%v], error=[%v]", id, err)
+			} else {
+				m.cronController.Add(info)
+			}
+		case EV_DELETE:
+			// 删除定时任务
+			m.cronController.Delete(id)
+		case EV_UPDATE:
+			// 更新定时任务
+			info, err := m.cronModel.Get(id)
+			if err != nil {
+				seelog.Errorf("watchCron EV_UPDATE m.cronModel.Get fail, id=[%v], error=[%v]", id, err)
+			} else {
+				m.cronController.Delete(id)
+				m.cronController.Add(info)
+			}
+		case EV_START:
+			m.cronController.Stop(id, false)
+		case EV_STOP:
+			m.cronController.Stop(id, true)
+		case EV_DISABLE_MUTEX:
+			m.cronController.Mutex(id, false)
+		case EV_ENABLE_MUTEX:
+			m.cronController.Mutex(id, true)
+		case EV_KILL:
+			if len(raw) == 3 {
+				m.cronController.Kill(id, int(raw[2]))
+			}
+		}
+	}
+
+}
+
 func (m *CronManager) SetServiceId(serviceId int64) {
+	m.serviceId = serviceId
 	m.cronController.SetServiceId(serviceId)
 }
 

@@ -95,19 +95,31 @@ func main() {
 		log.Errorf("%v", err)
 		panic(0);
 	}
-	m := manager.NewManager(redisClient, appConfig.RedisKeyPrex, handler, *listen, appConfig.LogKeepDay)
+
 	service := service2.NewService(handler, *listen, appConfig.LeaderKey, redisClient, func(runTimeId int64) {
 	}, func(i int64) {
 		log.Warnf("#####%v is down#####", i)
 	}, func(i int64) {
 		log.Infof("#####%v is up#####", i)
-	}, func(isLeader bool, id int64) {
+	})
+	m := manager.NewManager(
+		service,
+		redisClient,
+		appConfig.RedisKeyPrex,
+		handler,
+		*listen,
+		appConfig.LogKeepDay,
+	)
+	service.Start(func(isLeader bool, id int64) {
 		log.Infof("########leader callback: %v", isLeader)
 		m.SetLeader(isLeader)
 	})
 	m.SetServiceId(service.ID)
 	m.Start()
 	defer m.Stop()
+
+
+
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
 		os.Kill,

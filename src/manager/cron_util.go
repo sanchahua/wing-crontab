@@ -23,6 +23,11 @@ func (m *CronManager) stop(request *restful.Request, w *restful.Response, stop b
 		m.outJson(w, HttpErrorCronControllerStopFalseFail, "m.cronController.Stop fail", nil)
 		return
 	}
+	if stop {
+		m.broadcast(EV_STOP, id)
+	} else {
+		m.broadcast(EV_START, id)
+	}
 	m.outJson(w, HttpSuccess, "success", nil)
 }
 
@@ -43,6 +48,11 @@ func (m *CronManager) mutex(request *restful.Request, w *restful.Response, mutex
 	if err != nil {
 		m.outJson(w, HttpErrorCronControllerMutexFail, "m.cronController.Mutex fail", nil)
 		return
+	}
+	if mutex {
+		m.broadcast(EV_ENABLE_MUTEX, id)
+	} else {
+		m.broadcast(EV_DISABLE_MUTEX, id)
 	}
 	m.outJson(w, HttpSuccess, "success", nil)
 }

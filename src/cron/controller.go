@@ -13,6 +13,9 @@ import (
 	"time"
 	"os"
 	"github.com/go-redis/redis"
+	"encoding/json"
+	"runtime"
+	"sync/atomic"
 )
 const (
 	IsRunning = 1
@@ -48,7 +51,71 @@ func NewController(redis *redis.Client, RedisKeyPrex string, logModel *modelLog.
 		redis: redis,
 		RedisKeyPrex: RedisKeyPrex,
 	}
+	go c.dispatch()
 	return c
+}
+
+func (c *Controller) dispatch() {
+	//queue := fmt.Sprintf(row.redisKeyPrex+"/%v", row.Id)
+	var raw = make([]int64, 0)
+	cpuNum := int64(runtime.NumCPU())
+	gonum  := int64(0)
+	for {
+		// 最大运行线程数量，取 max(定时任务数量, cpu数量)
+		c.lock.RLock()
+		// 这里必须每次都重新拿长度数据，因为cronList可能会实时改变
+		maxNum := int64(len(c.cronList))
+		if cpuNum > maxNum {
+			maxNum = cpuNum
+		}
+		c.lock.RUnlock()
+
+		// 如果当前正在执行的线程数量达到上限，则等待
+		if atomic.LoadInt64(&gonum) >= maxNum {
+			log.Warnf("正在运行的协程数量达到上限%v，等待中...", maxNum)
+			time.Sleep(time.Millisecond * 10)
+			continue
+		}
+
+		data, err := c.redis.BLPop(time.Second*3, c.RedisKeyPrex).Result()
+		if err != nil {
+			if err != redis.Nil {
+				log.Errorf("dispatch row.redis.BLPop fail, error=[%v]", err)
+			}
+			continue
+		}
+
+		if len(data) < 2 {
+			continue
+		}
+
+		//fmt.Println(data)
+		err = json.Unmarshal([]byte(data[1]), &raw)
+		if err != nil {
+			log.Errorf("dispatch json.Unmarshal fail, error=[%v]", err)
+			continue
+		}
+		if len(raw) < 2 {
+			log.Errorf("dispatch raw len fail, error=[%v]", err)
+			continue
+		}
+		serviceId := raw[0]
+		id        := raw[1]
+
+		c.lock.RLock()
+		row, ok := c.cronList[id]
+		c.lock.RUnlock()
+
+		if !ok {
+			log.Errorf("dispatch id not exists fail, id=[%v]", id)
+			continue
+		}
+		atomic.AddInt64(&gonum, 1)
+		//row.runWrapper(serviceId)
+		go row.runCommand(serviceId, func() {
+			atomic.AddInt64(&gonum, -1)
+		})
+	}
 }
 
 func (c *Controller) SetLeader(isLeader bool) {
@@ -285,7 +352,7 @@ func (c *Controller) SetAvgMaxData() {
 		c.lock.RLock()
 		r, ok := c.cronList[id]
 		if ok {
-			r.setAvgMAx(avgUseTime, maxUseTime)
+			r.setAvgMax(avgUseTime, maxUseTime)
 		}
 		c.lock.RUnlock()
 	}

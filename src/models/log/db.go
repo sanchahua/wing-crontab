@@ -85,15 +85,15 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 
 	//log.Infof("GetList info, sql2=[%v]", debugSql2)
 
-	stmtOut, err := db.handler.Prepare(sqlStr)
-	if err != nil {
-		log.Errorf("GetList db.handler.Prepare fail, sql=[%v], error=[%v]", debugSql, err)
-		return nil, 0, page, limit, err
-	}
-	defer stmtOut.Close()
-	rows, err  := stmtOut.Query(params...)
+	//stmtOut, err := db.handler.Prepare(sqlStr)
+	//if err != nil {
+	//	log.Errorf("GetList db.handler.Prepare fail, sql=[%v], error=[%v]", debugSql, err)
+	//	return nil, 0, page, limit, err
+	//}
+	//defer stmtOut.Close()
+	rows, err  := db.handler.Query(sqlStr, params...)
 	if nil != err {
-		log.Errorf("GetList stmtOut.Query fail, sql=[%v], error=[%v]", debugSql, err)
+		log.Errorf("GetList db.handler.Query fail, sql=[%v], error=[%v]", debugSql, err)
 		return nil, 0, page, limit, err
 	}
 	defer rows.Close()
@@ -130,28 +130,28 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 		}
 		records = append(records, row)
 	}
-	stmtOut2, err := db.handler.Prepare(sqlStr2)
-	if err != nil {
-		log.Errorf("GetList db.handler.Prepare fail, sql=[%v], error=[%v]", debugSql2, err)
-		return nil, 0, page, limit, err
-	}
-	defer stmtOut2.Close()
-	rows2, err := stmtOut2.Query(params2...)
-	if nil != err {
-		log.Errorf("GetList stmtOut2.Query fail, sql=[%v], error=[%v]", debugSql2, err)
-		return nil, 0, page, limit, err
-	}
-	defer rows2.Close()
+	//stmtOut2, err := db.handler.Prepare(sqlStr2)
+	//if err != nil {
+	//	log.Errorf("GetList db.handler.Prepare fail, sql=[%v], error=[%v]", debugSql2, err)
+	//	return nil, 0, page, limit, err
+	//}
+	//defer stmtOut2.Close()
+	rows2 := db.handler.QueryRow(sqlStr2, params2...)
+	//if nil != err {
+	//	log.Errorf("GetList stmtOut2.Query fail, sql=[%v], error=[%v]", debugSql2, err)
+	//	return nil, 0, page, limit, err
+	//}
+	//defer rows2.Close()
 
 	var num int64 = 0
-	for rows2.Next() {
+	//for rows2.Next() {
 		err = rows2.Scan(&num)
 		if err != nil {
 			log.Errorf("GetList rows2.Scan fail, sql=[%v], error=[%v]", debugSql2, err)
 			return nil, 0, page, limit, err
 		}
-		break
-	}
+	//	break
+	//}
 	//log.Tracef("GetList success, sql=[%v], sql2=[%v], records=[%+v], num=[%v]", debugSql, debugSql2, records, num)
 	return records, num, page, limit, nil
 }

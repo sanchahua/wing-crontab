@@ -56,6 +56,7 @@ func (m *CronManager) addCron(request *restful.Request, w *restful.Response) {
 		EndTime:   et,
 		IsMutex:   params.Mutex(),
 	}
+	m.broadcast(EV_ADD, id)
 	// 添加定时任务到定时任务管理器
 	m.cronController.Add(cdata)
 	m.outJson(w, HttpSuccess, "success", cdata)
@@ -94,6 +95,7 @@ func (m *CronManager) deleteCron(request *restful.Request, w *restful.Response) 
 		m.outJson(w, HttpErrorCronModelDeleteFail, "删除失败", nil)
 		return
 	}
+	m.broadcast(EV_DELETE, id)
 	m.cronController.Delete(id)
 	m.outJson(w, HttpSuccess, "success", nil)
 }
@@ -146,6 +148,7 @@ func (m *CronManager) updateCron(request *restful.Request, w *restful.Response) 
 		m.outJson(w, HttpErrorCronModelUpdateFail, "更新失败", err.Error())
 		return
 	}
+	m.broadcast(EV_UPDATE, id)
 	m.cronController.Update(id, params.GetCronSet(), params.GetCommand(),
 		params.GetRemark(), params.IsStop(),
 		st, et, params.Mutex())
@@ -228,6 +231,7 @@ func (m *CronManager) cronKill(request *restful.Request, w *restful.Response) {
 		return
 	}
 	m.cronController.Kill(id, int(process_id))//id, timeout)
+	m.broadcast(EV_KILL, id, process_id)
 	m.outJson(w, HttpSuccess, "success", nil)
 
 }

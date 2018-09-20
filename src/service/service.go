@@ -36,7 +36,7 @@ func NewService(
 	onRegister OnRegisterFunc, // 服务注册成功回调
 	onServiceDown func(int64), // 服务下线时回调
 	onServiceUp func(int64),   // 服务恢复时回调
-	onLeader func(isLeader bool, id int64),
+	//onLeader func(isLeader bool, id int64),
 ) *Service {
 	name := "xcrontab"
 	n, _ := os.Hostname()
@@ -54,17 +54,21 @@ func NewService(
 		leaderKey:     leaderKey,
 		redis:         redis,
 		Leader:        false,
-		onLeader:      onLeader,
+		onLeader:      nil,
 		lock:          new(sync.RWMutex),
 	}
 	// 初始化，主要检查服务是否存在，如果存在会初始化ID
 	s.init()
- 	s.register()
- 	s.selectLeader()
- 	go s.tryGetLeader()
- 	// 更新updated，此字段用于判断服务是否存活
-	go s.keepAlive()
+	s.register()
 	return s
+}
+
+func (s *Service) Start(onLeader func(isLeader bool, id int64)) {
+	s.onLeader = onLeader
+	s.selectLeader()
+	go s.tryGetLeader()
+	// 更新updated，此字段用于判断服务是否存活
+	go s.keepAlive()
 }
 
 func (s *Service) init() {

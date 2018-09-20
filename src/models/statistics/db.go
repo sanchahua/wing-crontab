@@ -78,16 +78,19 @@ func (db *Statistics) Add(cron_id int64, day string, addSuccessNum, addFailNum i
 	)
 	err := row.Scan(&id)
 	if err != nil {
-		log.Errorf("Add row.Scan fail，sql=[%s]，error=[%+v]", sqlStr, err)
-		//return 0, err
-		// 如果没有然后insert
-		sqlStr = "INSERT INTO `statistics`(`cron_id`, `day`, `success`, `fail`) VALUES (?,?,?,?)"
-		_, err := db.handler.Exec(sqlStr, cron_id, day, addSuccessNum, addFailNum)
-		if err != nil {
-			log.Errorf("Add db.handler.Exec fail，sql=[%s]，error=[%+v]", sqlStr, err)
-			return err
+		if err != sql.ErrNoRows {
+			log.Errorf("Add row.Scan fail，sql=[%s]，error=[%+v]", sqlStr, err)
+		} else {
+			//return 0, err
+			// 如果没有然后insert
+			sqlStr = "INSERT INTO `statistics`(`cron_id`, `day`, `success`, `fail`) VALUES (?,?,?,?)"
+			_, err := db.handler.Exec(sqlStr, cron_id, day, addSuccessNum, addFailNum)
+			if err != nil {
+				log.Errorf("Add db.handler.Exec fail，sql=[%s]，error=[%+v]", sqlStr, err)
+				return err
+			}
+			return nil
 		}
-		return nil
 	}
 
 	sqlStr = fmt.Sprintf("UPDATE `statistics` SET `success`=(`success`+%d),`fail`=(`fail`+%d) WHERE id=?", addSuccessNum, addFailNum)

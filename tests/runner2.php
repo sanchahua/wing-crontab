@@ -1,4 +1,4 @@
 <?php
 
-sleep(60);
+sleep(30);
 echo time();
