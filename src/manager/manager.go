@@ -102,7 +102,7 @@ func NewManager(
 		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
 	)
 	m.httpServer.Start()
-	cronController.SetAvgMaxData()
+	//cronController.SetAvgMaxData()
 	go m.logManager()
 	go m.checkDateTime()
 	go m.updateAvgMax()
@@ -119,11 +119,6 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 		return
 	}
 	log.Tracef("broadcast ev=[%v], id=[%v], p=[%v], serviceId=[%v]", ev, id, p, m.serviceId)
-	name, err := os.Hostname()
-	if err != nil {
-		seelog.Errorf("%v", err)
-		panic(1)
-	}
 	for _, sv := range services {
 		if sv.ID == m.serviceId {
 			continue
@@ -141,11 +136,8 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 		}
 
 		//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
-
-		watchKey := name + "-" + sv.Address
-
-		log.Tracef("push [%v] to [%v]", string(data), watchKey)
-		err = m.redis.RPush(watchKey, string(data)).Err()
+		log.Tracef("push [%v] to [%v]", string(data), sv.Address)
+		err = m.redis.RPush(sv.Address, string(data)).Err()
 		if err != nil {
 			seelog.Errorf("broadcast m.redis.RPush fail, error=[%v]", err)
 		}
@@ -154,6 +146,7 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 
 func (m *CronManager) watchCron() {
 	//[event, id]
+	log.Tracef("start watchCron [%v]", m.watchKey)
 	var raw = make([]int64, 0)
 	for {
 		data, err := m.redis.BRPop(time.Second * 3, m.watchKey).Result()
@@ -163,6 +156,7 @@ func (m *CronManager) watchCron() {
 			}
 			continue
 		}
+		log.Tracef("watchCron data=[%v]", data)
 		if len(data) < 2 {
 			seelog.Errorf("watchCron data len fail, error=[%v]", err)
 			continue
@@ -180,6 +174,7 @@ func (m *CronManager) watchCron() {
 		id := raw[1]
 		switch ev {
 		case EV_ADD:
+			log.Tracef("watchCron new add id=[%v]", id)
 			// 新增定时任务
 			info, err := m.cronModel.Get(id)
 			if err != nil {
@@ -188,9 +183,11 @@ func (m *CronManager) watchCron() {
 				m.cronController.Add(info)
 			}
 		case EV_DELETE:
+			log.Tracef("watchCron delete id=[%v]", id)
 			// 删除定时任务
 			m.cronController.Delete(id)
 		case EV_UPDATE:
+			log.Tracef("watchCron update id=[%v]", id)
 			// 更新定时任务
 			info, err := m.cronModel.Get(id)
 			if err != nil {
@@ -200,14 +197,19 @@ func (m *CronManager) watchCron() {
 				m.cronController.Add(info)
 			}
 		case EV_START:
+			log.Tracef("watchCron start id=[%v]", id)
 			m.cronController.Stop(id, false)
 		case EV_STOP:
+			log.Tracef("watchCron stop id=[%v]", id)
 			m.cronController.Stop(id, true)
 		case EV_DISABLE_MUTEX:
+			log.Tracef("watchCron mutex false id=[%v]", id)
 			m.cronController.Mutex(id, false)
 		case EV_ENABLE_MUTEX:
+			log.Tracef("watchCron mutex true id=[%v]", id)
 			m.cronController.Mutex(id, true)
 		case EV_KILL:
+			log.Tracef("watchCron kill id=[%v]", id)
 			if len(raw) == 3 {
 				m.cronController.Kill(id, int(raw[2]))
 			}
@@ -224,8 +226,8 @@ func (m *CronManager) SetServiceId(serviceId int64) {
 func (m *CronManager) updateAvgMax() {
 	// 周期性的收集平均运行时长和最大运行时长数据
 	for {
-		time.Sleep(time.Second * 60)
 		m.cronController.SetAvgMaxData()
+		time.Sleep(time.Second * 60)
 	}
 }
 
