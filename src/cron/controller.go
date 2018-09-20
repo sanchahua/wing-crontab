@@ -174,6 +174,7 @@ func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
 		log.Errorf("%+v", err)
 		return entity, err
 	}
+	entity.SetLeader(c.Leader)
 	c.cronList[entity.Id] = entity
 	return entity, nil
 }
@@ -186,21 +187,19 @@ func (c *Controller) Delete(id int64) (*CronEntity, error) {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
 	delete(c.cronList, id)
-	e.Exit()
 	c.cron.Remove(e.CronId)
 	return e, nil
 }
 
 func (c *Controller) Update(id int64, cronSet, command string, remark string, stop bool, startTime, endTime string, isMutex bool) (*CronEntity, error) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	e, ok := c.cronList[id]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
 
 	delete(c.cronList, id)
-	e.Exit()
 	c.cron.Remove(e.CronId)
 
 	//e.Update(cronSet, command, remark, stop, startTime, endTime, isMutex)
@@ -214,7 +213,14 @@ func (c *Controller) Update(id int64, cronSet, command string, remark string, st
 		EndTime:   endTime,// int64   `json:"end_time"`
 		IsMutex:   isMutex,// bool    `json:"is_mutex"`
 	}, c.onRun)
-	entity.CronId, _ = c.cron.AddJob(entity.CronSet, entity)
+
+	entity.SetLeader(c.Leader)
+
+	var err error
+	entity.CronId, err = c.cron.AddJob(entity.CronSet, entity)
+	if err != nil {
+		log.Errorf("Updatec.cron.AddJob fail, error=[%v]", err)
+	}
 	c.cronList[entity.Id] = entity
 	return e, nil
 }

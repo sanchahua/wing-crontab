@@ -43,7 +43,6 @@ type CronEntity struct {
 	redisKeyPrex string            `json:"-"`
 	AvgRunTime int64               `json:"avg_run_time"`
 	MaxRunTime int64               `json:"max_run_time"`
-	exit bool                      `json:"-"`
 
 }
 var ErrTimeout = errors.New("timeout")
@@ -79,7 +78,6 @@ func newCronEntity(
 		redisKeyPrex: redisKeyPrex,
 		MaxRunTime:   10000,
 		AvgRunTime:   10000,
-		exit: false,
 	}
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
@@ -89,11 +87,11 @@ func newCronEntity(
 	return e
 }
 
-func (row *CronEntity) Exit() {
-	row.lock.Lock()
-	row.exit = true
-	row.lock.Unlock()
-}
+//func (row *CronEntity) Exit() {
+//	row.lock.Lock()
+//	row.exit = true
+//	row.lock.Unlock()
+//}
 
 //func (row *CronEntity) runWrapper(serviceId int64) {
 	//if !row.IsMutex {
@@ -189,14 +187,17 @@ func (row *CronEntity) getProcessNum() (int64, error)  {
 
 // 定时任务管理引擎 接口
 func (row *CronEntity) Run() {
+	//log.Tracef("%v ### was run", row.Id)
 	// 只有leader负责定时任务调度
 	row.lock.RLock()
 	if !row.Leader {
+		//log.Tracef("%v ### not leader", row.Id)
 		row.lock.RUnlock()
 		return
 	}
 	row.lock.RUnlock()
 	if row.filter.Stop() {
+		///log.Tracef("%v ### not leader", row.Id)
 		//log.Tracef("%v was stop", row.Id)
 		// 外部注入，停止执行定时任务支持
 		return

@@ -123,6 +123,13 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 		if sv.ID == m.serviceId {
 			continue
 		}
+
+		// 这里判断一下服务的有效性
+		// 如果失效的就不推送了
+		if sv.Status != 1 {
+			continue
+		}
+
 		var data []byte
 		var err error
 		if ev == EV_KILL {

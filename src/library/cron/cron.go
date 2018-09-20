@@ -4,6 +4,8 @@ package cron
 import (
 	"sort"
 	"time"
+	"fmt"
+	"os"
 )
 
 // Cron keeps track of any number of entries, invoking the associated func as
@@ -189,6 +191,7 @@ func (c *Cron) run() {
 			}
 			// Run every entry whose next time was this effective time.
 			for _, e := range c.entries {
+				//fmt.Fprintf(os.Stderr, "########## %v %+v, %+v \r\n", e.ID, e.Next, effective)
 				if e.Next != effective {
 					break
 				}
@@ -203,7 +206,7 @@ func (c *Cron) run() {
 			//newEntry.Next = newEntry.Schedule.Next(now)
 			//如上存在bug，修正如下
 			newEntry.Next = newEntry.Schedule.Next(time.Now().Local())
-
+			fmt.Fprintf(os.Stderr, "newEntry=%+v\r\n", *newEntry)
 		case <-c.snapshot:
 			c.snapshot <- c.entrySnapshot()
 
