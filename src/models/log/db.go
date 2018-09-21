@@ -29,7 +29,7 @@ func newDbLog(handler *sql.DB) *DbLog {
 // int类型的值写0表示默认值
 // 字符串类型的写为空表示默认值
 // 返回值为查询结果集合、总数量、发生的错误
-func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64, searchResult bool, startTime, endTime, searchOutput, sort string) ([]*LogEntity, int64, int64, int64, error) {
+func (db *DbLog) GetList(cronId, useTime int64, searchFail bool, page int64, limit int64, searchResult bool, startTime, endTime, searchOutput, sort string) ([]*LogEntity, int64, int64, int64, error) {
 	sqlStr  := "SELECT " + FIELDS + " FROM `log` where 1"
 	sqlStr2 := "select count(*) as num  from log where 1 "
 	var params  []interface{}
@@ -40,6 +40,14 @@ func (db *DbLog) GetList(cronId int64, searchFail bool, page int64, limit int64,
 		sqlStr  += " and `cron_id`=?"
 		sqlStr2 += " and `cron_id`=?"
 	}
+
+	if useTime > 0 {
+		params  = append(params, useTime)
+		params2 = append(params2, useTime)
+		sqlStr  += " and `use_time`>=?"
+		sqlStr2 += " and `use_time`>=?"
+	}
+
 	if searchFail {
 		sqlStr  += " and `state`=\"fail\" "
 		sqlStr2 += " and `state`=\"fail\" "

@@ -6,7 +6,9 @@
       - 结束时间 <input type="text" id="end-time" v-bind:value="logs.end_time">
     </div>
     <div>
-      定时任务id<input type="text" v-model="logs.cron_id"/> 搜索输出<input type="text" v-model="logs.output"/><input type="button" value="搜索" v-on:click="search"/>
+      定时任务id<input type="text" v-model="logs.cron_id"/> 搜索输出<input type="text" v-model="logs.output"/>
+    </div>
+    <div>运行时长>=<input type="text" v-model="logs.use_time"/>毫秒 <input type="button" value="搜索" v-on:click="search"/>
     </div>
     <div>
       <label style="cursor: pointer;" v-on:click="searchFailLogs">
@@ -83,6 +85,7 @@ export default {
         end_time: "",
         cron_id: "",
         output: "",
+        use_time: 0,
       },
     }
   },
@@ -270,7 +273,8 @@ export default {
         "&sort_type=" + that.logs.sort_type+
         "&start_time=" + encodeURIComponent(that.logs.start_time) +
         "&end_time=" + encodeURIComponent(that.logs.end_time) +
-        "&output=" + encodeURIComponent(that.logs.output)
+        "&output=" + encodeURIComponent(that.logs.output) +
+        "&use_time=" + that.logs.use_time
       ).then(function (response) {
         if (2000 == response.data.code) {
           console.log(response);

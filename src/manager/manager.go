@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"service"
 	"gitlab.xunlei.cn/xllive/common/log"
+	"models/user"
 )
 
 type CronManager struct {
@@ -32,6 +33,7 @@ type CronManager struct {
 	serviceId int64
 	redis *redis.Client
 	watchKey string
+	userModel *user.User
 }
 
 const (
@@ -54,7 +56,7 @@ func NewManager(
 	logModel  := modelLog.NewLog(db)
 	statisticsModel := statistics.NewStatistics(db)
 	cronController := cron.NewController(redis, RedisKeyPrex, logModel, statisticsModel)
-
+	userModel := user.NewUser(db)
 
 	//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
 	name, err := os.Hostname()
@@ -73,6 +75,7 @@ func NewManager(
 		service: service,
 		redis: redis,
 		watchKey: watchKey,
+		userModel: userModel,
 	}
 	m.init()
 	statikFS, err := fs.New()
@@ -99,6 +102,10 @@ func NewManager(
 		http.SetRoute("GET",  "/cron/run/{id}/{timeout}",     m.cronRun),
 		http.SetRoute("GET",  "/cron/kill/{id}/{process_id}", m.cronKill),
 		http.SetRoute("GET",  "/cron/log/detail/{id}",        m.cronLogDetail),
+
+		http.SetRoute("POST", "/user/login",                  m.login),
+		http.SetRoute("POST", "/user/register",               m.register),
+
 		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
 	)
 	m.httpServer.Start()

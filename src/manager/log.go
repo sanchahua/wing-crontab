@@ -18,6 +18,8 @@ func (m *CronManager) logs(request *restful.Request, w *restful.Response) {
 	spage   := request.PathParameter("page")
 	slimit  := request.PathParameter("limit")
 
+	suseTime := request.QueryParameter("use_time")
+	useTime, _ := strconv.ParseInt(suseTime, 10, 64)
 
 	startTime := request.QueryParameter("start_time")
 	startTime, _ = url.QueryUnescape(startTime)
@@ -58,6 +60,7 @@ func (m *CronManager) logs(request *restful.Request, w *restful.Response) {
 
 	data, total, page, limit, _ := m.logModel.GetList(
 		cronId,
+		useTime,
 		searchFail == "1",
 		page,
 		limit,

@@ -26,6 +26,13 @@ const (
 	HttpErrorCronControllerGetFail = 6004
 	HttpErrorCronControllerRunCommandFail = 6005
 
+	HttpErrorParseFormFail = 7001
+	HttpErrorGetUserByUserNameFail = 7002
+	HttpErrorUserNotFound = 7003
+	HttpErrorPasswordError = 7004
+	HttpErrorAddUserFail = 7005
+
+
 )
 
 var (
