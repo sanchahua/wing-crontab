@@ -313,7 +313,7 @@ func (c *Controller) Mutex(id int64, mutex bool) error {
 }
 
 func (c *Controller) onRun(dispatchServer, runServer int64, cronId int64, processId int, state, output string, useTime int64, remark, startTime string) {
-	log.Tracef("%v %v write log", cronId, state)
+	//log.Tracef("%v %v write log", cronId, state)
 	_, err := c.logModel.Add(dispatchServer, runServer, cronId, processId, state, output, useTime, remark, startTime)
 	if err != nil {
 		log.Errorf("onRun c.logModel.Add fail, cron_id=[%v], output=[%v], usetime=[%v], remark=[%v], startTime=[%v], error=[%v]", cronId, output, useTime, remark, startTime, err)

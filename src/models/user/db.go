@@ -42,7 +42,7 @@ func (u *User) GetUserByUserName(userName string) (*Entity, error) {
 	}
 	sqlStr := "select `id`, `user_name`, `password`, " +
 		"`real_name`, `phone`, `created`, `updated`, `enable` " +
-		"from log where " +
+		"from users where " +
 		"`user_name`=? or `phone`=?"
 	data := u.db.QueryRow(sqlStr, userName, userName)
 	var (
@@ -53,6 +53,9 @@ func (u *User) GetUserByUserName(userName string) (*Entity, error) {
 	if err != nil && err != sql.ErrNoRows {
 		log.Errorf("GetUserByUserName data.Scan fail, sql=[%v], userName=[%v], error=[%v]", sqlStr, userName, err)
 		return &row, err
+	}
+	if err == sql.ErrNoRows {
+		return nil, nil
 	}
 	log.Infof("GetUserByUserName success, sql=[%v], userName=[%v], return=[%v]", sqlStr, userName, row)
 	return &row, nil
@@ -70,7 +73,7 @@ func (u *User) Enable(id int64, enable bool) error {
 
 func (u *User) Update(id int64, userName, password, realName, phone string, enable bool) error {
 	// 检验userName、phone是否已存在
-	sqlStr := "select `id` from log where `id`!=? and (`user_name`=? or `phone`=?)"
+	sqlStr := "select `id` from users where `id`!=? and (`user_name`=? or `phone`=?)"
 	data := u.db.QueryRow(sqlStr, id, userName, phone)
 	var (
 		exid int64
@@ -103,10 +106,34 @@ func  (u *User) GetUsers() ([]*Entity, error)  {
 		if err != nil {
 			continue
 		}
+		e.Enable = enable == 1
 		e.Password = "******"
 		data = append(data, &e)
 	}
 	return data, nil
+}
+
+func  (u *User) GetUserInfo(id int64) (*Entity, error)  {
+	sqlStr := "SELECT `id`, `user_name`, `password`, `real_name`, `phone`, `created`, `updated`, `enable` FROM `users` WHERE id=?"
+	row := u.db.QueryRow(sqlStr, id)
+	var e Entity
+	var enable int
+	err := row.Scan(&e.Id, &e.UserName, &e.Password, &e.RealName, &e.Phone, &e.Created, &e.Updated, &enable)
+	if err != nil {
+		return nil, err
+	}
+	e.Enable = enable == 1
+	e.Password = "******"
+	return &e, nil
+}
+
+func  (u *User) Delete(id int64) (error)  {
+	sqlStr := "DELETE FROM `users` WHERE id=?"
+	_, err := u.db.Exec(sqlStr, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (u *User) Add(userName, password, realName, phone string) (int64, error) {
@@ -126,7 +153,10 @@ func (u *User) Add(userName, password, realName, phone string) (int64, error) {
 	if userinfo != nil {
 		return 0, errors.New(phone + "已经存在")
 	}
-
+	password = strings.Trim(password, " ")
+	if password == "" {
+		return 0, errors.New("密码不能为空")
+	}
 	sqlStr := "INSERT INTO `users`(`user_name`, `password`, `real_name`, " +
 		"`phone`, `created`, `updated`) " +
 		"VALUES (?, ?, ?, ?, ?, ?)"

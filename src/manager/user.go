@@ -1,19 +1,74 @@
 package manager
 
-import "github.com/emicklei/go-restful"
+import (
+	"github.com/emicklei/go-restful"
+	"gitlab.xunlei.cn/xllive/common/log"
+	"strconv"
+)
 
-func (m *CronManager) registerlogin(request *restful.Request, w *restful.Response) {
+func (m *CronManager) register(request *restful.Request, w *restful.Response) {
 	p, err := ParseForm(request)
 	if err != nil {
 		m.outJson(w, HttpErrorParseFormFail, err.Error(), nil)
 		return
 	}
+	log.Tracef("%+v", *p)
 	id, err := m.userModel.Add(p.UserName, p.Password, p.RealName, p.GetPhone())
 	if err != nil {
 		m.outJson(w, HttpErrorAddUserFail, err.Error(), nil)
 		return
 	}
-	m.outJson(w, HttpSuccess, err.Error(), id)
+	m.outJson(w, HttpSuccess, "ok", id)
+}
+
+func (m *CronManager) update(request *restful.Request, w *restful.Response) {
+	strUserId := request.PathParameter("id")
+	userId, err := strconv.ParseInt(strUserId, 10, 64)
+	if err != nil {
+		m.outJson(w, HttpErrorUserIdParseFail, err.Error(), nil)
+		return
+	}
+	p, err := ParseForm(request)
+	if err != nil {
+		m.outJson(w, HttpErrorParseFormFail, err.Error(), nil)
+		return
+	}
+	err = m.userModel.Update(userId, p.UserName, p.Password, p.RealName, p.GetPhone(), p.ISEnable())
+	if err != nil {
+		m.outJson(w, HttpErrorUpdateUserFail, err.Error(), nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "ok", nil)
+}
+
+func (m *CronManager) userInfo(request *restful.Request, w *restful.Response) {
+	strUserId := request.PathParameter("id")
+	userId, err := strconv.ParseInt(strUserId, 10, 64)
+	if err != nil {
+		m.outJson(w, HttpErrorUserIdParseFail, err.Error(), nil)
+		return
+	}
+	info, err := m.userModel.GetUserInfo(userId)
+	if err != nil {
+		m.outJson(w, HttpErrorGetUserInfoFail, err.Error(), nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "ok", info)
+}
+
+func (m *CronManager) userDelete(request *restful.Request, w *restful.Response) {
+	strUserId := request.PathParameter("id")
+	userId, err := strconv.ParseInt(strUserId, 10, 64)
+	if err != nil {
+		m.outJson(w, HttpErrorUserIdParseFail, err.Error(), nil)
+		return
+	}
+	err = m.userModel.Delete(userId)
+	if err != nil {
+		m.outJson(w, HttpErrorDeleteUserFail, err.Error(), nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "ok", nil)
 }
 
 func (m *CronManager) login(request *restful.Request, w *restful.Response) {

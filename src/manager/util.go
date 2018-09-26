@@ -91,9 +91,9 @@ func ParseForm(request *restful.Request) (*httpParamsEntity, error) {
 			i++
 			err := json.Unmarshal([]byte(k), &raw)
 			if err == nil {
-				return raw, err
+				return raw, nil
 			} else {
-				log.Errorf("ParseForm json.Unmarshal fail, error=[%v]", err)
+				//log.Errorf("ParseForm json.Unmarshal fail, error=[%v]", err)
 			}
 		}
 		if len(v) > 0 {
@@ -102,6 +102,7 @@ func ParseForm(request *restful.Request) (*httpParamsEntity, error) {
 			d[k] = ""
 		}
 	}
+	log.Tracef("%+v", d)
 	jd, err := json.Marshal(d)
 	if err != nil {
 		log.Errorf("ParseForm json.Marshal fail, error=[%v]", err)

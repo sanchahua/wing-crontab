@@ -190,6 +190,189 @@ func startCron(id int64) error {
 	return nil
 }
 
+
+type AddUserRsp struct {
+	Code int `json:"code"`
+	Message string `json:"message"`
+	Data int64 `json:"data"`
+}
+
+func AddUserPost(uri string, data url.Values) (*AddUserRsp, error) {
+	resp, body, errs := gorequest.New().Post(uri).Send(data.Encode()).End()
+	if len(errs) > 0 && errs[0] != nil {
+		return nil, errs[0]
+	} else if resp.StatusCode != 200 {
+		return nil, errors.New(fmt.Sprintf("error http code: %v", resp.StatusCode))
+	}
+	//return []byte(body), nil
+	var rsp AddUserRsp
+	err := json.Unmarshal([]byte(body), &rsp)
+	if err != nil {
+		return nil, err
+	}
+	return &rsp, nil
+}
+
+
+type DelUserRsp struct {
+	Code int `json:"code"`
+	Message string `json:"message"`
+}
+
+func UpdateUserPost(uri string, data url.Values) (error) {
+	resp, body, errs := gorequest.New().Post(uri).Send(data.Encode()).End()
+	if len(errs) > 0 && errs[0] != nil {
+		return errs[0]
+	} else if resp.StatusCode != 200 {
+		return errors.New(fmt.Sprintf("error http code: %v", resp.StatusCode))
+	}
+	//return []byte(body), nil
+	var rsp DelUserRsp
+	err := json.Unmarshal([]byte(body), &rsp)
+	if err != nil {
+		return err
+	}
+	if rsp.Code != 2000 {
+		return errors.New(rsp.Message)
+	}
+	return nil
+}
+
+func DelUserPost(id int64) (error) {
+	uri := fmt.Sprintf("http://localhost:38001/user/delete/%v", id)
+	resp, body, errs := gorequest.New().Post(uri).End()
+	if len(errs) > 0 && errs[0] != nil {
+		return errs[0]
+	} else if resp.StatusCode != 200 {
+		return errors.New(fmt.Sprintf("error http code: %v", resp.StatusCode))
+	}
+	//return []byte(body), nil
+	var rsp DelUserRsp
+	err := json.Unmarshal([]byte(body), &rsp)
+	if err != nil {
+		return err
+	}
+	if rsp.Code != 2000 {
+		return errors.New(rsp.Message)
+	}
+	return nil
+}
+
+type Entity struct {
+	//SELECT `id`, `user_name`, `password`, `real_name`,
+	//`phone`, `created`, `updated` FROM `users` WHERE 1
+	Id       int64  `json:"id"`
+	UserName string `json:"user_name"`
+	Password string `json:"password"`
+	RealName string `json:"real_name"`
+	Phone    string `json:"phone"`
+	Created  string `json:"created"`
+	Updated  string `json:"updated"`
+	Enable   bool   `json:"enable"`
+}
+
+type GetUserInfoRsp struct {
+	Code int `json:"code"`
+	Message string `json:"message"`
+	Data *Entity `json:"data"`
+}
+
+func httpGetUserInfo(id int64) (*Entity, error) {
+	body, err := get(fmt.Sprintf("http://localhost:38001/user/info/%v", id))
+	if err != nil {
+		return nil, err
+	}
+	//return []byte(body), nil
+	var rsp GetUserInfoRsp
+	err = json.Unmarshal([]byte(body), &rsp)
+	if err != nil {
+		return nil, err
+	}
+	return rsp.Data, nil
+}
+
+func AddUser() (int64, error) {
+	uri := "http://localhost:38001/user/register"
+	data := make(url.Values)
+	data.Add("username", "111")
+	data.Add("password", "111")
+	data.Add("real_name", "111")
+	data.Add("phone", "111")
+
+
+	body, err := AddUserPost(uri, data)
+	if err != nil {
+		return 0, err
+	}
+	if body.Code != 2000 {
+		return 0, errors.New(body.Message)
+	}
+	return body.Data, nil
+}
+
+func UpdateUser(id int64) (error) {
+	uri := fmt.Sprintf("http://localhost:38001/user/update/%v", id)
+	data := make(url.Values)
+	data.Add("username", "112")
+	data.Add("password", "112")
+	data.Add("real_name", "112")
+	data.Add("phone", "112")
+	return UpdateUserPost(uri, data)
+}
+
+// go test -v -test.run Test_AddUser
+func Test_AddUser(t *testing.T) {
+	userId, err := AddUser()
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	_, err = AddUser()
+	if err == nil {
+		t.Errorf("%v", "add user check exists fail")
+		return
+	}
+
+	info, err := httpGetUserInfo(userId)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if info.Id != userId ||
+		info.UserName != "111" ||
+		info.RealName != "111" || info.Phone != "111" {
+		t.Errorf("%v", "info check fail")
+		return
+	}
+
+	err = UpdateUser(userId)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	info, err = httpGetUserInfo(userId)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	if info.Id != userId ||
+		//info.Password != "112" ||
+		info.UserName != "112" ||
+		info.RealName != "112" ||
+		info.Phone != "112" {
+		t.Errorf("%v", "info check fail")
+		return
+	}
+
+	err = DelUserPost(userId)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+}
+
+
 func Test_AddCron(t *testing.T) {
 	e, err := addCron()
 	if err != nil {

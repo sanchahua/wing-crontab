@@ -7,6 +7,8 @@ import CronList from '@/components/pages/CronList'
 import Edit from '@/components/pages/Edit'
 import Logs from '@/components/pages/Logs'
 import LogDetail from '@/components/pages/LogDetail'
+import UserAdd from '@/components/pages/UserAdd'
+import Users from '@/components/pages/Users'
 
 Vue.use(Router)
 //
@@ -60,6 +62,17 @@ export default new Router({
       path: '/log_detail',
       name: 'LogDetail',
       component: LogDetail,
-    }
+    },
+    {
+      path: '/user_add',
+      name: 'UserAdd',
+      component: UserAdd,
+    },
+    //Users
+    {
+      path: '/users',
+      name: 'Users',
+      component: Users,
+    },
   ]
 })

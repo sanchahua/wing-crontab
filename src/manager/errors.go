@@ -32,7 +32,10 @@ const (
 	HttpErrorPasswordError = 7004
 	HttpErrorAddUserFail = 7005
 
-
+	HttpErrorUserIdParseFail = 7006
+	HttpErrorGetUserInfoFail = 7007
+	HttpErrorDeleteUserFail = 7008
+	HttpErrorUpdateUserFail = 7009
 )
 
 var (

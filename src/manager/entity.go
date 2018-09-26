@@ -20,16 +20,22 @@ type httpParamsEntity struct {
 	IsMutex interface{} `json:"is_mutex"`
 	Blame string        `json:"blame"`
 
-	UserName string     `json:"user_name"`
+	UserName string     `json:"username"`
 	Password string     `json:"password"`
 	//realName, phone
 	RealName string     `json:"real_name"`
 	Phone interface{}   `json:"phone"`
+	Enable interface{}  `json:"enable"`
 }
 var ErrNil = errors.New("nil")
 func (p *httpParamsEntity) GetPhone() string {
 	return fmt.Sprintf("%v", p.Phone)
 }
+
+func (p *httpParamsEntity) ISEnable() bool {
+	return fmt.Sprintf("%v", p.Enable) == "1"
+}
+
 func (p *httpParamsEntity) IsStop() bool {
 	if p == nil {
 		return false
