@@ -9,7 +9,7 @@ pkg_path="${root_path}/pkg"
 vendor_path="${root_path}/vendor"
 
 if ! command -v statik >/dev/null 2>&1; then
-  echo "正在安装statik"
+  echo "installing statik..."
   go get github.com/rakyll/statik
 fi
 
@@ -18,7 +18,7 @@ fi
 
 ##添加当前目录和当前目录下的vendor目录到GOPATH环境变量
 export GOPATH="${root_path}/vendor:${root_path}"
-echo ${GOPATH}
+echo "GOPATH="${GOPATH}
 ##如果pkg目录存在，则删除
 if [ -d "${pkg_path}" ]
 then

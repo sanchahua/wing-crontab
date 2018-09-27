@@ -36,6 +36,9 @@ const (
 	HttpErrorGetUserInfoFail = 7007
 	HttpErrorDeleteUserFail = 7008
 	HttpErrorUpdateUserFail = 7009
+	HttpErrorUserNotExists = 7010
+	HttpErrorUserEnableFail = 7011
+
 )
 
 var (

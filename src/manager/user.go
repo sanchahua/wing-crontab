@@ -41,6 +41,22 @@ func (m *CronManager) update(request *restful.Request, w *restful.Response) {
 	m.outJson(w, HttpSuccess, "ok", nil)
 }
 
+func (m *CronManager) enable(request *restful.Request, w *restful.Response) {
+	strUserId := request.PathParameter("id")
+	userId, err := strconv.ParseInt(strUserId, 10, 64)
+	if err != nil {
+		m.outJson(w, HttpErrorUserIdParseFail, err.Error(), nil)
+		return
+	}
+	enable := request.PathParameter("enable")
+	err = m.userModel.Enable(userId, enable == "1")
+	if err != nil {
+		m.outJson(w, HttpErrorUserEnableFail, err.Error(), nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "ok", nil)
+}
+
 func (m *CronManager) userInfo(request *restful.Request, w *restful.Response) {
 	strUserId := request.PathParameter("id")
 	userId, err := strconv.ParseInt(strUserId, 10, 64)
@@ -53,7 +69,17 @@ func (m *CronManager) userInfo(request *restful.Request, w *restful.Response) {
 		m.outJson(w, HttpErrorGetUserInfoFail, err.Error(), nil)
 		return
 	}
+	if info == nil {
+		m.outJson(w, HttpErrorUserNotExists, "user does not exists", nil)
+		return
+	}
 	m.outJson(w, HttpSuccess, "ok", info)
+}
+
+//users
+func (m *CronManager) users(request *restful.Request, w *restful.Response) {
+	users, _ := m.userModel.GetUsers()
+	m.outJson(w, HttpSuccess, "ok", users)
 }
 
 func (m *CronManager) userDelete(request *restful.Request, w *restful.Response) {

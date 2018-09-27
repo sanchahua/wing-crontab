@@ -9,7 +9,7 @@ import (
 )
 
 type httpParamsEntity struct {
-	// 数据库的基本属性
+	// 定时任务表单
 	Id interface{}      `json:"id"`
 	CronSet string      `json:"cron_set"`
 	Command string      `json:"command"`
@@ -20,6 +20,7 @@ type httpParamsEntity struct {
 	IsMutex interface{} `json:"is_mutex"`
 	Blame string        `json:"blame"`
 
+	// 用户相关表单
 	UserName string     `json:"username"`
 	Password string     `json:"password"`
 	//realName, phone

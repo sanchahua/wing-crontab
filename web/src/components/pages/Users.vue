@@ -8,35 +8,33 @@
       </ol>
     </div>
     <!--/sub-heard-part-->
-    <!--/forms-->
-    <div class="forms-main">
-      <h2 class="inner-tittle">增加用户(*必填项) </h2>
-      <div class="graph-form">
-        <div class="form-body">
-          <div class="form-group">
-            <label for="cron-blame">*用户名</label>
-            <input type="text" class="form-control" id="cron-blame">
-          </div>
-          <div class="form-group">
-            <label for="cron-set">*密码</label>
-            <input type="text" class="form-control" id="cron-set">
-          </div>
-          <div class="form-group">
-            <label for="start-time">真实姓名</label>
-            <input type="text" class="form-control" id="start-time" v-bind:value="datetime">
-          </div>
-          <div class="form-group">
-            <label for="end-time">手机</label>
-            <input type="text" class="form-control" id="end-time" value="2099-01-01 08:00:00">
-          </div>
+    <h3 class="inner-tittle two">用户列表</h3>
+    <div class="graph">
+      <div class="tables">
+        <table class="table table-bordered"> <thead>
+        <tr> <th>ID</th> <th>用户名</th> <th>状态</th> <th>真实姓名</th> <th>手机号码</th>
+          <th>添加时间</th> <th>最后更新</th>
+          <th>操作</th>
+        </tr> </thead> <tbody>
+        <tr v-for="item in users.data">
+          <th scope="row">{{item.id}}</th>
+          <td>{{item.user_name}}</td>
+          <td v-if="item.enable">启用</td>
+          <td v-else>禁用</td>
 
-          <button type="button" class="btn btn-default" id="do-submit">提交</button>
-        </div>
-
+          <td>{{item.real_name}}</td> <td>{{item.phone}}</td><td>{{item.created}}</td>
+          <td>{{item.updated}}</td>
+          <td>
+            <a class="bth" style="cursor: pointer;" v-if="item.enable" v-bind:data-id="item.id" data-enable="0" v-on:click="enable">禁用</a>
+            <a class="bth" style="cursor: pointer;" v-else v-bind:data-id="item.id" data-enable="1" v-on:click="enable">启用</a>
+            <a class="bth" style="cursor: pointer;" v-bind:data-id="item.id" v-on:click="jumpEdit">编辑</a>
+          </td>
+        </tr>
+        </tbody> </table>
       </div>
-      <!--/forms-inner-->
-      <!--//forms-inner-->
+
     </div>
+
   </div>
   <!--//forms-->
 </template>
@@ -45,13 +43,59 @@
     name: "Users",
     data: function() {
       return {
-        datetime: (new Date()).Format("yyyy-MM-dd hh:mm:ss"),
+        users: {
+          data: [],
+        }
       }
     },
-    created: function() {
-      // let script = document.createElement("script");
-      // script.src = "./static/js/add.vue.js?t=" +  (new Date()).valueOf();
-      // document.body.appendChild(script)
+    mounted: function() {
+      this.getList()
     },
+    methods:  {
+      getList: function () {
+        var that = this
+        axios.get('/users?time='+(new Date()).valueOf()).then(function (response) {
+          if (2000 == response.data.code) {
+            that.users.data = response.data.data
+            console.log(response);
+          } else {
+            alert(response.data.message);
+          }
+        }).catch(function (error) {
+
+        });
+      },
+      jumpEdit:  function(event) {
+        let id=$(event.target).attr("data-id")
+        window.location.href="/ui/#/user_edit?id="+id
+      },
+      enable: function(event) {
+        let that = this
+        let id=$(event.target).attr("data-id")
+        let enable=$(event.target).attr("data-enable")
+        // /user/enable/{id}/{enable}
+        axios.post('/user/enable/'+id+'/' + enable +'?time='+(new Date()).valueOf()).then(function (response) {
+          console.log(response);
+          if (2000 == response.data.code) {
+            let len = that.users.data.length;
+            for (let i=0;i<len;i++) {
+              if (that.users.data[i].id == id) {
+                if (enable == "1") {
+                  that.users.data[i].enable = true
+                } else {
+                  that.users.data[i].enable = false
+                }
+                break
+              }
+            }
+
+          } else {
+            alert(response.data.message);
+          }
+        }).catch(function (error) {
+          alert(error);
+        });
+      }
+    }
   }
 </script>

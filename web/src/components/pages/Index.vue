@@ -3,17 +3,17 @@
   <div>
     <div class="custom-widgets" author="yuyi">
       <div class="row-one">
-        <div class="col-md-3 widget">
-          <div class="stats-left ">
+        <div class="col-md-3 widget" style="width: 17%;">
+          <div class="stats-left" style="width: 51%;">
             <h5>定时任务</h5>
             <h4> 总数</h4>
           </div>
-          <div class="stats-right">
+          <div class="stats-right" style="width: 49%;">
             <label>{{cron_count}}</label>
           </div>
           <div class="clearfix"> </div>
         </div>
-        <div class="col-md-3 widget states-mdl">
+        <div class="col-md-3 widget states-mdl" style="width: 30%;">
           <div class="stats-left">
             <h5>历史执行</h5>
             <h4>次数</h4>
@@ -23,7 +23,7 @@
           </div>
           <div class="clearfix"> </div>
         </div>
-        <div class="col-md-3 widget states-thrd">
+        <div class="col-md-3 widget states-thrd" style="width: 30%;">
           <div class="stats-left">
             <h5>今日执行</h5>
             <h4>次数</h4>
@@ -33,12 +33,12 @@
           </div>
           <div class="clearfix"> </div>
         </div>
-        <div class="col-md-3 widget states-last">
-          <div class="stats-left">
+        <div class="col-md-3 widget states-last" style="width: 17%;">
+          <div class="stats-left" style="width: 51%;">
             <h5>今日错误</h5>
             <h4>次数</h4>
           </div>
-          <div class="stats-right">
+          <div class="stats-right" style="width: 49%;">
             <label v-html="day_run_fail_count">{{day_run_fail_count}}</label>
           </div>
           <div class="clearfix"> </div>

@@ -103,11 +103,13 @@ func NewManager(
 		http.SetRoute("GET",  "/cron/kill/{id}/{process_id}", m.cronKill),
 		http.SetRoute("GET",  "/cron/log/detail/{id}",        m.cronLogDetail),
 
+		http.SetRoute("GET",  "/users",                       m.users),
 		http.SetRoute("GET",  "/user/info/{id}",              m.userInfo),
-		http.SetRoute("POST",  "/user/delete/{id}",            m.userDelete),
+		http.SetRoute("POST",  "/user/delete/{id}",           m.userDelete),
 		http.SetRoute("POST", "/user/login",                  m.login),
 		http.SetRoute("POST", "/user/register",               m.register),
 		http.SetRoute("POST", "/user/update/{id}",            m.update),
+		http.SetRoute("POST", "/user/enable/{id}/{enable}",   m.enable),
 
 		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
 	)

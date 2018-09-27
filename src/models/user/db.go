@@ -119,6 +119,9 @@ func  (u *User) GetUserInfo(id int64) (*Entity, error)  {
 	var e Entity
 	var enable int
 	err := row.Scan(&e.Id, &e.UserName, &e.Password, &e.RealName, &e.Phone, &e.Created, &e.Updated, &enable)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -4,30 +4,30 @@
     <div class="sub-heard-part">
       <ol class="breadcrumb m-b-0">
         <li><a href="/ui/#/">首页</a></li>
-        <li class="active">增加用户</li>
+        <li class="active">编辑用户</li>
       </ol>
     </div>
     <!--/sub-heard-part-->
     <!--/forms-->
     <div class="forms-main">
-      <h2 class="inner-tittle">增加用户(*必填项) </h2>
+      <h2 class="inner-tittle">编辑用户(*必填项) </h2>
       <div class="graph-form">
         <div class="form-body">
           <div class="form-group">
             <label for="user_name">*用户名</label>
-            <input type="text" class="form-control" id="user_name" v-model="user_name">
+            <input type="text" class="form-control" id="user_name" v-bind:value="user_name" v-model="user_name">
           </div>
           <div class="form-group">
             <label for="password">*密码</label>
-            <input type="text" class="form-control" id="password" v-model="password">
+            <input type="text" class="form-control" id="password" v-bind:value="password" v-model="password">
           </div>
           <div class="form-group">
             <label for="real_name">真实姓名</label>
-            <input type="text" class="form-control" id="real_name" v-model="real_name">
+            <input type="text" class="form-control" id="real_name" v-bind:value="real_name" v-model="real_name">
           </div>
           <div class="form-group">
             <label for="phone">手机</label>
-            <input type="text" class="form-control" id="phone" v-model="phone">
+            <input type="text" class="form-control" id="phone" v-bind:value="phone" v-model="phone">
           </div>
 
           <button type="button" class="btn btn-default" v-on:click="add">提交</button>
@@ -42,9 +42,10 @@
 </template>
 <script>
   export default {
-    name: "UserAdd",
+    name: "UserEdit",
     data: function() {
       return {
+        id: 0,
         user_name: "",
         password: "",
         real_name: "",
@@ -52,13 +53,14 @@
         datetime: (new Date()).Format("yyyy-MM-dd hh:mm:ss"),
       }
     },
-    created: function() {
-      // let script = document.createElement("script");
-      // script.src = "./static/js/add.vue.js?t=" +  (new Date()).valueOf();
-      // document.body.appendChild(script)
+    mounted: function() {
+      this.getUserInfo()
     },
     methods: {
-      add: function () {
+      getUserInfo: function() {
+
+      },
+      update: function () {
         let that = this
         if (that.user_name == "") {
           return alert("用户名不能为空")
