@@ -34,6 +34,7 @@ fi
 
 cd ${root_path}"/src"
 rm -rf ${root_path}"/src/statik"
+cp -rf ${root_path}"/web/login.html" ${root_path}"/web/dist/"
 statik -src=${root_path}"/web/dist"
 
 ##进入当前目录

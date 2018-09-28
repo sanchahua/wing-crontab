@@ -51,6 +51,7 @@ go get github.com/json-iterator/go/extra
 go get github.com/rakyll/statik/fs
 go get github.com/parnurzeal/gorequest
 go get github.com/huandu/goroutine
+go get github.com/bsm/go-guid
 
 find $vendor_path -name '*.git*' | xargs rm -rf
 ##cp -rf $vendor_path/src/* $vendor_path

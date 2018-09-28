@@ -38,6 +38,7 @@ const (
 	HttpErrorUpdateUserFail = 7009
 	HttpErrorUserNotExists = 7010
 	HttpErrorUserEnableFail = 7011
+	HttpErrorStoreSessionFail = 7012
 
 )
 

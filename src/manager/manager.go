@@ -20,6 +20,8 @@ import (
 	"service"
 	"gitlab.xunlei.cn/xllive/common/log"
 	"models/user"
+	"session"
+	"github.com/emicklei/go-restful"
 )
 
 type CronManager struct {
@@ -34,6 +36,7 @@ type CronManager struct {
 	redis *redis.Client
 	watchKey string
 	userModel *user.User
+	session *session.Session
 }
 
 const (
@@ -76,6 +79,7 @@ func NewManager(
 		redis: redis,
 		watchKey: watchKey,
 		userModel: userModel,
+		session: session.NewSession(redis),
 	}
 	m.init()
 	statikFS, err := fs.New()
@@ -87,29 +91,71 @@ func NewManager(
 	// restful api 路由
 	m.httpServer = http.NewHttpServer(
 		listen,
-		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}", m.logs),
-		http.SetRoute("GET",  "/cron/list",                   m.cronList),
-		http.SetRoute("GET",  "/cron/stop/{id}",              m.stopCron),
-		http.SetRoute("GET",  "/cron/start/{id}",             m.startCron),
-		http.SetRoute("GET",  "/cron/mutex/false/{id}",       m.mutexFalse),
-		http.SetRoute("GET",  "/cron/mutex/true/{id}",        m.mutexTrue),
-		http.SetRoute("GET",  "/cron/delete/{id}",            m.deleteCron),
-		http.SetRoute("POST", "/cron/update/{id}",            m.updateCron),
-		http.SetRoute("POST", "/cron/add",                    m.addCron),
-		http.SetRoute("GET",  "/cron/info/{id}",              m.cronInfo),
-		http.SetRoute("GET",  "/index",                       m.index),
-		http.SetRoute("GET",  "/charts/{days}",               m.charts),
-		http.SetRoute("GET",  "/cron/run/{id}/{timeout}",     m.cronRun),
-		http.SetRoute("GET",  "/cron/kill/{id}/{process_id}", m.cronKill),
-		http.SetRoute("GET",  "/cron/log/detail/{id}",        m.cronLogDetail),
+		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}", func(request *restful.Request, response *restful.Response) {
+			m.logs(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/list", func(request *restful.Request, response *restful.Response) {
+			m.cronList(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/stop/{id}", func(request *restful.Request, response *restful.Response) {
+			m.stopCron(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/start/{id}", func(request *restful.Request, response *restful.Response) {
+			m.startCron(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/mutex/false/{id}", func(request *restful.Request, response *restful.Response) {
+			m.mutexFalse(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/mutex/true/{id}", func(request *restful.Request, response *restful.Response) {
+			m.mutexTrue(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/delete/{id}", func(request *restful.Request, response *restful.Response) {
+			m.deleteCron(request, response)
+		}),
+		http.SetRoute("POST", "/cron/update/{id}", func(request *restful.Request, response *restful.Response) {
+			m.updateCron(request, response)
+		}),
+		http.SetRoute("POST", "/cron/add", func(request *restful.Request, response *restful.Response) {
+			m.addCron(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/info/{id}", func(request *restful.Request, response *restful.Response) {
+			m.cronInfo(request, response)
+		}),
+		http.SetRoute("GET",  "/index", func(request *restful.Request, response *restful.Response) {
+			m.index(request, response)
+		}),
+		http.SetRoute("GET",  "/charts/{days}", func(request *restful.Request, response *restful.Response) {
+			m.charts(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/run/{id}/{timeout}", func(request *restful.Request, response *restful.Response) {
+			m.cronRun(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/kill/{id}/{process_id}", func(request *restful.Request, response *restful.Response) {
+			m.cronKill(request, response)
+		}),
+		http.SetRoute("GET",  "/cron/log/detail/{id}", func(request *restful.Request, response *restful.Response) {
+			m.cronLogDetail(request, response)
+		}),
 
-		http.SetRoute("GET",  "/users",                       m.users),
-		http.SetRoute("GET",  "/user/info/{id}",              m.userInfo),
-		http.SetRoute("POST",  "/user/delete/{id}",           m.userDelete),
+		http.SetRoute("GET",  "/users", func(request *restful.Request, response *restful.Response) {
+			m.users(request, response)
+		}),
+		http.SetRoute("GET",  "/user/info/{id}", func(request *restful.Request, response *restful.Response) {
+			m.userInfo(request, response)
+		}),
+		http.SetRoute("POST",  "/user/delete/{id}", func(request *restful.Request, response *restful.Response) {
+			m.userDelete(request, response)
+		}),
 		http.SetRoute("POST", "/user/login",                  m.login),
-		http.SetRoute("POST", "/user/register",               m.register),
-		http.SetRoute("POST", "/user/update/{id}",            m.update),
-		http.SetRoute("POST", "/user/enable/{id}/{enable}",   m.enable),
+		http.SetRoute("POST", "/user/register", func(request *restful.Request, response *restful.Response) {
+			m.register(request, response)
+		}),
+		http.SetRoute("POST", "/user/update/{id}", func(request *restful.Request, response *restful.Response) {
+			m.update(request, response)
+		}),
+		http.SetRoute("POST", "/user/enable/{id}/{enable}", func(request *restful.Request, response *restful.Response) {
+			m.enable(request, response)
+		}),
 
 		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
 	)

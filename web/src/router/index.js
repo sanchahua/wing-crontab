@@ -10,6 +10,8 @@ import LogDetail from '@/components/pages/LogDetail'
 import UserAdd from '@/components/pages/UserAdd'
 import Users from '@/components/pages/Users'
 import UserEdit from '@/components/pages/UserEdit'
+
+
 Vue.use(Router)
 //
 // const routes = {
@@ -79,6 +81,6 @@ export default new Router({
       path: '/user_edit',
       name: 'UserEdit',
       component: UserEdit,
-    },
+    }
   ]
 })

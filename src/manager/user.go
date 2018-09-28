@@ -4,6 +4,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"gitlab.xunlei.cn/xllive/common/log"
 	"strconv"
+	"time"
 )
 
 func (m *CronManager) register(request *restful.Request, w *restful.Response) {
@@ -117,5 +118,11 @@ func (m *CronManager) login(request *restful.Request, w *restful.Response) {
 		return
 	}
 	userInfo.Password = "******"
+	sessionId, err := m.session.Store(userInfo.Id, time.Second * 60)
+	if err != nil {
+		m.outJson(w, HttpErrorStoreSessionFail, "创建session失败", nil)
+		return
+	}
+	w.Header().Set("Set-Cookie", "Session="+sessionId)
 	m.outJson(w, HttpSuccess, "ok", userInfo)
 }
