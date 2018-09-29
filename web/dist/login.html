@@ -18,6 +18,26 @@
 <link rel="stylesheet" href="./static/css/icon-font.min.css" type='text/css' />
 <!-- //lined-icons -->
 <script src="./static/js/jquery-1.10.2.min.js"></script>
+  <script>
+    function login() {
+        $.ajax({
+          timeout: 3000,
+          type:"POST",
+          data: {
+            username: $("#username").val(),
+            password: $("#password").val(),
+          },
+          url:"/user/login",
+          success: function (msg) {
+            console.log(msg);
+            window.location.href="/ui/";
+          },
+          error: function(){
+            alert("登录失败");
+          }
+        })
+    }
+  </script>
 <!--clock init-->
 </head>
 <body>
@@ -37,10 +57,10 @@
 																				<div class="clearfix"></div>
 																			</ul>
 																		</div>
-																<form>
-																		<input type="text" class="text" value="E-mail address" onfocus="this.value = '';" onblur="if (this.value == '') {this.value = 'E-mail address';}" >
-																		<input type="password" value="Password" onfocus="this.value = '';" onblur="if (this.value == '') {this.value = 'Password';}">
-																		<div class="submit"><input type="submit" onclick="myFunction()" value="Login" ></div>
+																<form method="post">
+																		<input type="text" class="text" name="username" id="username" />
+																		<input type="password" name="password" id="password" />
+																		<div class="submit"><input type="button" onclick="login()" value="Login" ></div>
 																		<div class="clearfix"></div>
 
 																		<div class="new">

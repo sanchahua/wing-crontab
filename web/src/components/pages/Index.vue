@@ -178,7 +178,7 @@
             }
 
           } else {
-            alert(response.data.message);
+            consule.log(response.data.message);
           }
         }).catch(function (error) {
 
@@ -193,7 +193,7 @@
             chart.validateNow();
             chart.validateData()
           } else {
-            alert(response.data.message);
+            consule.log(response.data.message);
           }
         }).catch(function (error) {
 

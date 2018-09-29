@@ -28,6 +28,7 @@
             <a class="bth" style="cursor: pointer;" v-if="item.enable" v-bind:data-id="item.id" data-enable="0" v-on:click="enable">禁用</a>
             <a class="bth" style="cursor: pointer;" v-else v-bind:data-id="item.id" data-enable="1" v-on:click="enable">启用</a>
             <a class="bth" style="cursor: pointer;" v-bind:data-id="item.id" v-on:click="jumpEdit">编辑</a>
+            <a class="bth" style="cursor: pointer;" v-bind:data-id="item.id" v-on:click="jumpPowers">权限</a>
           </td>
         </tr>
         </tbody> </table>
@@ -69,6 +70,10 @@
         let id=$(event.target).attr("data-id")
         window.location.href="/ui/#/user_edit?id="+id
       },
+      jumpPowers: function() {
+        let id=$(event.target).attr("data-id")
+        window.location.href="/ui/#/user_powers?id="+id
+      },
       enable: function(event) {
         let that = this
         let id=$(event.target).attr("data-id")
@@ -88,7 +93,6 @@
                 break
               }
             }
-
           } else {
             alert(response.data.message);
           }

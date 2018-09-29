@@ -173,13 +173,12 @@
 
               that.cron_list = response.data.data
             } else {
-              alert(response.data.message);
+              console.log(response.data.message);
             }
           }).catch(function (error) {});
       },
       stop: function (event) {
           let id = $(event.target).attr("item-id");
-          //alert("停止"+id);
           // /cron/stop/1656
           var that = this;
           axios.get('/cron/stop/'+id+'?time='+(new Date()).valueOf()).then(function (response) {

@@ -123,6 +123,6 @@ func (m *CronManager) login(request *restful.Request, w *restful.Response) {
 		m.outJson(w, HttpErrorStoreSessionFail, "创建session失败", nil)
 		return
 	}
-	w.Header().Set("Set-Cookie", "Session="+sessionId)
+	w.Header().Set("Set-Cookie", "Session="+sessionId+"; Path=/;")
 	m.outJson(w, HttpSuccess, "ok", userInfo)
 }

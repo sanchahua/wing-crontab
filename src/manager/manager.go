@@ -22,6 +22,8 @@ import (
 	"models/user"
 	"session"
 	"github.com/emicklei/go-restful"
+	"strings"
+	"net/url"
 )
 
 type CronManager struct {
@@ -48,6 +50,8 @@ const (
 	EV_DISABLE_MUTEX = 6
 	EV_ENABLE_MUTEX = 7
 	EV_KILL = 8
+
+	JumpLoginCode = "<a href=\"/ui/login.html\" id=\"location\">3秒后跳到登录页面，点击去登录</a><script>var s = 3;window.setInterval(function () {s--;document.getElementById(\"location\").innerText=s+\"秒后跳到登录页面，点击去登录\"}, 1000);</script>"
 )
 
 func NewManager(
@@ -92,72 +96,177 @@ func NewManager(
 	m.httpServer = http.NewHttpServer(
 		listen,
 		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.logs(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/list", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.cronList(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/stop/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.stopCron(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/start/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.startCron(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/mutex/false/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.mutexFalse(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/mutex/true/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.mutexTrue(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/delete/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.deleteCron(request, response)
 		}),
 		http.SetRoute("POST", "/cron/update/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.updateCron(request, response)
 		}),
 		http.SetRoute("POST", "/cron/add", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.addCron(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/info/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.cronInfo(request, response)
 		}),
 		http.SetRoute("GET",  "/index", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.index(request, response)
 		}),
 		http.SetRoute("GET",  "/charts/{days}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.charts(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/run/{id}/{timeout}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.cronRun(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/kill/{id}/{process_id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.cronKill(request, response)
 		}),
 		http.SetRoute("GET",  "/cron/log/detail/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.cronLogDetail(request, response)
 		}),
 
 		http.SetRoute("GET",  "/users", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.users(request, response)
 		}),
 		http.SetRoute("GET",  "/user/info/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.userInfo(request, response)
 		}),
 		http.SetRoute("POST",  "/user/delete/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.userDelete(request, response)
 		}),
 		http.SetRoute("POST", "/user/login",                  m.login),
 		http.SetRoute("POST", "/user/register", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.register(request, response)
 		}),
 		http.SetRoute("POST", "/user/update/{id}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.update(request, response)
 		}),
 		http.SetRoute("POST", "/user/enable/{id}/{enable}", func(request *restful.Request, response *restful.Response) {
+			if !m.sessionValid(request.Request) {
+				response.Header().Set("Refresh", "3; url=/ui/login.html")
+				response.Write([]byte(JumpLoginCode))
+				return
+			}
 			m.enable(request, response)
 		}),
 
-		http.SetHandle("/ui/", shttp.StripPrefix("/ui/", shttp.FileServer(statikFS))),
+		http.SetHandle("/ui/", m.ui(shttp.FileServer(statikFS))),
 	)
 	m.httpServer.Start()
 	//cronController.SetAvgMaxData()
@@ -166,6 +275,67 @@ func NewManager(
 	go m.updateAvgMax()
 	go m.watchCron()
 	return m
+}
+
+func (m *CronManager) readCookie(r *shttp.Request) map[string]string {
+	cookie := r.Header.Get("Cookie")
+	fmt.Println("cookie:", cookie)
+	if cookie == "" {
+		return nil
+	}
+	//Session=000000005baebf74f905216dbc000001; qaerwger=qertwer
+	temp1 := strings.Split(cookie, ";")
+	if len(temp1) <= 0 {
+		return nil
+	}
+	var cookies = make(map[string]string)
+	for _, v := range temp1 {
+		t := strings.Split(v, "=")
+		if len(t) < 2 {
+			continue
+		}
+		cookies[strings.Trim(t[0], " ")] = strings.Trim(t[1], " ")
+	}
+	return cookies
+}
+
+// 保持session的有效性
+func (m *CronManager) sessionValid(r *shttp.Request) bool {
+	cookies := m.readCookie(r)
+	sessionid, ok := cookies["Session"]
+	if ok {
+		log.Tracef("update session: %v", sessionid)
+		if v, _ := m.session.Valid(sessionid); !v {
+			return false
+		}
+		m.session.Update(sessionid, time.Second * 60)
+		return true
+	}
+	return false
+}
+
+func (m *CronManager) ui(h shttp.Handler) shttp.Handler {
+	prefix:="/ui/"
+	return shttp.HandlerFunc(func(w shttp.ResponseWriter, r *shttp.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/ui/login.html") &&
+			!strings.HasPrefix(r.URL.Path, "/ui/static/") {
+			if !m.sessionValid(r) {
+				w.Header().Set("Refresh", "3; url=/ui/login.html")
+				w.Write([]byte(JumpLoginCode))
+				return
+			}
+		}
+		if p := strings.TrimPrefix(r.URL.Path, prefix); len(p) < len(r.URL.Path) {
+			r2 := new(shttp.Request)
+			*r2 = *r
+			r2.URL = new(url.URL)
+			*r2.URL = *r.URL
+			r2.URL.Path = p
+			h.ServeHTTP(w, r2)
+		} else {
+			shttp.NotFound(w, r)
+		}
+	})
 }
 
 // 广播通知相关事件

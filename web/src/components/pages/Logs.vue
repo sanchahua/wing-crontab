@@ -284,7 +284,7 @@ export default {
           that.logs.total = response.data.data.total
           that.logs.totalPage = response.data.data.totalPage
         } else {
-          alert(response.data.message);
+          console.log(response.data.message);
         }
       }).catch(function (error) {
 
