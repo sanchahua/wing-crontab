@@ -6,6 +6,7 @@ import (
 	"time"
 	"github.com/go-redis/redis"
 	"encoding/json"
+	"gitlab.xunlei.cn/xllive/common/log"
 )
 
 type Session struct {
@@ -45,7 +46,12 @@ func (s *Session) Clear(sessionid string) error {
 }
 
 func (s *Session) Update(sessionid string, timeout time.Duration) error {
-	return s.redis.Expire(sessionid, timeout).Err()
+	log.Tracef("update session: %v", sessionid)
+	err := s.redis.Expire(sessionid, timeout).Err()
+	if err != nil {
+		log.Tracef("update session fail, sessionid=[%v], err=[%v]", sessionid, err)
+	}
+	return err
 }
 
 // 用来检验一个session的有效性

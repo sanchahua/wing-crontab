@@ -71,7 +71,7 @@ func (u *User) Enable(id int64, enable bool) error {
 	return err
 }
 
-func (u *User) Update(id int64, userName, password, realName, phone string, enable bool) error {
+func (u *User) Update(id int64, userName, password, realName, phone string) error {
 	if id <=0 {
 		return errors.New("id param error")
 	}
@@ -92,12 +92,8 @@ func (u *User) Update(id int64, userName, password, realName, phone string, enab
 		log.Errorf("Update data.Scan fail, sql=[%v], userName=[%v], error=[%v]", sqlStr, userName, err)
 		return errors.New(userName + "或者" + phone + "已存在")
 	}
-	sqlStr = "UPDATE `users` SET `user_name`=?,`password`=?,`real_name`=?, `phone`=?, `updated`=?,`enable`=? WHERE id=?"
-	iEnable := 0
-	if enable {
-		iEnable = 1
-	}
-	_, err = u.db.Exec(sqlStr, userName, password, realName, phone, time.GetDayTime(), iEnable, id)
+	sqlStr = "UPDATE `users` SET `user_name`=?,`password`=?,`real_name`=?, `phone`=?, `updated`=? WHERE id=?"
+	_, err = u.db.Exec(sqlStr, userName, password, realName, phone, time.GetDayTime(), id)
 	return err
 }
 

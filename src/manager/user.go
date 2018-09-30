@@ -34,7 +34,7 @@ func (m *CronManager) update(request *restful.Request, w *restful.Response) {
 		m.outJson(w, HttpErrorParseFormFail, err.Error(), nil)
 		return
 	}
-	err = m.userModel.Update(userId, p.UserName, p.Password, p.RealName, p.GetPhone(), p.ISEnable())
+	err = m.userModel.Update(userId, p.UserName, p.Password, p.RealName, p.GetPhone())
 	if err != nil {
 		m.outJson(w, HttpErrorUpdateUserFail, err.Error(), nil)
 		return
@@ -75,7 +75,7 @@ func (m *CronManager) sessionUpdate(request *restful.Request, w *restful.Respons
 		m.outJson(w, HttpErrorParseFormFail, err.Error(), nil)
 		return
 	}
-	err = m.userModel.Update(userId, p.UserName, p.Password, p.RealName, p.GetPhone(), p.ISEnable())
+	err = m.userModel.Update(userId, p.UserName, p.Password, p.RealName, p.GetPhone())
 	if err != nil {
 		m.outJson(w, HttpErrorUpdateUserFail, err.Error(), nil)
 		return

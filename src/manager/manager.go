@@ -40,16 +40,15 @@ type CronManager struct {
 	userModel *user.User
 	session *session.Session
 }
-
 const (
-	EV_ADD = 1
-	EV_DELETE = 2
-	EV_UPDATE = 3
-	EV_START = 4
-	EV_STOP = 5
+	EV_ADD           = 1
+	EV_DELETE        = 2
+	EV_UPDATE        = 3
+	EV_START         = 4
+	EV_STOP          = 5
 	EV_DISABLE_MUTEX = 6
-	EV_ENABLE_MUTEX = 7
-	EV_KILL = 8
+	EV_ENABLE_MUTEX  = 7
+	EV_KILL          = 8
 
 	JumpLoginCode = "<a href=\"/ui/login.html\" id=\"location\">3秒后跳到登录页面，点击去登录</a><script>var s = 3;window.setInterval(function () {s--;document.getElementById(\"location\").innerText=s+\"秒后跳到登录页面，点击去登录\"}, 1000);</script>"
 )
@@ -95,6 +94,8 @@ func NewManager(
 	// restful api 路由
 	m.httpServer = http.NewHttpServer(
 		listen,
+		
+		// 日志列表
 		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -103,6 +104,8 @@ func NewManager(
 			}
 			m.logs(request, response)
 		}),
+
+		// 定时任务列表
 		http.SetRoute("GET",  "/cron/list", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -111,6 +114,8 @@ func NewManager(
 			}
 			m.cronList(request, response)
 		}),
+
+		// 停止定时任务
 		http.SetRoute("GET",  "/cron/stop/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -119,6 +124,8 @@ func NewManager(
 			}
 			m.stopCron(request, response)
 		}),
+
+		// 开始定时任务
 		http.SetRoute("GET",  "/cron/start/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -127,6 +134,8 @@ func NewManager(
 			}
 			m.startCron(request, response)
 		}),
+
+		// 取消互斥
 		http.SetRoute("GET",  "/cron/mutex/false/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -135,6 +144,8 @@ func NewManager(
 			}
 			m.mutexFalse(request, response)
 		}),
+
+		// 设为互斥
 		http.SetRoute("GET",  "/cron/mutex/true/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -143,6 +154,8 @@ func NewManager(
 			}
 			m.mutexTrue(request, response)
 		}),
+
+		// 删除定时任务
 		http.SetRoute("GET",  "/cron/delete/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -151,6 +164,8 @@ func NewManager(
 			}
 			m.deleteCron(request, response)
 		}),
+
+		// 更新定时任务
 		http.SetRoute("POST", "/cron/update/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -159,6 +174,8 @@ func NewManager(
 			}
 			m.updateCron(request, response)
 		}),
+
+		// 增加新的定时任务
 		http.SetRoute("POST", "/cron/add", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -167,6 +184,8 @@ func NewManager(
 			}
 			m.addCron(request, response)
 		}),
+
+		// 定时任务详情
 		http.SetRoute("GET",  "/cron/info/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -175,6 +194,8 @@ func NewManager(
 			}
 			m.cronInfo(request, response)
 		}),
+		
+		// 首页相关统计信息
 		http.SetRoute("GET",  "/index", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -183,6 +204,8 @@ func NewManager(
 			}
 			m.index(request, response)
 		}),
+		
+		// 查询图表，首页使用
 		http.SetRoute("GET",  "/charts/{days}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -191,6 +214,8 @@ func NewManager(
 			}
 			m.charts(request, response)
 		}),
+		
+		// 手动运行定时任务，一般用户测试
 		http.SetRoute("GET",  "/cron/run/{id}/{timeout}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -199,6 +224,8 @@ func NewManager(
 			}
 			m.cronRun(request, response)
 		}),
+
+		// 杀死进程
 		http.SetRoute("GET",  "/cron/kill/{id}/{process_id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -207,6 +234,8 @@ func NewManager(
 			}
 			m.cronKill(request, response)
 		}),
+
+		// 查询日志详情
 		http.SetRoute("GET",  "/cron/log/detail/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -216,6 +245,7 @@ func NewManager(
 			m.cronLogDetail(request, response)
 		}),
 
+		// 查询用户列表
 		http.SetRoute("GET",  "/users", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -224,6 +254,8 @@ func NewManager(
 			}
 			m.users(request, response)
 		}),
+
+		// 通用查询用户信息接口
 		http.SetRoute("GET",  "/user/info/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -232,6 +264,8 @@ func NewManager(
 			}
 			m.userInfo(request, response)
 		}),
+
+		// 删除用户接口
 		http.SetRoute("POST",  "/user/delete/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -240,11 +274,17 @@ func NewManager(
 			}
 			m.userDelete(request, response)
 		}),
-		http.SetRoute("POST", "/user/login",                  m.login),
-		http.SetRoute("GET", "/user/logout",                  m.logout),
-		http.SetRoute("GET", "/user/session/info",                 m.sessionInfo),
+
+		// 登录api
+		http.SetRoute("POST", "/user/login",          m.login),
+		// 退出登录api
+		http.SetRoute("GET",  "/user/logout",         m.logout),
+		// 查询在线用户信息，根据cookie查询
+		http.SetRoute("GET",  "/user/session/info",   m.sessionInfo),
+		// 更新在线用户信息，个人中心用户更新自己的信息使用
 		http.SetRoute("POST", "/user/session/update", m.sessionUpdate),
 
+		// （注册）添加新用户api
 		http.SetRoute("POST", "/user/register", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -253,6 +293,8 @@ func NewManager(
 			}
 			m.register(request, response)
 		}),
+
+		// 通用更新用户信息接口
 		http.SetRoute("POST", "/user/update/{id}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -261,6 +303,8 @@ func NewManager(
 			}
 			m.update(request, response)
 		}),
+
+		// 启用/禁用用户账号接口
 		http.SetRoute("POST", "/user/enable/{id}/{enable}", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")
@@ -274,9 +318,13 @@ func NewManager(
 	)
 	m.httpServer.Start()
 	//cronController.SetAvgMaxData()
+	// 负责清理过期日志
 	go m.logManager()
+	// 检测系统是否有发生修改时间行为
 	go m.checkDateTime()
+	// 更新平均时长和最大运行时长
 	go m.updateAvgMax()
+	// 检测同步事件
 	go m.watchCron()
 	return m
 }
@@ -308,7 +356,6 @@ func (m *CronManager) sessionValid(r *shttp.Request) bool {
 	cookies := m.readCookie(r)
 	sessionid, ok := cookies["Session"]
 	if ok {
-		log.Tracef("update session: %v", sessionid)
 		if v, _ := m.session.Valid(sessionid); !v {
 			return false
 		}
@@ -321,6 +368,7 @@ func (m *CronManager) sessionValid(r *shttp.Request) bool {
 func (m *CronManager) ui(h shttp.Handler) shttp.Handler {
 	prefix:="/ui/"
 	return shttp.HandlerFunc(func(w shttp.ResponseWriter, r *shttp.Request) {
+		// 只有登录页面和静态资源无需校验登录状态
 		if !strings.HasPrefix(r.URL.Path, "/ui/login.html") &&
 			!strings.HasPrefix(r.URL.Path, "/ui/static/") {
 			if !m.sessionValid(r) {
@@ -502,22 +550,6 @@ func (m *CronManager) logManager() {
 }
 
 func (m *CronManager) init() {
-	// 启动后，先进性服务注册
-	// 然后获取节点数量，当前节点id=节点数量
-	// 从数据库查询 定时任务id%节点数量==0的定时任务，载入当前的定时任务管理器
-
-
-	// 节点数量变化产生的流程
-	// 如果获取到节点退出事件
-	// id也需要重新生成，注意并发加锁与id唯一性即可
-	// 如果当前的节点id == 节点数量
-	// 从数据库查询 定时任务id%节点数量==0的定时任务，载入当前的定时任务管理器
-	// 如果当前的节点id < 节点数量
-	// 从数据库查询 定时任务id%节点数量==节点id 的定时任务，载入当前的定时任务管理器
-	// 最后判断，当前的定时任务管理器内的定时任务是否在查询列表内，不在则清除
-	// 然后再判断返回列表的定时任务，如果该定时任务已存在当前的定时任务管理器，不予处理
-	// 不存在，则加入到当前的定时任务管理器中
-
 	list, err := m.cronModel.GetList()
 	if err != nil {
 		seelog.Errorf("init fail, m.cronModel.GetList fail, error=[%v]", err)
