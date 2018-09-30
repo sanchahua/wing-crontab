@@ -58,6 +58,55 @@ func (m *CronManager) enable(request *restful.Request, w *restful.Response) {
 	m.outJson(w, HttpSuccess, "ok", nil)
 }
 
+func (m *CronManager) sessionUpdate(request *restful.Request, w *restful.Response) {
+	cookies := m.readCookie(request.Request)
+	sessionid, ok := cookies["Session"]
+	if !ok {
+		m.outJson(w, HttpSessionNotFound, "session not found", nil)
+		return
+	}
+	userId, err := m.session.GetUserId(sessionid)
+	if err != nil {
+		m.outJson(w, HttpSessionGetUserIdFail, "session get userid fail", nil)
+		return
+	}
+	p, err := ParseForm(request)
+	if err != nil {
+		m.outJson(w, HttpErrorParseFormFail, err.Error(), nil)
+		return
+	}
+	err = m.userModel.Update(userId, p.UserName, p.Password, p.RealName, p.GetPhone(), p.ISEnable())
+	if err != nil {
+		m.outJson(w, HttpErrorUpdateUserFail, err.Error(), nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "ok", nil)
+}
+
+func (m *CronManager) sessionInfo(request *restful.Request, w *restful.Response) {
+	cookies := m.readCookie(request.Request)
+	sessionid, ok := cookies["Session"]
+	if !ok {
+		m.outJson(w, HttpSessionNotFound, "session not found", nil)
+		return
+	}
+	userId, err := m.session.GetUserId(sessionid)
+	if err != nil {
+		m.outJson(w, HttpSessionGetUserIdFail, "session get userid fail", nil)
+		return
+	}
+	info, err := m.userModel.GetUserInfo(userId)
+	if err != nil {
+		m.outJson(w, HttpErrorGetUserInfoFail, err.Error(), nil)
+		return
+	}
+	if info == nil {
+		m.outJson(w, HttpErrorUserNotExists, "user does not exists", nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "ok", info)
+}
+
 func (m *CronManager) userInfo(request *restful.Request, w *restful.Response) {
 	strUserId := request.PathParameter("id")
 	userId, err := strconv.ParseInt(strUserId, 10, 64)
@@ -98,6 +147,20 @@ func (m *CronManager) userDelete(request *restful.Request, w *restful.Response) 
 	m.outJson(w, HttpSuccess, "ok", nil)
 }
 
+func (m *CronManager) logout(request *restful.Request, w *restful.Response) {
+	cookies := m.readCookie(request.Request)
+	sessionid, ok := cookies["Session"]
+	if ok {
+		err := m.session.Clear(sessionid)
+		if err != nil {
+			log.Errorf("logout fail, error=[%v]", err)
+		}
+	}
+	//m.outJson(w, HttpSuccess, "ok", nil)
+	w.Header().Set("Refresh", "3; url=/ui/login.html")
+	w.Write([]byte(JumpLoginCode))
+}
+
 func (m *CronManager) login(request *restful.Request, w *restful.Response) {
 	p, err := ParseForm(request)
 	if err != nil {
@@ -115,6 +178,10 @@ func (m *CronManager) login(request *restful.Request, w *restful.Response) {
 	}
 	if userInfo.Password != userInfo.Password {
 		m.outJson(w, HttpErrorPasswordError, "密码错误", nil)
+		return
+	}
+	if !userInfo.Enable {
+		m.outJson(w, HttpErrorUserDisabled, "用户已被禁用", nil)
 		return
 	}
 	userInfo.Password = "******"

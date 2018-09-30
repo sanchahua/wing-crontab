@@ -241,6 +241,10 @@ func NewManager(
 			m.userDelete(request, response)
 		}),
 		http.SetRoute("POST", "/user/login",                  m.login),
+		http.SetRoute("GET", "/user/logout",                  m.logout),
+		http.SetRoute("GET", "/user/session/info",                 m.sessionInfo),
+		http.SetRoute("POST", "/user/session/update", m.sessionUpdate),
+
 		http.SetRoute("POST", "/user/register", func(request *restful.Request, response *restful.Response) {
 			if !m.sessionValid(request.Request) {
 				response.Header().Set("Refresh", "3; url=/ui/login.html")

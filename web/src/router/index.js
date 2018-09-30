@@ -10,7 +10,7 @@ import LogDetail from '@/components/pages/LogDetail'
 import UserAdd from '@/components/pages/UserAdd'
 import Users from '@/components/pages/Users'
 import UserEdit from '@/components/pages/UserEdit'
-
+import UserCenter from '@/components/pages/UserCenter'
 
 Vue.use(Router)
 //
@@ -76,11 +76,15 @@ export default new Router({
       name: 'Users',
       component: Users,
     },
-    //user_edit
     {
       path: '/user_edit',
       name: 'UserEdit',
       component: UserEdit,
+    },
+    {
+      path: '/user_center',
+      name: 'UserCenter',
+      component: UserCenter,
     }
   ]
 })

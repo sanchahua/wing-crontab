@@ -4,12 +4,38 @@
     <div class="sub-heard-part">
       <ol class="breadcrumb m-b-0">
         <li><a href="/ui/#/">首页</a></li>
-        <li class="active">编辑用户</li>
+        <li class="active">个人中心</li>
       </ol>
+    </div>
+    <h3 class="inner-tittle two">个人信息 <a style="color: #2e25e6; cursor: pointer; font-size: 12px; margin-left: 20px; text-decoration: underline;" v-on:click="showEdit">编辑个人信息</a></h3>
+    <div>
+      <div class="tables">
+        <table class="table table-bordered">
+          <tbody>
+          <tr>
+            <th scope="row">ID</th>
+            <td>{{userinfo.id}}</td>
+          </tr>
+          <tr>
+            <th scope="row">用户名</th>
+            <td>{{userinfo.user_name}}</td>
+          </tr>
+          <tr>
+            <th scope="row">真实姓名</th>
+            <td>{{userinfo.real_name}}</td>
+          </tr>
+          <tr>
+            <th scope="row">手机</th>
+            <td>{{userinfo.phone}}</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
     </div>
     <!--/sub-heard-part-->
     <!--/forms-->
-    <div class="forms-main">
+    <div class="forms-main" style="display: none;">
       <h2 class="inner-tittle">编辑用户(*必填项) </h2>
       <div class="graph-form">
         <div class="form-body">
@@ -42,7 +68,7 @@
 </template>
 <script>
   export default {
-    name: "UserEdit",
+    name: "UserCenter",
     data: function() {
       return {
         userinfo: {
@@ -59,37 +85,22 @@
     },
     methods: {
       getUserInfo: function() {
-        let h = window.location.hash;
-        let arr = h.split("?", -1)
-        console.log(arr)
         let that = this;
-        let params = {}
-        if (arr.length > 1) {
-          let pk = arr[1].split("&")
-          let i = 0;
-          let len = pk.length
-          for (i = 0; i < len; i++) {
-            let t = pk[i].split("=")
-            if (t.length > 1) {
-              params[t[0]] = t[1]
-            }
-          }
-          console.log(params)
-        }
-        if (typeof params.id == "undefined") {
-          params.id = 0;
-        }
-        if (params.id <= 0) {
-          return;
-        }
-
-        axios.get("/user/info/"+params.id).then(function (response) {
+        axios.get("/user/session/info").then(function (response) {
           console.log(response)
           if (2000 == response.data.code) {
             that.userinfo = response.data.data;
           }
         }).catch(function (error) {
         });
+      },
+      showEdit: function(event){
+        $(".forms-main").toggle();
+        if ($(event.target).html() == "编辑个人信息") {
+          $(event.target).html("收起");
+        } else {
+          $(event.target).html("编辑个人信息")
+        }
       },
       update: function () {
         let that = this
@@ -100,30 +111,7 @@
           return alert("密码不能为空")
         }
 
-        let h = window.location.hash;
-        let arr = h.split("?", -1)
-        console.log(arr)
-        let params = {}
-        if (arr.length > 1) {
-          let pk = arr[1].split("&")
-          let i = 0;
-          let len = pk.length
-          for (i = 0; i < len; i++) {
-            let t = pk[i].split("=")
-            if (t.length > 1) {
-              params[t[0]] = t[1]
-            }
-          }
-          console.log(params)
-        }
-        if (typeof params.id == "undefined") {
-          params.id = 0;
-        }
-        if (params.id <= 0) {
-          return;
-        }
-
-        axios.post('/user/update/'+params.id+'?time='+(new Date()).valueOf(), {
+        axios.post('/user/session/update?time='+(new Date()).valueOf(), {
           username: that.userinfo.user_name,
           password:  that.userinfo.password,
           real_name: that.userinfo.real_name,
@@ -131,7 +119,8 @@
         }).then(function (response) {
           console.log(response);
           if (2000 == response.data.code) {
-            window.location.href = "/ui/#/users"
+            //window.location.href = "/ui/#/users"
+            alert("更新成功");
           } else {
             alert(response.data.message);
           }

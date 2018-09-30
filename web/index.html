@@ -92,13 +92,13 @@
     <div style="border-top:1px solid rgba(69, 74, 84, 0.7)"></div>
     <!--/down-->
     <div class="down">
-      <a href="/ui/#/"><img src="./static/images/admin.jpg"></a>
-      <a href="/ui/#/"><span class=" name-caret">xunlei</span></a>
-      <p>System Administrator in xcrontab</p>
+      <a href="/ui/#/user_center"><img style="width: 76px;" src="./static/images/admin.jpg?123"></a>
+      <a href="/ui/#/user_center"><span class="name-caret">xunlei</span></a>
+      <!--<p>System Administrator in xcrontab</p>-->
       <ul>
-        <li><a class="tooltips" href="/ui/#/"><span>Profile</span><i class="lnr lnr-user"></i></a></li>
-        <li><a class="tooltips" href="/ui/#/"><span>Settings</span><i class="lnr lnr-cog"></i></a></li>
-        <li><a class="tooltips" href="/ui/#/"><span>Log out</span><i class="lnr lnr-power-switch"></i></a></li>
+        <li><a class="tooltips" href="/ui/#/user_center"><span>Profile</span><i class="lnr lnr-user"></i></a></li>
+        <li><a class="tooltips" href="/ui/#/user_center"><span>Settings</span><i class="lnr lnr-cog"></i></a></li>
+        <li><a class="tooltips" href="/user/logout"><span>Log out</span><i class="lnr lnr-power-switch"></i></a></li>
       </ul>
     </div>
     <!--//down-->
@@ -194,6 +194,17 @@
     $('.main-search .close').click(function(){
       $('.main-search').hide();
     });
+    $.ajax({
+      type: "GET",
+      url: "/user/session/info",
+      success: function (data) {
+        console.log(data)
+        data = eval("("+data+")")
+        if (data.code == 2000) {
+          $(".name-caret").html(data.data.user_name)
+        }
+      }
+    })
   });
 </script>
 <!--js -->

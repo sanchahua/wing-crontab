@@ -36,6 +36,14 @@ func (s *Session) Store(userid int64, timeout time.Duration) (string, error) {
 	return sessionid, nil
 }
 
+func (s *Session) Clear(sessionid string) error {
+	err :=  s.redis.Del(sessionid).Err()
+	if err != redis.Nil {
+		return err
+	}
+	return err
+}
+
 func (s *Session) Update(sessionid string, timeout time.Duration) error {
 	return s.redis.Expire(sessionid, timeout).Err()
 }

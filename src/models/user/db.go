@@ -72,6 +72,15 @@ func (u *User) Enable(id int64, enable bool) error {
 }
 
 func (u *User) Update(id int64, userName, password, realName, phone string, enable bool) error {
+	if id <=0 {
+		return errors.New("id param error")
+	}
+	if userName == "" {
+		return errors.New("user name param error")
+	}
+	if password == "" {
+		return errors.New("password param error")
+	}
 	// 检验userName、phone是否已存在
 	sqlStr := "select `id` from users where `id`!=? and (`user_name`=? or `phone`=?)"
 	data := u.db.QueryRow(sqlStr, id, userName, phone)
@@ -126,7 +135,7 @@ func  (u *User) GetUserInfo(id int64) (*Entity, error)  {
 		return nil, err
 	}
 	e.Enable = enable == 1
-	e.Password = "******"
+	//e.Password = "******"
 	return &e, nil
 }
 

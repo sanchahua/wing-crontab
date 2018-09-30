@@ -40,6 +40,11 @@ const (
 	HttpErrorUserEnableFail = 7011
 	HttpErrorStoreSessionFail = 7012
 
+	HttpSessionClearFail = 7013
+	HttpSessionNotFound = 7014
+	HttpSessionGetUserIdFail = 7015
+	HttpErrorUserDisabled = 7016
+
 )
 
 var (

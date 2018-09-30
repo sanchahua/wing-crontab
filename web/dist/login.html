@@ -30,7 +30,12 @@
           url:"/user/login",
           success: function (msg) {
             console.log(msg);
-            window.location.href="/ui/";
+            let data = eval("("+msg+")")
+            if (data.code == 2000) {
+              window.location.href = "/ui/";
+            } else {
+              alert(data.message)
+            }
           },
           error: function(){
             alert("登录失败");
