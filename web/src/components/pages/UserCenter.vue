@@ -7,9 +7,8 @@
         <li class="active">个人中心</li>
       </ol>
     </div>
-    <h3 class="inner-tittle two">个人信息 <a style="color: #2e25e6; cursor: pointer; font-size: 12px; margin-left: 20px; text-decoration: underline;" v-on:click="showEdit">编辑个人信息</a></h3>
-    <div>
-      <div class="tables">
+    <h3 class="inner-tittle two">个人信息 <a style="color: #2e25e6; cursor: pointer; font-size: 12px; margin-left: 20px; text-decoration: underline;" class="showEdit" v-on:click="showEdit">编辑个人信息</a></h3>
+      <div class="tables userinfo">
         <table class="table table-bordered">
           <tbody>
           <tr>
@@ -32,7 +31,6 @@
         </table>
       </div>
 
-    </div>
     <!--/sub-heard-part-->
     <!--/forms-->
     <div class="forms-main" style="display: none;">
@@ -94,12 +92,13 @@
         }).catch(function (error) {
         });
       },
-      showEdit: function(event){
+      showEdit: function(){
         $(".forms-main").toggle();
-        if ($(event.target).html() == "编辑个人信息") {
-          $(event.target).html("收起");
+        $(".userinfo").toggle();
+        if ($(".showEdit").html() == "编辑个人信息") {
+          $(".showEdit").html("收起");
         } else {
-          $(event.target).html("编辑个人信息")
+          $(".showEdit").html("编辑个人信息")
         }
       },
       update: function () {
@@ -120,7 +119,7 @@
           console.log(response);
           if (2000 == response.data.code) {
             //window.location.href = "/ui/#/users"
-            alert("更新成功");
+            that.showEdit();
           } else {
             alert(response.data.message);
           }
