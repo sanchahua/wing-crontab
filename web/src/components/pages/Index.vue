@@ -177,6 +177,8 @@
               that.day_run_fail_count = (Math.floor(that.day_run_fail_count/10000*100)/100) + "<a style='font-size: 12px; font-weight: bold; color: #000;'>万</a>"
             }
 
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             consule.log(response.data.message);
           }
@@ -192,6 +194,8 @@
             chart.dataProvider = response.data.data;
             chart.validateNow();
             chart.validateData()
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             consule.log(response.data.message);
           }

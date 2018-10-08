@@ -46,10 +46,14 @@
 
   <script src="./static/js/radar.js"></script>
   <script src="./static/js/echarts.min.js"></script>
-
+  <script src="./static/js/js.cookie.min.js"></script>
   <!-- Bootstrap Core JavaScript -->
   <!--//skycons-icons-->
   <script>
+    axios.defaults.headers["Client"]  = "ajax"
+    // check for csrf
+    axios.defaults.headers["Session"] = Cookies.get('Session');
+
     Date.prototype.Format = function (fmt) { //author: meizz
       let o = {
         "M+": this.getMonth() + 1, //月份
@@ -113,17 +117,17 @@
 
           </ul>
         </li>-->
-        <li id="menu-academico" ><a href="#"><i class="fa fa-file-text-o"></i> <span>定时任务管理</span> <span class="fa fa-angle-right" style="float: right"></span></a>
-          <ul id="menu-academico-sub" >
-            <li id="menu-academico-avaliacoes" ><a href="/ui/#/add">增加定时任务</a></li>
-            <li id="menu-academico-boletim" ><a href="/ui/#/cron_list">定时任务管理</a></li>
-            <li id="menu-academico-boletim" ><a href="/ui/#/logs?id=0">运行日志</a></li>
+        <li style="display: none;" id="menu-academico" ><a href="#"><i class="fa fa-file-text-o"></i> <span>定时任务管理</span> <span class="fa fa-angle-right" style="float: right"></span></a>
+          <ul id="menu-academico-sub" class="menu-academico-sub" >
+            <li id="menu-academico-avaliacoes" class="tap-page" data-id="P_PageCronAdd" ><a href="/ui/#/add">增加定时任务</a></li>
+            <li id="menu-academico-boletim" class="tap-page" data-id="P_PageCronList" ><a href="/ui/#/cron_list">定时任务管理</a></li>
+            <li id="menu-academico-boletim" class="tap-page" data-id="P_PageCronLogs" ><a href="/ui/#/logs?id=0">运行日志</a></li>
           </ul>
         </li>
-        <li id="menu-academico" ><a href="#"><i class="lnr lnr-book"></i> <span>用户管理</span> <span class="fa fa-angle-right" style="float: right"></span></a>
-          <ul id="menu-academico-sub" >
-            <li id="menu-academico-avaliacoes" ><a href="/ui/#/users">用户管理</a></li>
-            <li id="menu-academico-boletim" ><a href="/ui/#/user_add">添加新用户</a></li>
+        <li style="display: none;" id="menu-academico" ><a href="#"><i class="lnr lnr-book"></i> <span>用户管理</span> <span class="fa fa-angle-right" style="float: right"></span></a>
+          <ul id="menu-academico-sub" class="menu-academico-sub" >
+            <li id="menu-academico-avaliacoes" class="tap-page" data-id="P_PageUsers" ><a href="/ui/#/users">用户管理</a></li>
+            <li id="menu-academico-boletim" class="tap-page" data-id="P_PageUserAdd" ><a href="/ui/#/user_add">添加新用户</a></li>
           </ul>
         </li>
         <!-- <li><a href="#"><i class="lnr lnr-envelope"></i> <span>Mail Box</span><span class="fa fa-angle-right" style="float: right"></span></a>
@@ -205,6 +209,39 @@
         }
       }
     })
+
+    let tap_page_len = $(".tap-page").length;
+    let check_num = 0;
+    function showparsent() {
+      if (check_num >= tap_page_len) {
+        $(".menu-academico-sub").each(function() {
+          console.log("menu-academico-sub li len: ",$(this).find("li").length)
+          if ($(this).find("li").length > 0) {
+            $(this).parent().show()
+          } else {
+            $(this).parent().remove()
+          }
+        })
+      }
+    }
+    $(".tap-page").each(function(i, e){
+        let dom = $(this)
+        let id = dom.attr("data-id");
+        console.log(id)
+        axios.get('/page/power/check?time='+(new Date()).valueOf()+'&id='+id).then(function (response) {
+          console.log(response)
+          if (2000 != response.data.code) {
+            dom.remove()
+          }
+          check_num++
+          console.log(check_num, tap_page_len)
+          showparsent()
+        }).catch(function (error) {
+          dom.remove()
+          check_num++
+          showparsent()
+        });
+      })
   });
 </script>
 <!--js -->

@@ -44,6 +44,13 @@ const (
 	HttpSessionNotFound = 7014
 	HttpSessionGetUserIdFail = 7015
 	HttpErrorUserDisabled = 7016
+	HttpErrorSetUserAdminFail = 7017
+	HttpErrorPowersParseFail = 7018
+	HttpErrorSetUserPowersFail = 7019
+	HttpErrorNoPower = 7020
+
+	HttpErrorNeedLogin = 8000
+	HttpErrorCsrfFail = 8001
 
 )
 

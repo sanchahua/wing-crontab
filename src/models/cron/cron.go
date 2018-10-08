@@ -11,6 +11,7 @@ var (
 	ErrCronSetInvalid = errors.New("cronSet invalid")
 	ErrCommandInvalid = errors.New("command invalid")
 	ErrEndTimeInvalid = errors.New("endTime invalid")
+	ErrUserIdInvalid = errors.New("userid invalid")
 )
 // cron 表实体类 entry
 /**
@@ -34,7 +35,8 @@ type CronEntity struct {
 	StartTime string `json:"start_time"`
 	EndTime string   `json:"end_time"`
 	IsMutex bool     `json:"is_mutex"`
-	Blame string     `json:"blame"`
+	Blame int64      `json:"blame"`
+	UserId int64     `json:"userid"`//添加者
 }
 
 func NewCron(handler *sql.DB) *DbCron {

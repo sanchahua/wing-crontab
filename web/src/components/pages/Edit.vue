@@ -15,7 +15,12 @@
         <div class="form-body">
           <div class="form-group">
             <label for="cron-blame">责任人</label>
-            <input type="text" class="form-control" id="cron-blame" v-bind:value="cron_info.blame" v-model="cron_info.blame">
+            <!--<input type="text" class="form-control" id="cron-blame" v-bind:value="cron_info.blame" v-model="cron_info.blame">-->
+            <select class="form-control" id="cron-blame" v-model="cron_info.blame">
+              <option v-for="item in users.data" v-bind:value="item.id">
+                {{item.user_name}}<{{item.real_name}}>
+              </option>
+            </select>
           </div>
           <div class="form-group">
             <label for="cron-set">定时配置，如：*/1 * * * * *，这里精确到秒，前面的意思是每秒执行一次，分别对应，秒分时日月周</label>
@@ -73,6 +78,9 @@
         cron_info: {
           cron_set: "",
         },
+        users: {
+          data: [],
+        }
       }
     },
     mounted: function(){
@@ -120,9 +128,25 @@
         }
       });
       this.getInfo()
+      this.getUsers()
     },
 
     methods: {
+      getUsers: function () {
+        let that = this
+        axios.get('/users?time='+(new Date()).valueOf()).then(function (response) {
+          if (2000 == response.data.code) {
+            that.users.data = response.data.data
+            console.log(response);
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
+          } else {
+            alert(response.data.message);
+          }
+        }).catch(function (error) {
+
+        });
+      },
       getInfo: function () {
         let h = window.location.hash;
         let arr = h.split("?", -1)
@@ -158,6 +182,8 @@
             // } else {
             //   that.cron_info.end_time = "";
             // }
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }
@@ -205,6 +231,8 @@
           if (2000 == response.data.code) {
             // 转到管理页面
             window.location.href="/ui/#/cron_list";
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }

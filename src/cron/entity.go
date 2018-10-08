@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"encoding/json"
+	"models/user"
 )
 
 // 数据库的基本属性
@@ -43,7 +44,16 @@ type CronEntity struct {
 	redisKeyPrex string            `json:"-"`
 	AvgRunTime   int64             `json:"avg_run_time"`
 	MaxRunTime   int64             `json:"max_run_time"`
-	Blame        string            `json:"blame"`
+
+	// 责任人
+	Blame        int64             `json:"blame"`
+	BlameUserName string           `json:"blame_user_name"`
+	BlameRealName string           `json:"blame_real_name"`
+
+	// 添加人
+	UserName     string            `json:"user_name"`
+	RealName     string            `json:"real_name"`
+	UserId       int64             `json:"userid"`
 }
 var ErrTimeout = errors.New("timeout")
 var ErrUnknown = errors.New("unknown error")
@@ -55,8 +65,26 @@ func newCronEntity(
 	redis *redis.Client,
 	redisKeyPrex string,
 	entity *cron.CronEntity,
+	uinfo, blameInfo *user.Entity,
 	onRun OnRunCommandFunc,
 ) *CronEntity {
+	var (
+		userName = ""
+		realName = ""
+
+		blameUserName = ""
+		blameRealName = ""
+	)
+	if uinfo != nil {
+		userName = uinfo.UserName
+		realName = uinfo.RealName
+	}
+
+	if blameInfo != nil {
+		blameUserName = blameInfo.UserName
+		blameRealName = blameInfo.RealName
+	}
+
 	e := &CronEntity{
 		ServiceId:    0,
 		Id:           entity.Id,
@@ -78,8 +106,18 @@ func newCronEntity(
 		redisKeyPrex: redisKeyPrex,
 		MaxRunTime:   10000,
 		AvgRunTime:   10000,
-		Blame:        entity.Blame,
+
+		Blame:         entity.Blame,
+		BlameUserName: blameUserName,
+		BlameRealName: blameRealName,
+
+		UserName:     userName,
+		RealName:     realName,
+		UserId:       entity.UserId,
 	}
+
+	log.Tracef("cron entity: %+v", e)
+
 	// 这里是标准的停止运行过滤器
 	// 如果stop设置为true
 	// 如果不在指定运行时间范围之内
@@ -247,6 +285,12 @@ func (row *CronEntity) Clone() *CronEntity {
 	row.copy.AvgRunTime = row.AvgRunTime
 	row.copy.MaxRunTime = row.MaxRunTime
 	row.copy.Blame      = row.Blame
+
+	row.copy.BlameUserName = row.BlameUserName
+	row.copy.BlameRealName = row.BlameRealName
+	row.copy.UserName      = row.UserName
+	row.copy.RealName      = row.RealName
+	row.copy.UserId        = row.UserId
 	return row.copy
 }
 

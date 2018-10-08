@@ -92,7 +92,6 @@ export default {
   mounted: function() {
     let oldhref = window.location.href;
     let that = this
-
     //////////
     let h = window.location.hash;
     let arr = h.split("?", -1)
@@ -115,27 +114,7 @@ export default {
     if (params.id > 0) {
       that.logs.cron_id = params.id
     }
-
-    // window.setInterval(function () {
-    //   console.log(that.logs.cron_id)
-    // }, 1000)
-
-    ////////////////////
-
-    // if (!intv) {
-    //   intv = true
-    //   window.setInterval(function () {
-    //     if (window.location.href != oldhref) {
-    //       oldhref = window.location.href;
-    //       that.getLogs("setInterval");
-    //     }
-    //   }, 5000);
-    // }
     that.getLogs("mounted")
-    // re = window.setInterval(function () {
-    //   that.getLogs("refresh setInterval")
-    // }, 1000)
-
     jeDate("#start-time",{
       festival:true,
       minDate:"1900-01-01",              //最小日期
@@ -197,7 +176,7 @@ export default {
     },
     sortbyid: function(event) {
       this.logs.page=1
-      this.logs.sort_by = "id"// $(event.target).attr("data-sort")
+      this.logs.sort_by = "id"
       if (this.logs.sort_type == "asc") {
         this.logs.sort_type = "desc"
       } else {
@@ -207,7 +186,7 @@ export default {
     },
     sortbyusetime: function(event) {
       this.logs.page=1
-      this.logs.sort_by = "use_time"// $(event.target).attr("data-sort")
+      this.logs.sort_by = "use_time"
       if (this.logs.sort_type == "asc") {
         this.logs.sort_type = "desc"
       } else {
@@ -217,7 +196,7 @@ export default {
     },
     sortbystarttime: function(){
       this.logs.page=1
-      this.logs.sort_by = "start_time"// $(event.target).attr("data-sort")
+      this.logs.sort_by = "start_time"
       if (this.logs.sort_type == "asc") {
         this.logs.sort_type = "desc"
       } else {
@@ -228,27 +207,6 @@ export default {
     getLogs: function (callfrom) {
       console.log(callfrom)
       let that = this;
-      // /log/list/0/0/0
-      // let h = window.location.hash;
-      // let arr = h.split("?", -1)
-      // console.log(arr)
-      //
-      // let params = {}
-      // if (arr.length > 1) {
-      //   let pk = arr[1].split("&")
-      //   let i = 0;
-      //   let len = pk.length
-      //   for (i = 0; i < len; i++) {
-      //     let t = pk[i].split("=")
-      //     if (t.length > 1) {
-      //       params[t[0]] = t[1]
-      //     }
-      //   }
-      //   console.log(params)
-      // }
-      // if (typeof params.id == "undefined") {
-      //   params.id = 0;
-      // }
       let sf = "0"
       if (that.logs.searchFail) {
         sf = "1"
@@ -283,6 +241,8 @@ export default {
           that.logs.page = response.data.data.page
           that.logs.total = response.data.data.total
           that.logs.totalPage = response.data.data.totalPage
+        } else if (8000 == response.data.code) {
+          window.location.href="/ui/login.html"
         } else {
           console.log(response.data.message);
         }
@@ -329,6 +289,8 @@ export default {
         console.log(response)
         if (2000 == response.data.code) {
           $(event.target).html("kill成功")
+        } else if (8000 == response.data.code) {
+          window.location.href="/ui/login.html"
         } else {
           $(event.target).html("kill失败")
         }

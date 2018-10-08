@@ -4,6 +4,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"time"
 	"strconv"
+	"gitlab.xunlei.cn/xllive/common/log"
 )
 
 // 首页 api
@@ -19,6 +20,9 @@ func (m *CronManager) index(request *restful.Request, w *restful.Response) {
 	historyCount, _ := m.statisticsModel.GetCount()
 	//今日执行次数 今日错误次数
 	dayCount, dayFailCount, _ := m.statisticsModel.GetDayCount(time.Now().Format("2006-01-02"))
+
+	log.Tracef("index header: %+v", request.Request.Header)
+
 	m.outJson(w, HttpSuccess, "success", map[string]int64{
 		"cron_count": cronCount,
 		"history_run_count": historyCount,

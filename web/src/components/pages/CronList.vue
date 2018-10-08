@@ -17,67 +17,61 @@
         <div>
           <label><input name="is-stop" v-model="is_stop" value="2" type="radio"/>正在运行</label>
           <label><input name="is-stop" v-model="is_stop" value="1" type="radio"/>已停止</label>
-          <label><input name="is-stop" v-model="is_stop" value="0" type="radio"/>取消</label>
+          <label style="cursor: pointer;"><input name="is-stop" v-model="is_stop" value="0" type="radio" style="display: none; cursor: pointer;"/>取消选中</label>
         </div>
         <div>
           <label><input name="is-mutex" v-model="is_mutex" value="1" type="radio"/>互斥</label>
           <label><input name="is-mutex" v-model="is_mutex" value="2" type="radio"/>非互斥</label>
-          <label><input name="is-mutex" v-model="is_mutex" value="0" type="radio"/>取消</label>
+          <label style="cursor: pointer;"><input name="is-mutex" v-model="is_mutex" value="0" type="radio" style="display: none; cursor: pointer;"/>取消选中</label>
         </div>
         <div>
           <label><input name="is-timeout" v-model="is_timeout" value="1" type="radio"/>已过期</label>
           <label><input name="is-timeout" v-model="is_timeout" value="2" type="radio"/>有效期内</label>
-          <label><input name="is-timeout" v-model="is_timeout" value="0" type="radio"/>取消</label>
+          <label style="cursor: pointer;"><input name="is-timeout" v-model="is_timeout" value="0" type="radio" style="display: none; cursor: pointer;"/>取消选中</label>
         </div>
         </div>
       </div>
       <div>
         <div class="tables">
           <table class="table table-bordered" width="100%">
-            <!--<thead>-->
-              <!--<tr>-->
-                <!--<th>#Id</th>-->
-                <!--<th>定时配置</th>-->
-                <!--<th>严格互斥</th>-->
-                <!--<th>运行时间范围</th>-->
-                <!--<th>执行指令</th>-->
-                <!--<th>正在运行</th>-->
-                <!--<th title="0-1属于正常，大于1说明有定时任务进程堆积">进程数<a style="color: #f00;">?</a></th>-->
-                <!--<th>备注</th>-->
-                <!--<th>操作</th>-->
-              <!--</tr>-->
-            <!--</thead>-->
+            <thead>
+              <tr>
+                <th>#Id</th>
+                <th>添加人</th>
+                <th>责任人</th>
+                <th>定时配置</th>
+                <th>互斥</th>
+                <th>运行范围</th>
+                <th>执行指令</th>
+                <th>正在运行</th>
+                <th title="0-1属于正常，大于1说明有定时任务进程堆积">进程数<a style="color: #f00;">?</a></th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
             <tbody>
             <tr v-for="item in cron_list">
-              <td scope="row">
-                <div><span>id：</span><span>{{item.id}}</span></div>
-                <div><span>责任人：</span><span>{{item.blame}}</span></div>
-                <div><span>定时配置：</span><span>{{item.cron_set}}</span></div>
-                <div>
-                  <span>互斥：</span>
-                  <span v-if="item.is_mutex">是</span>
-                  <span v-else>否</span>
-                </div>
-                <div>
-                  <span>运行时间范围：</span>
-                  <span>{{item.start_time}} - {{item.end_time}}</span>
-                </div>
-                <div>
-                  <span>执行指令：</span>
-                  <span>{{item.command}}</span>
-                </div>
-                <div>
-                  <span>正在运行：</span>
-                  <span v-if="item.stop"><label style="color: #f00; font-weight: bold;">否</label></span>
-                  <span v-else>是</span>
-                </div>
-                <div><span>并行进程数：</span>
-              <span>{{item.process_num}}</span>
-                </div>
-              <div>
-                <span>备注信息：</span>
-                <span>{{item.remark}}</span>
-              </div>
+              <th>{{item.id}}</th>
+              <td><span v-bind:title="item.real_name">{{item.user_name}}</span></td>
+              <td><span v-bind:title="item.blame_real_name">{{item.blame_user_name}}</span></td>
+              <td>{{item.cron_set}}</td>
+              <td>
+                <span v-if="item.is_mutex">是</span>
+                <span v-else>否</span>
+              </td>
+              <td>
+                {{item.start_time}} - {{item.end_time}}
+              </td>
+              <td><span style="max-width: 60px; display: inline-block; max-height: 20px; overflow: hidden; word-break: keep-all;" v-bind:title="item.command">{{item.command}}</span></td>
+              <td>
+                <span v-if="item.stop"><label style="color: #f00; font-weight: bold;">否</label></span>
+                <span v-else>是</span>
+              </td>
+              <td>{{item.process_num}}</td>
+              <td>
+                {{item.remark}}
+              </td>
+              <td>
               <div>
                 <a class="btn" v-if="item.stop" v-bind:item-id="item.id" v-on:click="start">开始</a>
                 <a class="btn" v-else v-bind:item-id="item.id" v-on:click="stop">停止</a>
@@ -172,6 +166,8 @@
 
 
               that.cron_list = response.data.data
+            } else if (8000 == response.data.code) {
+              window.location.href="/ui/login.html"
             } else {
               console.log(response.data.message);
             }
@@ -192,6 +188,8 @@
                   console.log(that.cron_list[i]);
                 }
               }
+            } else if (8000 == response.data.code) {
+              window.location.href="/ui/login.html"
             } else {
               alert(response.data.message);
             }
@@ -213,6 +211,8 @@
                   console.log(that.cron_list[i]);
                 }
               }
+            } else if (8000 == response.data.code) {
+              window.location.href="/ui/login.html"
             } else {
               alert(response.data.message);
             }
@@ -238,6 +238,8 @@
                 that.cron_list.splice(i,1);
               }
             }
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }
@@ -268,6 +270,8 @@
                 console.log(that.cron_list[i]);
               }
             }
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }
@@ -290,6 +294,8 @@
                 console.log(that.cron_list[i]);
               }
             }
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }
@@ -322,6 +328,8 @@
               if (2000 == response.data.code) {
                 console.log(response);
                 $("#run-command-response-show").val(response.data.data)
+              } else if (8000 == response.data.code) {
+                window.location.href="/ui/login.html"
               } else {
                 //alert(response.data.message);
                 $("#run-command-response-show").val(response.data.message)
@@ -333,7 +341,7 @@
 
             return false
           },
-          okValue: '确定',
+          okValue: '执行',
           cancelValue: '取消',
           cancel: function () {}
         });

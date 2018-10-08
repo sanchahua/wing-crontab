@@ -37,10 +37,23 @@ func (m *CronManager) addCron(request *restful.Request, w *restful.Response) {
 		m.outJson(w, HttpErrorParamEndTime, "参数错误", err.Error())
 		return
 	}
+
+	cookies := m.readCookie(request.Request)
+	sessionid, ok := cookies["Session"]
+	if !ok {
+		m.outJson(w, HttpSessionNotFound, "session not found", nil)
+		return
+	}
+	userId, err := m.session.GetUserId(sessionid)
+	if err != nil {
+		m.outJson(w, HttpSessionGetUserIdFail, "session get userid fail", nil)
+		return
+	}
+
 	// 添加到数据库
-	id, err := m.cronModel.Add(params.Blame, params.GetCronSet(),
+	id, err := m.cronModel.Add(params.GetBlame(), params.GetCronSet(),
 		params.Command, params.Remark, params.IsStop(),
-		st, et, params.Mutex())
+		st, et, params.Mutex(), userId)
 	if err != nil || id <= 0 {
 		log.Errorf("addCron m.cronModel.Add fail, error=[%v]", err)
 		m.outJson(w, HttpErrorCronModelAddFail, err.Error(), nil)
@@ -143,7 +156,7 @@ func (m *CronManager) updateCron(request *restful.Request, w *restful.Response) 
 
 	err = m.cronModel.Update(id, params.GetCronSet(),
 		params.GetCommand(), params.GetRemark(),
-		params.IsStop(), st, et, params.Mutex(), params.Blame)
+		params.IsStop(), st, et, params.Mutex(), params.GetBlame())
 	if err != nil {
 		m.outJson(w, HttpErrorCronModelUpdateFail, "更新失败", err.Error())
 		return
@@ -151,7 +164,7 @@ func (m *CronManager) updateCron(request *restful.Request, w *restful.Response) 
 	m.broadcast(EV_UPDATE, id)
 	m.cronController.Update(id, params.GetCronSet(), params.GetCommand(),
 		params.GetRemark(), params.IsStop(),
-		st, et, params.Mutex(), params.Blame)
+		st, et, params.Mutex(), params.GetBlame())
 	m.outJson(w, HttpSuccess, "success", nil)
 }
 

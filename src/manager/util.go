@@ -21,7 +21,7 @@ import (
 //}
 //var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-func (m *CronManager) outJson(w *restful.Response, code int, msg string, data interface{}) (error) {
+func (m *CronManager) outJson(w http.ResponseWriter, code int, msg string, data interface{}) (error) {
 	res := make(map[string] interface{})
 	res["code"] = code
 	res["message"] = msg

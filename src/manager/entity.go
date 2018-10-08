@@ -18,7 +18,7 @@ type httpParamsEntity struct {
 	StartTime string    `json:"start_time"`
 	EndTime string      `json:"end_time"`
 	IsMutex interface{} `json:"is_mutex"`
-	Blame string        `json:"blame"`
+	Blame interface{}   `json:"blame"`
 
 	// 用户相关表单
 	UserName string     `json:"username"`
@@ -50,6 +50,15 @@ func (p *httpParamsEntity) GetCronSet() string {
 	}
 	p.CronSet = strings.Trim(p.CronSet, " ")
 	return p.CronSet
+}
+
+func (p *httpParamsEntity) GetBlame() int64 {
+	if p == nil {
+		return 0
+	}
+	strBlame := fmt.Sprintf("%v", p.Blame)
+	i, _ := strconv.ParseInt(strBlame, 10, 64)
+	return i
 }
 
 func (p *httpParamsEntity) GetCommand() string {

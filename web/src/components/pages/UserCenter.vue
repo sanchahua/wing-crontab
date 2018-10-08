@@ -88,6 +88,8 @@
           console.log(response)
           if (2000 == response.data.code) {
             that.userinfo = response.data.data;
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           }
         }).catch(function (error) {
         });
@@ -120,6 +122,8 @@
           if (2000 == response.data.code) {
             //window.location.href = "/ui/#/users"
             that.showEdit();
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }

@@ -58,6 +58,8 @@
           if (2000 == response.data.code) {
             that.log_detail = response.data.data;
             console.log(that.log )
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           }
         }).catch(function (error) {
         });

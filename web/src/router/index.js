@@ -11,26 +11,9 @@ import UserAdd from '@/components/pages/UserAdd'
 import Users from '@/components/pages/Users'
 import UserEdit from '@/components/pages/UserEdit'
 import UserCenter from '@/components/pages/UserCenter'
+import UserPowers from '@/components/pages/UserPowers'
 
 Vue.use(Router)
-//
-// const routes = {
-//   '/': Home,
-//   '/about': About
-// }
-//
-// new Vue({
-//   el: '#app',
-//   data: {
-//     currentRoute: window.location.pathname
-//   },
-//   computed: {
-//     ViewComponent () {
-//       return routes[this.currentRoute] || NotFound
-//     }
-//   },
-//   render (h) { return h(this.ViewComponent) }
-// })
 
 export default new Router({
   routes: [
@@ -85,6 +68,11 @@ export default new Router({
       path: '/user_center',
       name: 'UserCenter',
       component: UserCenter,
+    },
+    {
+      path: '/user_powers',
+      name: 'UserPowers',
+      component: UserPowers,
     }
   ]
 })

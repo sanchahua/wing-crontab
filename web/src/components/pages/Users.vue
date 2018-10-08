@@ -12,8 +12,14 @@
     <div class="graph">
       <div class="tables">
         <table class="table table-bordered"> <thead>
-        <tr> <th>ID</th> <th>用户名</th> <th>状态</th> <th>真实姓名</th> <th>手机号码</th>
-          <th>添加时间</th> <th>最后更新</th>
+        <tr> <th>ID</th>
+          <th>用户名</th>
+          <th>状态</th>
+          <th>真实姓名</th>
+          <th>手机号码</th>
+          <th>管理员</th>
+          <th>添加时间</th>
+          <th>最后更新</th>
           <th>操作</th>
         </tr> </thead> <tbody>
         <tr v-for="item in users.data">
@@ -22,11 +28,16 @@
           <td v-if="item.enable">启用</td>
           <td v-else>禁用</td>
 
-          <td>{{item.real_name}}</td> <td>{{item.phone}}</td><td>{{item.created}}</td>
+          <td>{{item.real_name}}</td> <td>{{item.phone}}</td>
+          <td v-if="item.admin">是</td>
+          <td v-else>否</td>
+          <td>{{item.created}}</td>
           <td>{{item.updated}}</td>
           <td>
             <a class="bth" style="cursor: pointer;" v-if="item.enable" v-bind:data-id="item.id" data-enable="0" v-on:click="enable">禁用</a>
             <a class="bth" style="cursor: pointer;" v-else v-bind:data-id="item.id" data-enable="1" v-on:click="enable">启用</a>
+            <a class="bth" style="cursor: pointer;" v-if="item.admin" v-bind:data-id="item.id" data-admin="0" v-on:click="admin">取消管理员</a>
+            <a class="bth" style="cursor: pointer;" v-else v-bind:data-id="item.id" data-admin="1" v-on:click="admin">设为管理员</a>
             <a class="bth" style="cursor: pointer;" v-bind:data-id="item.id" v-on:click="jumpEdit">编辑</a>
             <a class="bth" style="cursor: pointer;" v-bind:data-id="item.id" v-on:click="jumpPowers">权限</a>
           </td>
@@ -59,6 +70,8 @@
           if (2000 == response.data.code) {
             that.users.data = response.data.data
             console.log(response);
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }
@@ -73,6 +86,34 @@
       jumpPowers: function() {
         let id=$(event.target).attr("data-id")
         window.location.href="/ui/#/user_powers?id="+id
+      },
+      admin: function() {
+        let that = this
+        let id=$(event.target).attr("data-id")
+        let admin=$(event.target).attr("data-admin")
+        // /user/admin/{id}/{admin}
+        axios.post('/user/admin/'+id+'/' + admin +'?time='+(new Date()).valueOf()).then(function (response) {
+          console.log(response);
+          if (2000 == response.data.code) {
+            let len = that.users.data.length;
+            for (let i=0;i<len;i++) {
+              if (that.users.data[i].id == id) {
+                if (admin == "1") {
+                  that.users.data[i].admin = true
+                } else {
+                  that.users.data[i].admin = false
+                }
+                break
+              }
+            }
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
+          } else {
+            alert(response.data.message);
+          }
+        }).catch(function (error) {
+          alert(error);
+        });
       },
       enable: function(event) {
         let that = this
@@ -93,6 +134,8 @@
                 break
               }
             }
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }

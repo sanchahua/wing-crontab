@@ -22,11 +22,11 @@
             <input type="text" class="form-control" id="password" v-model="password">
           </div>
           <div class="form-group">
-            <label for="real_name">真实姓名</label>
+            <label for="real_name">*真实姓名</label>
             <input type="text" class="form-control" id="real_name" v-model="real_name">
           </div>
           <div class="form-group">
-            <label for="phone">手机</label>
+            <label for="phone">*手机</label>
             <input type="text" class="form-control" id="phone" v-model="phone">
           </div>
 
@@ -66,6 +66,12 @@
         if (that.password == "") {
           return alert("密码不能为空")
         }
+        if (that.real_name == "") {
+          return alert("真实姓名不能为空")
+        }
+        if (that.phone == "") {
+          return alert("手机号码不能为空")
+        }
         axios.post('/user/register?time='+(new Date()).valueOf(), {
           username: that.user_name,
           password:  that.password,
@@ -75,6 +81,8 @@
           if (2000 == response.data.code) {
             console.log(response);
             window.location.href = "/ui/#/users"
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
           } else {
             alert(response.data.message);
           }

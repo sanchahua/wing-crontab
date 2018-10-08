@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"runtime"
 	"sync/atomic"
+	"models/user"
 )
 const (
 	IsRunning = 1
@@ -32,12 +33,15 @@ type Controller struct {
 	logModel *modelLog.DbLog
 	cache    ListCronEntity//[]*CronEntity
 	statisticsModel *statistics.Statistics
+	userModel *user.User
 	Leader   bool
 	redis *redis.Client
 	RedisKeyPrex string
 }
 
-func NewController(redis *redis.Client, RedisKeyPrex string, logModel *modelLog.DbLog, statisticsModel *statistics.Statistics) *Controller {
+func NewController(redis *redis.Client, RedisKeyPrex string,
+	logModel *modelLog.DbLog,
+	statisticsModel *statistics.Statistics, userModel *user.User) *Controller {
 	c := &Controller{
 		serviceId: 0,
 		cron:     cronV2.New(),
@@ -50,6 +54,7 @@ func NewController(redis *redis.Client, RedisKeyPrex string, logModel *modelLog.
 		Leader:   false,
 		redis: redis,
 		RedisKeyPrex: RedisKeyPrex,
+		userModel: userModel,
 	}
 	go c.dispatch()
 	return c
@@ -167,8 +172,11 @@ func (c *Controller) RestartCron() {
 func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	entity := newCronEntity(c.redis, c.RedisKeyPrex, ce, c.onRun)
 	var err error
+	uinfo, _ := c.userModel.GetUserInfo(ce.UserId)
+	blameInfo, _ := c.userModel.GetUserInfo(ce.Blame)
+	entity := newCronEntity(c.redis, c.RedisKeyPrex, ce,
+		uinfo, blameInfo, c.onRun)
 	entity.CronId, err = c.cron.AddJob(entity.CronSet, entity)
 	if err != nil {
 		log.Errorf("%+v", err)
@@ -193,7 +201,7 @@ func (c *Controller) Delete(id int64) (*CronEntity, error) {
 
 func (c *Controller) Update(id int64, cronSet, command string,
 	remark string, stop bool, startTime,
-	endTime string, isMutex bool, blame string) (*CronEntity, error) {
+	endTime string, isMutex bool, blame int64) (*CronEntity, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	e, ok := c.cronList[id]
@@ -204,6 +212,8 @@ func (c *Controller) Update(id int64, cronSet, command string,
 	delete(c.cronList, id)
 	c.cron.Remove(e.CronId)
 
+	uinfo, _ := c.userModel.GetUserInfo(e.UserId)
+	blameInfo, _ := c.userModel.GetUserInfo(blame)
 	//e.Update(cronSet, command, remark, stop, startTime, endTime, isMutex)
 	entity := newCronEntity(c.redis, c.RedisKeyPrex, &cron.CronEntity{
 		Id:        id,// int64        `json:"id"`
@@ -215,7 +225,7 @@ func (c *Controller) Update(id int64, cronSet, command string,
 		EndTime:   endTime,// int64   `json:"end_time"`
 		IsMutex:   isMutex,// bool    `json:"is_mutex"`
 		Blame: blame,
-	}, c.onRun)
+	}, uinfo, blameInfo, c.onRun)
 
 	entity.SetLeader(c.Leader)
 

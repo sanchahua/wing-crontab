@@ -58,6 +58,43 @@ func (m *CronManager) enable(request *restful.Request, w *restful.Response) {
 	m.outJson(w, HttpSuccess, "ok", nil)
 }
 
+func (m *CronManager) admin(request *restful.Request, w *restful.Response) {
+	strUserId := request.PathParameter("id")
+	userId, err := strconv.ParseInt(strUserId, 10, 64)
+	if err != nil {
+		m.outJson(w, HttpErrorUserIdParseFail, err.Error(), nil)
+		return
+	}
+	admin := request.PathParameter("admin")
+	err = m.userModel.Admin(userId, admin == "1")
+	if err != nil {
+		m.outJson(w, HttpErrorSetUserAdminFail, err.Error(), nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "ok", nil)
+}
+
+func (m *CronManager) userPowers(request *restful.Request, w *restful.Response) {
+	strUserId := request.PathParameter("id")
+	userId, err := strconv.ParseInt(strUserId, 10, 64)
+	if err != nil {
+		m.outJson(w, HttpErrorUserIdParseFail, err.Error(), nil)
+		return
+	}
+	strPowers := request.PathParameter("powers")
+	powers, err := strconv.ParseInt(strPowers, 10, 64)
+	if err != nil {
+		m.outJson(w, HttpErrorPowersParseFail, err.Error(), nil)
+		return
+	}
+	err = m.userModel.Powers(userId, powers)
+	if err != nil {
+		m.outJson(w, HttpErrorSetUserPowersFail, err.Error(), nil)
+		return
+	}
+	m.outJson(w, HttpSuccess, "ok", nil)
+}
+
 func (m *CronManager) sessionUpdate(request *restful.Request, w *restful.Response) {
 	cookies := m.readCookie(request.Request)
 	sessionid, ok := cookies["Session"]

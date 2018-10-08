@@ -21,9 +21,6 @@ import (
 	"gitlab.xunlei.cn/xllive/common/log"
 	"models/user"
 	"session"
-	"github.com/emicklei/go-restful"
-	"strings"
-	"net/url"
 )
 
 type CronManager struct {
@@ -39,6 +36,8 @@ type CronManager struct {
 	watchKey string
 	userModel *user.User
 	session *session.Session
+
+	powers Powers//map[int64]string
 }
 const (
 	EV_ADD           = 1
@@ -61,9 +60,9 @@ func NewManager(
 	cronModel := mcron.NewCron(db)
 	logModel  := modelLog.NewLog(db)
 	statisticsModel := statistics.NewStatistics(db)
-	cronController := cron.NewController(redis, RedisKeyPrex, logModel, statisticsModel)
 	userModel := user.NewUser(db)
-
+	cronController := cron.NewController(redis, RedisKeyPrex,
+		logModel, statisticsModel, userModel)
 	//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
 	name, err := os.Hostname()
 	if err != nil {
@@ -83,8 +82,10 @@ func NewManager(
 		watchKey: watchKey,
 		userModel: userModel,
 		session: session.NewSession(redis),
+		powers: make(Powers, 0),//map[int64]string),
 	}
 	m.init()
+	m.powersInit()
 	statikFS, err := fs.New()
 	if err != nil {
 		panic(err)
@@ -94,187 +95,43 @@ func NewManager(
 	// restful api 路由
 	m.httpServer = http.NewHttpServer(
 		listen,
-		
 		// 日志列表
-		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.logs(request, response)
-		}),
-
+		http.SetRoute("GET",  "/log/list/{cron_id}/{search_fail}/{page}/{limit}", m.midLogs),
 		// 定时任务列表
-		http.SetRoute("GET",  "/cron/list", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.cronList(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/list",             m.midCronList),
 		// 停止定时任务
-		http.SetRoute("GET",  "/cron/stop/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.stopCron(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/stop/{id}",        m.midStopCron),
 		// 开始定时任务
-		http.SetRoute("GET",  "/cron/start/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.startCron(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/start/{id}",       m.midStartCron),
 		// 取消互斥
-		http.SetRoute("GET",  "/cron/mutex/false/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.mutexFalse(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/mutex/false/{id}", m.midMutexFalse),
 		// 设为互斥
-		http.SetRoute("GET",  "/cron/mutex/true/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.mutexTrue(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/mutex/true/{id}",  m.midMutexTrue),
 		// 删除定时任务
-		http.SetRoute("GET",  "/cron/delete/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.deleteCron(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/delete/{id}",      m.midDeleteCron),
 		// 更新定时任务
-		http.SetRoute("POST", "/cron/update/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.updateCron(request, response)
-		}),
-
+		http.SetRoute("POST", "/cron/update/{id}",      m.midUpdateCron),
 		// 增加新的定时任务
-		http.SetRoute("POST", "/cron/add", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.addCron(request, response)
-		}),
-
+		http.SetRoute("POST", "/cron/add",              m.midAddCron),
 		// 定时任务详情
-		http.SetRoute("GET",  "/cron/info/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.cronInfo(request, response)
-		}),
-		
+		http.SetRoute("GET",  "/cron/info/{id}",        m.midCronInfo),
 		// 首页相关统计信息
-		http.SetRoute("GET",  "/index", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.index(request, response)
-		}),
-		
+		http.SetRoute("GET",  "/index",                 m.midIndex),
 		// 查询图表，首页使用
-		http.SetRoute("GET",  "/charts/{days}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.charts(request, response)
-		}),
-		
+		http.SetRoute("GET",  "/charts/{days}",         m.midCharts),
 		// 手动运行定时任务，一般用户测试
-		http.SetRoute("GET",  "/cron/run/{id}/{timeout}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.cronRun(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/run/{id}/{timeout}", m.midCronRun),
 		// 杀死进程
-		http.SetRoute("GET",  "/cron/kill/{id}/{process_id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.cronKill(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/kill/{id}/{process_id}", m.midCronKill),
 		// 查询日志详情
-		http.SetRoute("GET",  "/cron/log/detail/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.cronLogDetail(request, response)
-		}),
-
+		http.SetRoute("GET",  "/cron/log/detail/{id}", m.midCronLogDetail),
 		// 查询用户列表
-		http.SetRoute("GET",  "/users", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.users(request, response)
-		}),
-
+		http.SetRoute("GET",  "/users",              m.midUsers),
 		// 通用查询用户信息接口
-		http.SetRoute("GET",  "/user/info/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.userInfo(request, response)
-		}),
-
+		http.SetRoute("GET",  "/user/info/{id}",     m.midUserInfo),
 		// 删除用户接口
-		http.SetRoute("POST",  "/user/delete/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.userDelete(request, response)
-		}),
-
+		http.SetRoute("POST",  "/user/delete/{id}",  m.midUserDelete),
+		http.SetRoute("POST",  "/user/powers/{id}/{powers}",  m.midUserPowers),
 		// 登录api
 		http.SetRoute("POST", "/user/login",          m.login),
 		// 退出登录api
@@ -283,36 +140,15 @@ func NewManager(
 		http.SetRoute("GET",  "/user/session/info",   m.sessionInfo),
 		// 更新在线用户信息，个人中心用户更新自己的信息使用
 		http.SetRoute("POST", "/user/session/update", m.sessionUpdate),
-
 		// （注册）添加新用户api
-		http.SetRoute("POST", "/user/register", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.register(request, response)
-		}),
-
+		http.SetRoute("POST", "/user/register",       m.midRegister),
 		// 通用更新用户信息接口
-		http.SetRoute("POST", "/user/update/{id}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.update(request, response)
-		}),
-
+		http.SetRoute("POST", "/user/update/{id}",    m.midUpdateUser),
 		// 启用/禁用用户账号接口
-		http.SetRoute("POST", "/user/enable/{id}/{enable}", func(request *restful.Request, response *restful.Response) {
-			if !m.sessionValid(request.Request) {
-				response.Header().Set("Refresh", "3; url=/ui/login.html")
-				response.Write([]byte(JumpLoginCode))
-				return
-			}
-			m.enable(request, response)
-		}),
+		http.SetRoute("POST", "/user/enable/{id}/{enable}", m.midEnable),
+		http.SetRoute("POST", "/user/admin/{id}/{admin}", m.midAdmin),
+		http.SetRoute("GET",  "/powers",   m.powersList),
+		http.SetRoute("GET",  "/page/power/check", m.pagePowerCheck),
 
 		http.SetHandle("/ui/", m.ui(shttp.FileServer(statikFS))),
 	)
@@ -327,67 +163,6 @@ func NewManager(
 	// 检测同步事件
 	go m.watchCron()
 	return m
-}
-
-func (m *CronManager) readCookie(r *shttp.Request) map[string]string {
-	cookie := r.Header.Get("Cookie")
-	fmt.Println("cookie:", cookie)
-	if cookie == "" {
-		return nil
-	}
-	//Session=000000005baebf74f905216dbc000001; qaerwger=qertwer
-	temp1 := strings.Split(cookie, ";")
-	if len(temp1) <= 0 {
-		return nil
-	}
-	var cookies = make(map[string]string)
-	for _, v := range temp1 {
-		t := strings.Split(v, "=")
-		if len(t) < 2 {
-			continue
-		}
-		cookies[strings.Trim(t[0], " ")] = strings.Trim(t[1], " ")
-	}
-	return cookies
-}
-
-// 保持session的有效性
-func (m *CronManager) sessionValid(r *shttp.Request) bool {
-	cookies := m.readCookie(r)
-	sessionid, ok := cookies["Session"]
-	if ok {
-		if v, _ := m.session.Valid(sessionid); !v {
-			return false
-		}
-		m.session.Update(sessionid, time.Second * 60)
-		return true
-	}
-	return false
-}
-
-func (m *CronManager) ui(h shttp.Handler) shttp.Handler {
-	prefix:="/ui/"
-	return shttp.HandlerFunc(func(w shttp.ResponseWriter, r *shttp.Request) {
-		// 只有登录页面和静态资源无需校验登录状态
-		if !strings.HasPrefix(r.URL.Path, "/ui/login.html") &&
-			!strings.HasPrefix(r.URL.Path, "/ui/static/") {
-			if !m.sessionValid(r) {
-				w.Header().Set("Refresh", "3; url=/ui/login.html")
-				w.Write([]byte(JumpLoginCode))
-				return
-			}
-		}
-		if p := strings.TrimPrefix(r.URL.Path, prefix); len(p) < len(r.URL.Path) {
-			r2 := new(shttp.Request)
-			*r2 = *r
-			r2.URL = new(url.URL)
-			*r2.URL = *r.URL
-			r2.URL.Path = p
-			h.ServeHTTP(w, r2)
-		} else {
-			shttp.NotFound(w, r)
-		}
-	})
 }
 
 // 广播通知相关事件

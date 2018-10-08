@@ -19,6 +19,8 @@ type Entity struct {
 	Created  string `json:"created"`
 	Updated  string `json:"updated"`
 	Enable   bool   `json:"enable"`
+	Admin    bool   `json:"admin"`
+	Powers   int64  `json:"powers"`
 }
 
 type User struct {
@@ -41,15 +43,17 @@ func (u *User) GetUserByUserName(userName string) (*Entity, error) {
 		return nil, errors.New("userName invalid")
 	}
 	sqlStr := "select `id`, `user_name`, `password`, " +
-		"`real_name`, `phone`, `created`, `updated`, `enable` " +
+		"`real_name`, `phone`, `created`, `updated`, `enable`, `admin` " +
 		"from users where " +
 		"`user_name`=? or `phone`=?"
 	data := u.db.QueryRow(sqlStr, userName, userName)
 	var (
 		row Entity
+		admin int
 	)
 	err := data.Scan(&row.Id, &row.UserName, &row.Password,
-		&row.RealName, &row.Phone, &row.Created, &row.Updated, &row.Enable)
+		&row.RealName, &row.Phone, &row.Created, &row.Updated,
+		&row.Enable, &admin)
 	if err != nil && err != sql.ErrNoRows {
 		log.Errorf("GetUserByUserName data.Scan fail, sql=[%v], userName=[%v], error=[%v]", sqlStr, userName, err)
 		return &row, err
@@ -58,6 +62,7 @@ func (u *User) GetUserByUserName(userName string) (*Entity, error) {
 		return nil, nil
 	}
 	log.Infof("GetUserByUserName success, sql=[%v], userName=[%v], return=[%v]", sqlStr, userName, row)
+	row.Admin = admin == 1
 	return &row, nil
 }
 
@@ -68,6 +73,22 @@ func (u *User) Enable(id int64, enable bool) error {
 		iEnable = 1
 	}
 	_, err := u.db.Exec(sqlStr, time.GetDayTime(), iEnable, id)
+	return err
+}
+
+func (u *User) Admin(id int64, admin bool) error {
+	sqlStr := "UPDATE `users` SET `updated`=?,`admin`=? WHERE id=?"
+	iadmin := 0
+	if admin {
+		iadmin = 1
+	}
+	_, err := u.db.Exec(sqlStr, time.GetDayTime(), iadmin, id)
+	return err
+}
+
+func (u *User) Powers(id int64, powers int64) error {
+	sqlStr := "UPDATE `users` SET `updated`=?,`powers`=? WHERE id=?"
+	_, err := u.db.Exec(sqlStr, time.GetDayTime(), powers, id)
 	return err
 }
 
@@ -85,20 +106,25 @@ func (u *User) Update(id int64, userName, password, realName, phone string) erro
 	sqlStr := "select `id` from users where `id`!=? and (`user_name`=? or `phone`=?)"
 	data := u.db.QueryRow(sqlStr, id, userName, phone)
 	var (
-		exid int64
+		exid int64 = 0
 	)
 	err := data.Scan(&exid)
-	if err != sql.ErrNoRows {
+	if err != nil && err != sql.ErrNoRows {
 		log.Errorf("Update data.Scan fail, sql=[%v], userName=[%v], error=[%v]", sqlStr, userName, err)
+		return err//errors.New(userName + "或者" + phone + "已存在")
+	}
+
+	if exid > 0 && err == nil {
 		return errors.New(userName + "或者" + phone + "已存在")
 	}
+
 	sqlStr = "UPDATE `users` SET `user_name`=?,`password`=?,`real_name`=?, `phone`=?, `updated`=? WHERE id=?"
 	_, err = u.db.Exec(sqlStr, userName, password, realName, phone, time.GetDayTime(), id)
 	return err
 }
 
 func  (u *User) GetUsers() ([]*Entity, error)  {
-	sqlStr := "SELECT `id`, `user_name`, `password`, `real_name`, `phone`, `created`, `updated`, `enable` FROM `users` WHERE 1"
+	sqlStr := "SELECT `id`, `user_name`, `password`, `real_name`, `phone`, `created`, `updated`, `enable`, `admin` FROM `users` WHERE 1"
 	rows, err := u.db.Query(sqlStr)
 	if err != nil {
 		return nil, err
@@ -107,11 +133,13 @@ func  (u *User) GetUsers() ([]*Entity, error)  {
 	for rows.Next() {
 		var e Entity
 		var enable int
-		err = rows.Scan(&e.Id, &e.UserName, &e.Password, &e.RealName, &e.Phone, &e.Created, &e.Updated, &enable)
+		var admin int
+		err = rows.Scan(&e.Id, &e.UserName, &e.Password, &e.RealName, &e.Phone, &e.Created, &e.Updated, &enable, &admin)
 		if err != nil {
 			continue
 		}
 		e.Enable = enable == 1
+		e.Admin = admin == 1
 		e.Password = "******"
 		data = append(data, &e)
 	}
@@ -119,11 +147,13 @@ func  (u *User) GetUsers() ([]*Entity, error)  {
 }
 
 func  (u *User) GetUserInfo(id int64) (*Entity, error)  {
-	sqlStr := "SELECT `id`, `user_name`, `password`, `real_name`, `phone`, `created`, `updated`, `enable` FROM `users` WHERE id=?"
+	sqlStr := "SELECT `id`, `user_name`, `password`, `real_name`, `phone`, `created`, `updated`, `enable`, `admin`, `powers` FROM `users` WHERE id=?"
 	row := u.db.QueryRow(sqlStr, id)
 	var e Entity
 	var enable int
-	err := row.Scan(&e.Id, &e.UserName, &e.Password, &e.RealName, &e.Phone, &e.Created, &e.Updated, &enable)
+	var admin int
+	err := row.Scan(&e.Id, &e.UserName, &e.Password,
+		&e.RealName, &e.Phone, &e.Created, &e.Updated, &enable, &admin, &e.Powers)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -131,6 +161,7 @@ func  (u *User) GetUserInfo(id int64) (*Entity, error)  {
 		return nil, err
 	}
 	e.Enable = enable == 1
+	e.Admin = admin == 1
 	//e.Password = "******"
 	return &e, nil
 }
