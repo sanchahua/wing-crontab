@@ -202,6 +202,22 @@ func (m *CronManager) midCharts(request *restful.Request, response *restful.Resp
 	}
 }
 
+func (m *CronManager) midAvgRunTimeCharts(request *restful.Request, response *restful.Response) {
+	if !m.sessionValid(request.Request) {
+		m.login3(request.Request, response)
+		return
+	}
+	if !m.csrfCheck(request.Request) {
+		m.outJson(response, HttpErrorCsrfFail, "csrf fail", nil)
+		return
+	}
+	if m.hasPower(request, PAvgRunTimeCharts) {
+		m.avgRunTimeCharts(request, response)
+	} else {
+		m.outJson(response, HttpErrorNoPower, "无权访问/操作", nil)
+	}
+}
+
 func (m *CronManager) midCronRun(request *restful.Request, response *restful.Response) {
 	if !m.sessionValid(request.Request) {
 		m.login3(request.Request, response)

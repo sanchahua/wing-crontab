@@ -19,6 +19,7 @@ const (
 	PCronInfo
 	PIndex
 	PCharts
+	PAvgRunTimeCharts
 	PCronRun
 	PKill
 	PLogDetail
@@ -130,6 +131,12 @@ func (m *CronManager) powersInit() {
 	m.powers = append(m.powers, &Power{
 		Id: PCharts,
 		Name: "首页图表接口（只读，一般必须开放）",
+	})
+
+	//PAvgRunTimeCharts
+	m.powers = append(m.powers, &Power{
+		Id: PAvgRunTimeCharts,
+		Name: "首页平均运行时长图表接口（只读，一般必须开放）",
 	})
 
 	m.powers = append(m.powers, &Power{

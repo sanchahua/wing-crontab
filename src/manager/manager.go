@@ -119,6 +119,8 @@ func NewManager(
 		http.SetRoute("GET",  "/index",                 m.midIndex),
 		// 查询图表，首页使用
 		http.SetRoute("GET",  "/charts/{days}",         m.midCharts),
+		//charts/avg_run_time/'+that.days+
+		http.SetRoute("GET",  "/charts/avg_run_time/{days}",         m.midAvgRunTimeCharts),
 		// 手动运行定时任务，一般用户测试
 		http.SetRoute("GET",  "/cron/run/{id}/{timeout}", m.midCronRun),
 		// 杀死进程

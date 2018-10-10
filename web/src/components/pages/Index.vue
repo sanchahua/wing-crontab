@@ -132,6 +132,20 @@
               <label><input name="time-pass" value="365" v-model="days" type="radio"/>过去一年</label>
             </span>
             <div id="chartdiv"></div>
+            <div style="height: 142px; overflow: hidden;">
+              <ul id="cron-list">
+                <li style="list-style: none; padding-bottom: 8px;">
+                  <label><input v-on:click="checkedAll" type="checkbox" class="cron-tool" checked>全选</label>
+                </li>
+                <li style="list-style: none; padding-bottom: 8px;" v-for="item in cron_list">
+                  <label v-on:click="checked"><input type="checkbox" class="cron-item" checked v-bind:data-id="item.id">[{{item.id}}]&nbsp;&nbsp;{{item.command}}</label>
+                </li>
+                <li style="list-style: none; padding-bottom: 8px;">
+                  <label><input v-on:click="checkedAll" type="checkbox" class="cron-tool" checked>全选</label>
+                </li>
+              </ul>
+            </div>
+            <div id="avg_chart" style="width: 100%; height: 368px;"></div>
           </div>
           <div class="clearfix"> </div>
         </div>
@@ -143,15 +157,62 @@
   <!--//outer-wp-->
 </template>
 <script>
+
   export default {
     name: "Index",
     data: function(){
       return {
+
+        cron_list: [],
+        is_stop: 0,
+        is_mutex: 0,
+        is_timeout: 0,
+        keyword: "",
+
         days: 7,
         cron_count: 0,
         history_run_count: 0,
         day_run_count: 0,
         day_run_fail_count: 0,
+
+        option: {
+          title: {
+            text: '平均运行时长'
+          },
+          tooltip: {
+            trigger: 'axis'
+          },
+          legend: {
+            data:[]
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          toolbox: {
+            feature: {
+              saveAsImage: {}
+            }
+          },
+          xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: ['2018-10-01']
+          },
+          yAxis: {
+            type: 'value'
+          },
+          series: [
+            {
+              name:'ls /home',
+              type:'line',
+              stack: '总量',
+              data:[120]
+            }
+          ]
+        }
       }
     },
     methods: {
@@ -159,7 +220,6 @@
         let that = this;
         axios.get('/index?time='+(new Date()).valueOf()).then(function (response) {
           if (2000 == response.data.code) {
-            console.log(response);
             that.cron_count         = response.data.data.cron_count
             that.history_run_count  = response.data.data.history_run_count
             that.day_run_count      = response.data.data.day_run_count
@@ -180,7 +240,7 @@
           } else if (8000 == response.data.code) {
             window.location.href="/ui/login.html"
           } else {
-            consule.log(response.data.message);
+            console.log(response.data.message);
           }
         }).catch(function (error) {
 
@@ -189,7 +249,6 @@
       getCharts: function (chart) {
         let that = this
         axios.get('/charts/'+that.days+'?time='+(new Date()).valueOf()).then(function (response) {
-          console.log(response)
           if (2000 == response.data.code) {
             chart.dataProvider = response.data.data;
             chart.validateNow();
@@ -197,16 +256,85 @@
           } else if (8000 == response.data.code) {
             window.location.href="/ui/login.html"
           } else {
-            consule.log(response.data.message);
+            console.log(response.data.message);
           }
         }).catch(function (error) {
 
         });
       },
+      checkedAll: function(event) {
+        $("input.cron-item").prop("checked", $(event.target).prop("checked"))
+        $(".cron-tool").prop("checked", $(event.target).prop("checked"))
+      },
+      list: function(){
+        let that = this;
+        let uri = '/cron/list?'
+        if (that.is_stop == 0) {
+          uri += 'stop=&'
+        } else if(that.is_stop==1) {
+          uri += 'stop=1&'
+        } else if(that.is_stop==2) {
+          uri += 'stop=0&'
+        }
+
+        if (that.is_mutex == 0) {
+          uri += 'mutex=&'
+        } else if(that.is_mutex==1) {
+          uri += 'mutex=1&'
+        } else if(that.is_mutex==2) {
+          uri += 'mutex=0&'
+        }
+
+        if (that.is_timeout == 0) {
+          uri += 'timeout=&'
+        } else if(that.is_timeout==1) {
+          uri += 'timeout=1&'
+        } else if(that.is_timeout==2) {
+          uri += 'timeout=0&'
+        }
+        uri += 'keyword=' + encodeURIComponent(that.keyword)+'&time='+(new Date()).valueOf()
+        axios.get(uri).then(function (response) {
+          if (2000 == response.data.code) {
+            console.log(response.data.data);
+            that.cron_list = response.data.data
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
+          } else {
+            console.log(response.data.message);
+          }
+        }).catch(function (error) {});
+      },
+      getAvgRunTime: function(myChart) {
+        let that = this
+        let ids = []
+        $(".cron-item").each(function (i,e) {
+          if ($(this).prop("checked")) {
+            ids.push(parseInt($(this).attr("data-id")))
+          }
+        });
+        console.log(ids)
+        axios.get('/charts/avg_run_time/'+that.days+'?time='+(new Date()).valueOf()+"&ids="+JSON.stringify(ids)).then(function (response) {
+          console.log(response)
+          if (2000 == response.data.code) {
+            //that.option.legend.data = response.data.data.legend
+            that.option.xAxis.data = response.data.data.xAxis
+            that.option.series = response.data.data.series
+            //console.log(that.option)
+            myChart.setOption(that.option, true);
+          } else if (8000 == response.data.code) {
+            window.location.href = "/ui/login.html"
+          } else {
+            console.log(response.data.message);
+          }
+        }).catch(function (error) {
+
+        });
+
+      }
     },
     mounted: function(){
       let that = this;
-
+      that.list()
 
       let chart = AmCharts.makeChart("chartdiv", {
         "type": "serial",
@@ -289,111 +417,17 @@
       }
       chart.addListener("dataUpdated", zoomChart);
       zoomChart();
-
-
-
-
-     /* var chartData = generatechartData();
-
-      function generatechartData() {
-        var chartData = [];
-        var firstDate = new Date();
-        firstDate.setDate( firstDate.getDate() - 150 );
-        var visits = -40;
-        var b = 0.6;
-        for ( var i = 0; i < 150; i++ ) {
-          // we create date objects here. In your data, you can have date strings
-          // and then set format of your dates using chart.dataDateFormat property,
-          // however when possible, use date objects, as this will speed up chart rendering.
-          var newDate = new Date( firstDate );
-          newDate.setDate( newDate.getDate() + i );
-          if(i > 80){
-            b = 0.4;
-          }
-          visits += Math.round((Math.random()<b?1:-1)*Math.random()*10);
-
-          chartData.push( {
-            date: newDate,
-            visits: visits
-          } );
-        }
-        return chartData;
-      }
-
-
-      var chart2 = AmCharts.makeChart( "chartdiv", {
-        "theme": "light",
-        "type": "serial",
-        "dataProvider": chartData,
-        "valueAxes": [ {
-          "inside": true,
-          "axisAlpha": 0
-        } ],
-        "graphs": [ {
-          "id": "g1",
-          "balloonText": "<div style='margin:5px; font-size:19px;'><span style='font-size:13px;'>[[category]]</span><br>[[value]]</div>",
-          "bullet": "round",
-          "bulletBorderAlpha": 1,
-          "bulletBorderColor": "#FFFFFF",
-          "hideBulletsCount": 50,
-          "lineThickness": 2,
-          "lineColor": "#fdd400",
-          "negativeLineColor": "#67b7dc",
-          "valueField": "visits"
-        } ],
-        "chartScrollbar": {
-
-        },
-        "chartCursor": {},
-        "categoryField": "date",
-        "categoryAxis": {
-          "parseDates": true,
-          "axisAlpha": 0,
-          "minHorizontalGap": 55
-        }
-      } );*/
-
-
-// generate some random data, quite different range
-//       function generateChartData() {
-//         var chartData = [];
-//         var firstDate = new Date();
-//         firstDate.setDate(firstDate.getDate() - 100);
-//
-//         var visits = 1600;
-//         var hits = 2900;
-//         var views = 8700;
-//
-//
-//         for (var i = 0; i < 100; i++) {
-//           // we create date objects here. In your data, you can have date strings
-//           // and then set format of your dates using chart.dataDateFormat property,
-//           // however when possible, use date objects, as this will speed up chart rendering.
-//           var newDate = new Date(firstDate);
-//           newDate.setDate(newDate.getDate() + i);
-//
-//           visits += Math.round((Math.random()<0.5?1:-1)*Math.random()*10);
-//           views += Math.round((Math.random()<0.5?1:-1)*Math.random()*10);
-//
-//           chartData.push({
-//             date: newDate,
-//             visits: visits,
-//             views: views
-//           });
-//         }
-//         return chartData;
-//       }
-//
-//       function zoomChart(){
-//         chart.zoomToIndexes(0, chart.dataProvider.length - 1);
-//       }
-
-
       that.getCharts(chart)
       that.getStatistics()
+
+      let myChart = echarts.init(document.getElementById('avg_chart'))
+      myChart.setOption(that.option, true);
+      that.getAvgRunTime(myChart)
+
       window.setInterval(function () {
         that.getStatistics()
         that.getCharts(chart)
+        that.getAvgRunTime(myChart)
       }, 2000)
     },
     created: function () {

@@ -102,6 +102,26 @@ func (db *Statistics) Add(cron_id int64, day string, addSuccessNum, addFailNum i
 	return nil
 }
 
+func (db *Statistics) GetAvgTime(day string) (map[int64]int64, error) {
+	sqlStr := "SELECT `cron_id`, `avg_use_time` FROM `statistics` WHERE `day`=?"
+	rows, err := db.handler.Query(sqlStr, day)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		avg, cronId int64
+	)
+	var data = make(map[int64]int64)
+	for rows.Next() {
+		err := rows.Scan(&cronId, &avg)
+		if err != nil {
+			continue
+		}
+		data[cronId] = avg
+	}
+	return data, nil
+}
+
 func (db *Statistics) GetCharts(days int) ([]*Entity, error) {
 	if days < 1 {
 		days = 7
