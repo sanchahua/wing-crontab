@@ -132,13 +132,13 @@
               <label><input name="time-pass" value="365" v-model="days" type="radio"/>过去一年</label>
             </span>
             <div id="chartdiv"></div>
-            <div style="height: 142px; overflow: hidden;">
+            <div style="height: 142px; overflow-x: hidden; overflow-y: scroll; border: #ddd solid 2px; position: relative;">
               <ul id="cron-list">
                 <li style="list-style: none; padding-bottom: 8px;">
                   <label><input v-on:click="checkedAll" type="checkbox" class="cron-tool" checked>全选</label>
                 </li>
                 <li style="list-style: none; padding-bottom: 8px;" v-for="item in cron_list">
-                  <label v-on:click="checked"><input type="checkbox" class="cron-item" checked v-bind:data-id="item.id">[{{item.id}}]&nbsp;&nbsp;{{item.command}}</label>
+                  <label><input type="checkbox" class="cron-item" checked v-bind:data-id="item.id">[{{item.id}}]&nbsp;&nbsp;{{item.command}}</label>
                 </li>
                 <li style="list-style: none; padding-bottom: 8px;">
                   <label><input v-on:click="checkedAll" type="checkbox" class="cron-tool" checked>全选</label>
