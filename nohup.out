@@ -1,0 +1,33 @@
+java.lang.OutOfMemoryError: Java heap space
+Dumping heap to /root/java_error_in_GOLAND.hprof ...
+Heap dump file created [849932515 bytes in 38.513 secs]
+#
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  SIGSEGV (0xb) at pc=0x00007f14954709cd, pid=18203, tid=0x00007f137e688700
+#
+# JRE version: OpenJDK Runtime Environment (8.0_152-b29) (build 1.8.0_152-release-1136-b29)
+# Java VM: OpenJDK 64-Bit Server VM (25.152-b29 mixed mode linux-amd64 compressed oops)
+# Problematic frame:
+# C  [libc.so.6+0x389cd]*** Error in `/usr/local/bin/_goland/jre64/bin/java': malloc(): memory corruption: 0x00007f136c000087 ***
+======= Backtrace: =========
+/lib64/libc.so.6(+0x7dd7d)[0x7f14954b5d7d]
+/lib64/libc.so.6(__libc_malloc+0x4c)[0x7f14954b810c]
+/lib64/libc.so.6(+0x6b58d)[0x7f14954a358d]
+/usr/local/bin/_goland/jre64/lib/amd64/server/libjvm.so(+0x54c8cf)[0x7f1494a338cf]
+/usr/local/bin/_goland/jre64/lib/amd64/server/libjvm.so(+0x4df712)[0x7f14949c6712]
+/usr/local/bin/_goland/jre64/lib/amd64/server/libjvm.so(+0x8a7356)[0x7f1494d8e356]
+/usr/local/bin/_goland/jre64/lib/amd64/server/libjvm.so(+0x567a3f)[0x7f1494a4ea3f]
+/usr/local/bin/_goland/jre64/lib/amd64/server/libjvm.so(+0xa39167)[0x7f1494f20167]
+/usr/local/bin/_goland/jre64/lib/amd64/server/libjvm.so(+0xa3a9ec)[0x7f1494f219ec]
+/usr/local/bin/_goland/jre64/lib/amd64/server/libjvm.so(JVM_handle_linux_signal+0x132)[0x7f1494d96ba2]
+/usr/local/bin/_goland/jre64/lib/amd64/server/libjvm.so(+0x8a5703)[0x7f1494d8c703]
+/lib64/libpthread.so.0(+0xf5e0)[0x7f1495c245e0]
+/lib64/libc.so.6(+0x389cd)[0x7f14954709cd]
+/lib64/libc.so.6(+0x38ab5)[0x7f1495470ab5]
+/lib64/libX11.so.6(_XIOError+0x58)[0x7f1451219128]
+/lib64/libX11.so.6(_XEventsQueued+0x7d)[0x7f1451216acd]
+/lib64/libX11.so.6(XPending+0x4d)[0x7f14512085dd]
+/lib64/libgdk-x11-2.0.so.0(+0x5cfa2)[0x7f13ff719fa2]
+/lib64/libglib-2.0.so.0(g_main_context_prepare+0x15d)[0x7f13fddefd6d]
+/lib64/libglib-2.0.so.0(+0x4a6b8)[0x7f13fddf06b8]
