@@ -68,6 +68,8 @@ func (m *CronManager) addCron(request *restful.Request, w *restful.Response) {
 		StartTime: st,
 		EndTime:   et,
 		IsMutex:   params.Mutex(),
+		Blame:     params.GetBlame(),
+		UserId:    userId,
 	}
 	m.broadcast(EV_ADD, id)
 	// 添加定时任务到定时任务管理器
