@@ -9,7 +9,6 @@
     </div>
     <!--//sub-heard-part-->
     <div class="graph-visual tables-main">
-
       <h3 class="inner-tittle two">定时任务列表（{{cron_list.length}}个） </h3>
       <div class="search-tool">
         <div><input type="text" v-model="keyword"/><input type="button" v-on:click="search_keyword" value="查询"/></div>
