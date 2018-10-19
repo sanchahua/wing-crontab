@@ -32,43 +32,55 @@
         </div>
       </div>
       <div>
+        <div>展示
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox" checked/>#Id</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>添加人</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>责任人</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox" checked/>定时配置</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>互斥</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>运行范围</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox" checked/>执行指令</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>正在运行</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>进程数</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>备注</label>
+        </div>
         <div class="tables">
-          <table class="table table-bordered" width="100%">
+          <table id="cron-list-table" class="table table-bordered" width="100%">
             <thead>
               <tr>
-                <th>#Id</th>
-                <th>添加人</th>
-                <th>责任人</th>
-                <th>定时配置</th>
-                <th>互斥</th>
-                <th>运行范围</th>
-                <th>执行指令</th>
-                <th>正在运行</th>
-                <th title="0-1属于正常，大于1说明有定时任务进程堆积">进程数<a style="color: #f00;">?</a></th>
-                <th>备注</th>
+                <th class="sh-row">#Id</th>
+                <th class="sh-row" style="display: none;">添加人</th>
+                <th class="sh-row" style="display: none;">责任人</th>
+                <th class="sh-row">定时配置</th>
+                <th class="sh-row" style="display: none;">互斥</th>
+                <th class="sh-row" style="display: none;">运行范围</th>
+                <th class="sh-row">执行指令</th>
+                <th class="sh-row" style="display: none;">正在运行</th>
+                <th class="sh-row" style="display: none;" title="0-1属于正常，大于1说明有定时任务进程堆积">进程数<a style="color: #f00;">?</a></th>
+                <th class="sh-row" style="display: none;">备注</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
             <tr v-for="item in cron_list">
-              <th>{{item.id}}</th>
-              <td><span v-bind:title="item.real_name">{{item.user_name}}</span></td>
-              <td><span v-bind:title="item.blame_real_name">{{item.blame_user_name}}</span></td>
-              <td>{{item.cron_set}}</td>
-              <td>
+              <th class="sh-row">{{item.id}}</th>
+              <td class="sh-row" style="display: none;"><span v-bind:title="item.real_name">{{item.user_name}}</span></td>
+              <td class="sh-row" style="display: none;"><span v-bind:title="item.blame_real_name">{{item.blame_user_name}}</span></td>
+              <td class="sh-row">{{item.cron_set}}</td>
+              <td class="sh-row" style="display: none;">
                 <span v-if="item.is_mutex">是</span>
                 <span v-else>否</span>
               </td>
-              <td>
+              <td class="sh-row" style="display: none;">
                 {{item.start_time}} - {{item.end_time}}
               </td>
-              <td><span style="max-width: 60px; display: inline-block; max-height: 20px; overflow: hidden; word-break: keep-all;" v-bind:title="item.command">{{item.command}}</span></td>
-              <td>
+              <td class="sh-row">{{item.command}}</td>
+              <td class="sh-row" style="display: none;">
                 <span v-if="item.stop"><label style="color: #f00; font-weight: bold;">否</label></span>
                 <span v-else>是</span>
               </td>
-              <td>{{item.process_num}}</td>
-              <td>
+              <td class="sh-row"style="display: none;">{{item.process_num}}</td>
+              <td class="sh-row" style="display: none;">
                 {{item.remark}}
               </td>
               <td>
@@ -109,6 +121,22 @@
       this.list();
     },
     methods: {
+      shRow: function(event) {
+        let dom = $(event.target);
+        if (dom.is("input")) {
+          dom = dom.parent()
+        }
+        console.log(dom.index())
+        if ($(event.target).prop("checked")) {
+          $("#cron-list-table tr").each(function () {
+            $(this).find(".sh-row").eq(dom.index()).show()
+          })
+        } else {
+          $("#cron-list-table tr").each(function () {
+            $(this).find(".sh-row").eq(dom.index()).hide()
+          })
+        }
+      },
       list: function(){
           let that = this;
           let uri = '/cron/list?'
@@ -374,8 +402,11 @@
 <style>
 a.btn {
   border: 1px solid #2ecc71;
-  padding: 2px 20px;
+  padding: 2px 8px;
   font-size: 14px;
-  margin: 2px 6px;
+  margin: 2px 2px;
 }
+  .sh-tool {
+    margin-left: 3px;
+  }
 </style>
