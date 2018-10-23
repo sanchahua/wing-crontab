@@ -12,6 +12,7 @@ import Users from '@/components/pages/Users'
 import UserEdit from '@/components/pages/UserEdit'
 import UserCenter from '@/components/pages/UserCenter'
 import UserPowers from '@/components/pages/UserPowers'
+import Nodes from '@/components/pages/Nodes'
 
 Vue.use(Router)
 
@@ -73,6 +74,11 @@ export default new Router({
       path: '/user_powers',
       name: 'UserPowers',
       component: UserPowers,
+    },
+    {
+      path: 'nodes',
+      name: 'Nodes',
+      component: Nodes,
     }
   ]
 })
