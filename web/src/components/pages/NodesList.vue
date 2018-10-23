@@ -22,7 +22,12 @@
         </thead>
         <tbody>
         <tr v-for="item in nodes">
-
+          <th class="sh-row">hello</th>
+          <td class="sh-row">127.0.0.1:38001</td>
+          <td class="sh-row">online</td>
+          <td class="sh-row">20%</td>
+          <td class="sh-row">30%</td>
+          <td class="sh-row">56%</td>
           <td>
             <div>
               <a class="btn" v-if="item.offline" v-on:click="online">上线</a>
@@ -38,10 +43,14 @@
 </template>
 <script>
   export default {
-    name: "Nodes",
+    name: "NodesList",
     data: function() {
       return {
-        nodes: [],
+        nodes: [
+          {
+            offline: false,
+          }
+        ],
         datetime: (new Date()).Format("yyyy-MM-dd hh:mm:ss"),
       }
     },
