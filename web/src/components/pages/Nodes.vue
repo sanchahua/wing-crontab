@@ -43,7 +43,7 @@
 </template>
 <script>
   export default {
-    name: "NodesList",
+    name: "Nodes",
     data: function() {
       return {
         nodes: [
