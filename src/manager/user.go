@@ -81,12 +81,19 @@ func (m *CronManager) userPowers(request *restful.Request, w *restful.Response) 
 		m.outJson(w, HttpErrorUserIdParseFail, err.Error(), nil)
 		return
 	}
-	strPowers := request.PathParameter("powers")
-	powers, err := strconv.ParseInt(strPowers, 10, 64)
+
+	p, err := ParseForm(request)
 	if err != nil {
-		m.outJson(w, HttpErrorPowersParseFail, err.Error(), nil)
+		m.outJson(w, HttpErrorParseFormFail, err.Error(), nil)
 		return
 	}
+
+	powers := int64(0)
+	for _, v := range p.Powers {
+		powers |= v
+		log.Tracef("%v => %v", v, powers)
+	}
+
 	err = m.userModel.Powers(userId, powers)
 	if err != nil {
 		m.outJson(w, HttpErrorSetUserPowersFail, err.Error(), nil)
@@ -222,7 +229,7 @@ func (m *CronManager) login(request *restful.Request, w *restful.Response) {
 		return
 	}
 	userInfo.Password = "******"
-	sessionId, err := m.session.Store(userInfo.Id, time.Second * 60)
+	sessionId, err := m.session.Store(userInfo.Id, time.Second * 3600)
 	if err != nil {
 		m.outJson(w, HttpErrorStoreSessionFail, "创建session失败", nil)
 		return

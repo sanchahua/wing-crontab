@@ -2,6 +2,8 @@ package manager
 
 import (
 	"github.com/emicklei/go-restful"
+	"fmt"
+	"strconv"
 )
 
 // 以下值可能会因调整顺序而发生改变
@@ -59,6 +61,7 @@ const (
 type Power struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
+	Checked bool `json:"checked"`
 }
 
 type Powers []*Power
@@ -242,6 +245,25 @@ func (m *CronManager) powersInit() {
 }
 
 func (m *CronManager) powersList(request *restful.Request, w *restful.Response) {
+
+	strUserId := request.PathParameter("id")
+	userId, err := strconv.ParseInt(strUserId, 10, 64)
+	if err != nil {
+		m.outJson(w, HttpErrorUserIdParseFail, err.Error(), nil)
+		return
+	}
+
+	userinfo, err := m.userModel.GetUserInfo(userId)
+	if err != nil {
+		m.outJson(w, HttpErrorGetUserInfoFail, err.Error(), nil)
+		return
+	}
+
+	for _, v := range m.powers {
+		fmt.Printf("userid=[%v--%v], power id=[%v], checked=[%v]\r\n", userinfo.Id, userinfo.Powers, v.Id, v.Id & userinfo.Powers > 0)
+		v.Checked = v.Id & userinfo.Powers > 0
+	}
+
 	m.outJson(w, HttpSuccess, "ok", m.powers)
 }
 

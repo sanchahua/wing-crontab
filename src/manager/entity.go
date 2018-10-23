@@ -27,6 +27,8 @@ type httpParamsEntity struct {
 	RealName string     `json:"real_name"`
 	Phone interface{}   `json:"phone"`
 	Enable interface{}  `json:"enable"`
+
+	Powers []int64      `json:"powers"`
 }
 var ErrNil = errors.New("nil")
 func (p *httpParamsEntity) GetPhone() string {

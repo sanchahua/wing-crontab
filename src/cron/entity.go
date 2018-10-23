@@ -377,6 +377,7 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
 	// todo 程序退出时，定时任务的日志可能会失败，因为这个时候数据库已经关闭，这个问题需要处理一下
 	// 即安全退出问题，kill -9没办法了
+	log.Tracef("%v=[%v] was run", row.Id, row.Command)
 	row.onRun(serviceId, row.ServiceId,row.Id, processId, state, string(res), useTime, row.Command, startTime)
 }
 

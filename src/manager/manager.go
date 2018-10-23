@@ -133,7 +133,7 @@ func NewManager(
 		http.SetRoute("GET",  "/user/info/{id}",     m.midUserInfo),
 		// 删除用户接口
 		http.SetRoute("POST",  "/user/delete/{id}",  m.midUserDelete),
-		http.SetRoute("POST",  "/user/powers/{id}/{powers}",  m.midUserPowers),
+		http.SetRoute("POST",  "/user/powers/{id}",  m.midUserPowers),
 		// 登录api
 		http.SetRoute("POST", "/user/login",          m.login),
 		// 退出登录api
@@ -149,7 +149,7 @@ func NewManager(
 		// 启用/禁用用户账号接口
 		http.SetRoute("POST", "/user/enable/{id}/{enable}", m.midEnable),
 		http.SetRoute("POST", "/user/admin/{id}/{admin}", m.midAdmin),
-		http.SetRoute("GET",  "/powers",   m.powersList),
+		http.SetRoute("GET",  "/powers/{id}",   m.powersList),
 		http.SetRoute("GET",  "/page/power/check", m.pagePowerCheck),
 
 		http.SetHandle("/ui/", m.ui(shttp.FileServer(statikFS))),
@@ -336,6 +336,7 @@ func (m *CronManager) init() {
 		log.Tracef("add cron: %+v", *data)
 		m.cronController.Add(data)
 	}
+	m.cronController.Ready()
 }
 
 func (m *CronManager) Start() {

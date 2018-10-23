@@ -75,18 +75,23 @@
         return params;
       },
       save: function() {
-        let powers = 0;
+        let powers = [];
         $(".power-row").each(function() {
           if ($(this).prop("checked")) {
             let id = $(this).attr("data-id")
             id = parseInt(id)
-            powers |= id
+            // console.log("id", id)
+            // powers |= id
+            // console.log("powers", powers)
+            powers.push(id)
           }
         });
         console.log(powers)
         let that = this
         let params = that.getParams()
-        axios.post("/user/powers/"+params.id+"/"+powers).then(function (response) {
+        axios.post("/user/powers/"+params.id, {
+          powers: powers
+        }).then(function (response) {
           console.log(response)
           if (2000 != response.data.code) {
             alert(response.data.message);
@@ -117,15 +122,16 @@
       },
       getPowers: function () {
         let that = this
-        axios.get('/powers?time='+(new Date()).valueOf()).then(function (response) {
+        let params = that.getParams()
+        axios.get('/powers/'+params.id+'?time='+(new Date()).valueOf()).then(function (response) {
           if (2000 == response.data.code) {
             that.powers = response.data.data
-            let i = 0;
-            let powers = parseInt(that.userinfo.powers)
-            for (i = 0; i < that.powers.length; i++) {
-              let id = parseInt(that.powers[i].id)
-              that.powers[i].checked = ((id & powers) > 0)
-            }
+            // let i = 0;
+            // let powers = parseInt(that.userinfo.powers)
+            // for (i = 0; i < that.powers.length; i++) {
+            //   let id = parseInt(that.powers[i].id)
+            //   that.powers[i].checked = ((id & powers) > 0)
+            // }
             window.setTimeout(function () {
               let selected = 0;
               $(".power-row").each(function() {

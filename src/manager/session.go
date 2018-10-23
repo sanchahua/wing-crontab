@@ -13,7 +13,7 @@ func (m *CronManager) sessionValid(r *shttp.Request) bool {
 		if v, _ := m.session.Valid(sessionid); !v {
 			return false
 		}
-		m.session.Update(sessionid, time.Second * 60)
+		m.session.Update(sessionid, time.Second * 3600)
 		return true
 	}
 	return false

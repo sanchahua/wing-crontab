@@ -43,3 +43,4 @@ bin/nohup.out
 *.zip
 *.log
 src/statik/statik.go
+*.gz

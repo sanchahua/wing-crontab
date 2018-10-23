@@ -33,10 +33,11 @@ type Controller struct {
 	logModel *modelLog.DbLog
 	cache    ListCronEntity//[]*CronEntity
 	statisticsModel *statistics.Statistics
-	userModel *user.User
-	Leader   bool
-	redis *redis.Client
-	RedisKeyPrex string
+	userModel       *user.User
+	Leader          bool
+	redis           *redis.Client
+	RedisKeyPrex    string
+	ready           bool
 }
 
 func NewController(redis *redis.Client, RedisKeyPrex string,
@@ -55,12 +56,24 @@ func NewController(redis *redis.Client, RedisKeyPrex string,
 		redis: redis,
 		RedisKeyPrex: RedisKeyPrex,
 		userModel: userModel,
+		ready: false,
 	}
 	go c.dispatch()
 	return c
 }
 
+func (c *Controller) Ready() {
+	c.ready = true
+}
+
 func (c *Controller) dispatch() {
+	for {
+		if (c.ready) {
+			break
+		}
+		log.Tracef("wait for xcrontab be ready")
+		time.Sleep(time.Second)
+	}
 	//queue := fmt.Sprintf(row.redisKeyPrex+"/%v", row.Id)
 	var raw = make([]int64, 0)
 	cpuNum := int64(runtime.NumCPU())
@@ -77,8 +90,8 @@ func (c *Controller) dispatch() {
 
 		// 如果当前正在执行的线程数量达到上限，则等待
 		if atomic.LoadInt64(&gonum) >= maxNum {
-			log.Warnf("正在运行的协程数量达到上限%v，等待中...", maxNum)
-			time.Sleep(time.Millisecond * 10)
+			log.Warnf("正在运行的协程数量(%v)达到上限%v，等待中...", atomic.LoadInt64(&gonum), maxNum)
+			time.Sleep(time.Millisecond * 500)
 			continue
 		}
 
