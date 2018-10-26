@@ -96,7 +96,10 @@ func main() {
 		panic(0);
 	}
 
-	service := service2.NewService(handler, *listen, appConfig.LeaderKey, redisClient, func(runTimeId int64) {
+	service := service2.NewService(
+		handler,
+		*listen, appConfig.LeaderKey,
+		redisClient, func(runTimeId int64) {
 	}, func(i int64) {
 		log.Warnf("#####%v is down#####", i)
 	}, func(i int64) {

@@ -17,10 +17,12 @@ import (
 	"github.com/go-redis/redis"
 	"encoding/json"
 	"models/user"
+	"service"
 )
 
 // 数据库的基本属性
 type CronEntity struct {
+	service *service.Service `json:"-"`
 	ServiceId  int64               `json:"service_id"`
 	CronId     cronv2.EntryID      `json:"cron_id"`
 	Id         int64               `json:"id"`
@@ -62,6 +64,7 @@ const DefaultTimeout = 6 //秒
 type FilterMiddleWare func(entity *CronEntity) IFilter
 type OnRunCommandFunc func(dispatchServer, runServer int64, cron_id int64, processId int, state, output string, usetime int64, remark, startTime string)
 func newCronEntity(
+	service *service.Service,
 	redis *redis.Client,
 	redisKeyPrex string,
 	entity *cron.CronEntity,
@@ -86,6 +89,7 @@ func newCronEntity(
 	}
 
 	e := &CronEntity{
+		service: service,
 		ServiceId:    0,
 		Id:           entity.Id,
 		CronSet:      entity.CronSet,
@@ -226,6 +230,10 @@ func (row *CronEntity) getProcessNum() (int64, error)  {
 
 // 定时任务管理引擎 接口
 func (row *CronEntity) Run() {
+	if row.service.IsOffline() {
+		log.Warnf("node is offline")
+		return
+	}
 	//log.Tracef("%v ### was run", row.Id)
 	// 只有leader负责定时任务调度
 	row.lock.RLock()

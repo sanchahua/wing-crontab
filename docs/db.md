@@ -44,12 +44,13 @@ CREATE TABLE `cron` (
 
 CREATE TABLE `services` (
  `id` int(11) NOT NULL AUTO_INCREMENT,
+ `name` varchar(256) NOT NULL DEFAULT '',
  `address` varchar(64) NOT NULL DEFAULT '' COMMENT 'ip地址',
  `is_leader` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1为leader，默认值为0不是leader',
  `updated` int(11) NOT NULL DEFAULT '0',
  PRIMARY KEY (`id`),
  UNIQUE KEY `address` (`address`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8;
 
 CREATE TABLE `users` (
  `id` int(11) NOT NULL AUTO_INCREMENT,

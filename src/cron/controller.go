@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sync/atomic"
 	"models/user"
+	"service"
 )
 const (
 	IsRunning = 1
@@ -38,12 +39,14 @@ type Controller struct {
 	redis           *redis.Client
 	RedisKeyPrex    string
 	ready           bool
+	service *service.Service
 }
 
-func NewController(redis *redis.Client, RedisKeyPrex string,
+func NewController(service *service.Service, redis *redis.Client, RedisKeyPrex string,
 	logModel *modelLog.DbLog,
 	statisticsModel *statistics.Statistics, userModel *user.User) *Controller {
 	c := &Controller{
+		service: service,
 		serviceId: 0,
 		cron:     cronV2.New(),
 		cronList: make(map[int64] *CronEntity),
@@ -79,6 +82,11 @@ func (c *Controller) dispatch() {
 	cpuNum := int64(runtime.NumCPU())
 	gonum  := int64(0)
 	for {
+		if c.service.IsOffline() {
+			log.Warnf("node is offline")
+			time.Sleep(time.Second)
+			continue
+		}
 		// 最大运行线程数量，取 max(定时任务数量, cpu数量)
 		c.lock.RLock()
 		// 这里必须每次都重新拿长度数据，因为cronList可能会实时改变
@@ -188,7 +196,7 @@ func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
 	var err error
 	uinfo, _ := c.userModel.GetUserInfo(ce.UserId)
 	blameInfo, _ := c.userModel.GetUserInfo(ce.Blame)
-	entity := newCronEntity(c.redis, c.RedisKeyPrex, ce,
+	entity := newCronEntity(c.service, c.redis, c.RedisKeyPrex, ce,
 		uinfo, blameInfo, c.onRun)
 	entity.CronId, err = c.cron.AddJob(entity.CronSet, entity)
 	if err != nil {
@@ -228,7 +236,7 @@ func (c *Controller) Update(id int64, cronSet, command string,
 	uinfo, _ := c.userModel.GetUserInfo(e.UserId)
 	blameInfo, _ := c.userModel.GetUserInfo(blame)
 	//e.Update(cronSet, command, remark, stop, startTime, endTime, isMutex)
-	entity := newCronEntity(c.redis, c.RedisKeyPrex, &cron.CronEntity{
+	entity := newCronEntity(c.service, c.redis, c.RedisKeyPrex, &cron.CronEntity{
 		Id:        id,// int64        `json:"id"`
 		CronSet:   cronSet,// string  `json:"cron_set"`
 		Command:   command,// string  `json:"command"`

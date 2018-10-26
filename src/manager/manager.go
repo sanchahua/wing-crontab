@@ -33,11 +33,12 @@ type CronManager struct {
 	service *service.Service
 	serviceId int64
 	redis *redis.Client
-	watchKey string
+	//watchKey string
 	userModel *user.User
 	session *session.Session
 
 	powers Powers//map[int64]string
+	leader bool
 }
 const (
 	EV_ADD           = 1
@@ -57,19 +58,13 @@ func NewManager(
 	redis *redis.Client,
 	RedisKeyPrex string, db *sql.DB,
 	listen string, logKeepDay int64) *CronManager {
-	cronModel := mcron.NewCron(db)
-	logModel  := modelLog.NewLog(db)
+
+	cronModel       := mcron.NewCron(db)
+	logModel        := modelLog.NewLog(db)
 	statisticsModel := statistics.NewStatistics(db)
-	userModel := user.NewUser(db)
-	cronController := cron.NewController(redis, RedisKeyPrex,
-		logModel, statisticsModel, userModel)
-	//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
-	name, err := os.Hostname()
-	if err != nil {
-		seelog.Errorf("%v", err)
-		panic(1)
-	}
-	watchKey := name + "-" + listen
+	userModel       := user.NewUser(db)
+	cronController  := cron.NewController(service, redis, RedisKeyPrex, logModel, statisticsModel, userModel)
+
 
 	m := &CronManager{
 		cronController:cronController,
@@ -79,7 +74,7 @@ func NewManager(
 		statisticsModel: statisticsModel,
 		service: service,
 		redis: redis,
-		watchKey: watchKey,
+		//watchKey: watchKey,
 		userModel: userModel,
 		session: session.NewSession(redis),
 		powers: make(Powers, 0),//map[int64]string),
@@ -152,6 +147,10 @@ func NewManager(
 		http.SetRoute("GET",  "/powers/{id}",   m.powersList),
 		http.SetRoute("GET",  "/page/power/check", m.pagePowerCheck),
 
+		http.SetRoute("GET",  "/services", m.midServices),
+		http.SetRoute("POST",  "/services/nodeoffline/{id}", m.midNodeOffline),
+		http.SetRoute("POST",  "/services/offline/{id}", m.midNodeOnline),
+
 		http.SetHandle("/ui/", m.ui(shttp.FileServer(statikFS))),
 	)
 	m.httpServer.Start()
@@ -199,9 +198,10 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 			continue
 		}
 
+		watch := fmt.Sprintf("xcrontab/watch/event/%v", sv.ID)
 		//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
-		log.Tracef("push [%v] to [%v]", string(data), sv.Address)
-		err = m.redis.RPush(sv.Address, string(data)).Err()
+		log.Tracef("push [%v] to [%v]", string(data), watch)
+		err = m.redis.RPush(watch, string(data)).Err()
 		if err != nil {
 			seelog.Errorf("broadcast m.redis.RPush fail, error=[%v]", err)
 		}
@@ -210,10 +210,11 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 
 func (m *CronManager) watchCron() {
 	//[event, id]
-	log.Tracef("start watchCron [%v]", m.watchKey)
+	watch := fmt.Sprintf("xcrontab/watch/event/%v", m.service.ID)
+	log.Tracef("start watchCron [%v]", watch)
 	var raw = make([]int64, 0)
 	for {
-		data, err := m.redis.BRPop(time.Second * 3, m.watchKey).Result()
+		data, err := m.redis.BRPop(time.Second * 3, watch).Result()
 		if err != nil {
 			if err != redis.Nil {
 				seelog.Errorf("watchCron redis.BRPop fail, error=[%v]", err)
@@ -290,6 +291,10 @@ func (m *CronManager) SetServiceId(serviceId int64) {
 func (m *CronManager) updateAvgMax() {
 	// 周期性的收集平均运行时长和最大运行时长数据
 	for {
+		if m.service.IsOffline() {
+			time.Sleep(time.Second)
+			continue
+		}
 		m.cronController.SetAvgMaxData()
 		time.Sleep(time.Second * 60)
 	}
@@ -311,6 +316,7 @@ func (m *CronManager) checkDateTime() {
 }
 
 func (m *CronManager) SetLeader(isLeader bool) {
+	m.leader = isLeader
 	m.cronController.SetLeader(isLeader)
 }
 
@@ -321,6 +327,11 @@ func (m *CronManager) logManager() {
 	}
 	// 日志清理操作，每60秒执行一次
 	for {
+		// only leader do this
+		if !m.leader || m.service.IsOffline() {
+			time.Sleep(time.Second * 60)
+			continue
+		}
 		m.logModel.DeleteByStartTime(time2.TimeFormat(time.Now().Unix()-logKeepDay*86400))
 		time.Sleep(time.Second * 60)
 	}

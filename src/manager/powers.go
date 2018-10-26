@@ -33,6 +33,9 @@ const (
 	PUserEnable
 	PUserAdmin
 	PUserPowers
+	PServices
+	PNodeOffline
+	PNodeOnline
 	//这几个人人都应该具备的权限
 	//PLogin
 	//PLogout
@@ -195,6 +198,21 @@ func (m *CronManager) powersInit() {
 	m.powers = append(m.powers, &Power{
 		Id: PUserPowers,
 		Name: "设置/编辑用户权限（写操作，严格开放）",
+	})
+
+	m.powers = append(m.powers, &Power{
+		Id: PServices,
+		Name: "服务器集群节点列表（只读操作，可开放）",
+	})
+
+	m.powers = append(m.powers, &Power{
+		Id: PNodeOffline,
+		Name: "下线服务器",
+	})
+
+	m.powers = append(m.powers, &Power{
+		Id: PNodeOnline,
+		Name: "上线服务器",
 	})
 
 	m.powers = append(m.powers, &Power{

@@ -314,6 +314,55 @@ func (m *CronManager) midAdmin(request *restful.Request, response *restful.Respo
 	}
 }
 
+func (m *CronManager) midServices(request *restful.Request, response *restful.Response) {
+	if !m.sessionValid(request.Request) {
+		m.login3(request.Request, response)
+		return
+	}
+	if !m.csrfCheck(request.Request) {
+		m.outJson(response, HttpErrorCsrfFail, "csrf fail", nil)
+		return
+	}
+	if m.hasPower(request, PServices) {
+		m.services(request, response)
+	} else {
+		m.outJson(response, HttpErrorNoPower, "无权访问/操作", nil)
+	}
+}
+
+func (m *CronManager) midNodeOffline(request *restful.Request, response *restful.Response) {
+	if !m.sessionValid(request.Request) {
+		m.login3(request.Request, response)
+		return
+	}
+	if !m.csrfCheck(request.Request) {
+		m.outJson(response, HttpErrorCsrfFail, "csrf fail", nil)
+		return
+	}
+	if m.hasPower(request, PNodeOffline) {
+		m.nodeOffline(request, response)
+	} else {
+		m.outJson(response, HttpErrorNoPower, "无权访问/操作", nil)
+	}
+}
+
+//midNodeOnline
+func (m *CronManager) midNodeOnline(request *restful.Request, response *restful.Response) {
+	if !m.sessionValid(request.Request) {
+		m.login3(request.Request, response)
+		return
+	}
+	if !m.csrfCheck(request.Request) {
+		m.outJson(response, HttpErrorCsrfFail, "csrf fail", nil)
+		return
+	}
+	if m.hasPower(request, PNodeOnline) {
+		m.nodeOnline(request, response)
+	} else {
+		m.outJson(response, HttpErrorNoPower, "无权访问/操作", nil)
+	}
+}
+
 func (m *CronManager) midUpdateUser(request *restful.Request, response *restful.Response) {
 	if !m.sessionValid(request.Request) {
 		m.login3(request.Request, response)

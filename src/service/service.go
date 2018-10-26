@@ -24,6 +24,8 @@ type Service struct {
 	leaderKey     string
 	redis         *redis.Client
 	lock          *sync.RWMutex
+	Unique        string
+	offline       bool
 }
 
 type OnRegisterFunc func(runTimeId int64)
@@ -56,11 +58,21 @@ func NewService(
 		Leader:        false,
 		onLeader:      nil,
 		lock:          new(sync.RWMutex),
+		Unique:        name + "-" + Address,
+		offline:       false,
 	}
 	// 初始化，主要检查服务是否存在，如果存在会初始化ID
 	s.init()
 	s.register()
 	return s
+}
+
+func (s *Service) Offline(offline bool) {
+	s.offline = offline
+}
+
+func (s *Service) IsOffline() bool {
+	return s.offline
 }
 
 // service start
@@ -78,7 +90,7 @@ func (s *Service) Start(onLeader func(isLeader bool, id int64)) {
 
 // panic if query database error
 func (s *Service) init() {
-	row := s.db.QueryRow("SELECT `id`, `updated` FROM `services` WHERE `address`=?", s.Name + "-" + s.Address)
+	row := s.db.QueryRow("SELECT `id`, `updated` FROM `services` WHERE `name`=? and `address`=?", s.Name, s.Address)
 	var id, updated int64
 	err := row.Scan(&id, &updated)
 	if err != nil && err != sql.ErrNoRows {
@@ -135,10 +147,16 @@ func (s *Service) tryGetLeader()  {
 		return
 	}
 	for {
+		// if offline, do not try again
+		if s.offline {
+			time.Sleep(time.Second)
+			continue
+		}
 		v, err := s.redis.Incr(s.leaderKey).Result()
 		if err != nil {
 			log.Errorf("tryGetLeader s.redis.Incr fail, error=[%v]", err)
 			s.Status = 0
+			time.Sleep(time.Second)
 			continue
 		}
 		if v == 1 {
@@ -146,6 +164,7 @@ func (s *Service) tryGetLeader()  {
 				// try to free the current leader
 				s.redis.Del(s.leaderKey)
 				s.Status = 0
+				time.Sleep(time.Second)
 				continue
 			}
 			s.lock.Lock()
@@ -165,7 +184,7 @@ func (s *Service) register() (int64, error) {
 	if s.ID > 0 {
 		return s.ID, nil
 	}
-	res, err := s.db.Exec("INSERT INTO `services`(`address`, `updated`) VALUES (?,?)", s.Name + "-" + s.Address, time.Now().Unix())
+	res, err := s.db.Exec("INSERT INTO `services`(`name`, `address`, `updated`) VALUES (?, ?,?)", s.Name, s.Address, time.Now().Unix())
 	if err != nil {
 		log.Errorf("Register s.db.Exec fail, error=[%v]", err)
 		panic(err)
@@ -192,6 +211,11 @@ func (s *Service) keepAlive() (error) {
 
 		s.lock.RLock()
 		if s.Leader {
+			if s.offline {
+				log.Warnf("node offline, try to free leader")
+				s.Leader = false
+				s.redis.Del(s.leaderKey)
+			}
 			if err := s.redis.Expire(s.leaderKey, time.Second * 6).Err(); nil != err {
 				log.Errorf("keepAlive s.redis.Expire fail, error=[%v]", err)
 				s.Status = 0
@@ -247,7 +271,7 @@ func (s *Service) Deregister() error {
 // get all service
 func (s *Service) GetServices() ([]*Service, error) {
 	services := make([]*Service, 0)
-	rows, err := s.db.Query("SELECT `id`, `address`, `is_leader`, `updated` FROM `services` WHERE 1")
+	rows, err := s.db.Query("SELECT `id`,`name`, `address`, `is_leader`, `updated` FROM `services` WHERE 1")
 	if err != nil {
 		log.Errorf("GetServices s.db.Query fail, error=[%v]", err)
 		return nil, err
@@ -255,7 +279,7 @@ func (s *Service) GetServices() ([]*Service, error) {
 	for rows.Next() {
 		sr := new(Service)
 		var leader int
-		err = rows.Scan(&sr.ID, &sr.Address, &leader, &sr.Updated)
+		err = rows.Scan(&sr.ID, &sr.Name, &sr.Address, &leader, &sr.Updated)
 		if err != nil {
 			log.Errorf("GetServices rows.Scan fail, error=[%v]", err)
 			continue
@@ -265,6 +289,7 @@ func (s *Service) GetServices() ([]*Service, error) {
 		if time.Now().Unix() - sr.Updated >= 6 {
 			sr.Status = 0
 		}
+		sr.Unique = sr.Name + "-" + sr.Address
 		services = append(services, sr)
 	}
 	return services, nil
