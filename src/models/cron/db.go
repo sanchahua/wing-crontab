@@ -87,7 +87,7 @@ func (db *DbCron) Get(rid int64) (*CronEntity, error) {
 		return nil, ErrIdInvalid//errors.New("rid invalid")
 	}
 	sqlStr := "select `id`, `cron_set`, `command`, `stop`, `remark`, " +
-		"`start_time`, `end_time`, `is_mutex`, `blame` from cron where id=?"
+		"`start_time`, `end_time`, `is_mutex`, `blame`, `userid` from cron where id=?"
 	data := db.handler.QueryRow(sqlStr, rid)
 	var (
 		row CronEntity

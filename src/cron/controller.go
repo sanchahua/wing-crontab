@@ -200,6 +200,7 @@ func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
 	blameInfo, _ := c.userModel.GetUserInfo(ce.Blame)
 	entity := newCronEntity(c.service, c.redis, c.RedisKeyPrex, ce,
 		uinfo, blameInfo, c.onRun)
+	entity.SetServiceId(c.service.ID)
 	entity.CronId, err = c.cron.AddJob(entity.CronSet, entity)
 	if err != nil {
 		log.Errorf("%+v", err)
@@ -249,7 +250,7 @@ func (c *Controller) Update(id int64, cronSet, command string,
 		IsMutex:   isMutex,// bool    `json:"is_mutex"`
 		Blame: blame,
 	}, uinfo, blameInfo, c.onRun)
-
+	entity.SetServiceId(c.service.ID)
 	entity.SetLeader(c.Leader)
 
 	var err error

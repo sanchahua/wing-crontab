@@ -258,6 +258,7 @@ func (row *CronEntity) push() {
 	//log.Tracef("push %v to %v", row.Id, row.redisKeyPrex)
 
 	data, err := json.Marshal([]int64{row.ServiceId, row.Id})
+	log.Tracef("push %+v", string(data))
 	if err != nil {
 		log.Errorf("push json.Marshal fail, [%v] to [%v/%v], error=[%v]", row.Id, row.redisKeyPrex, row.Id, err)
 		return
