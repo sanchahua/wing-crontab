@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"models/user"
 	"service"
+	"sync/atomic"
 )
 
 // 数据库的基本属性
@@ -29,10 +30,10 @@ type CronEntity struct {
 	CronSet    string              `json:"cron_set"`
 	Command    string              `json:"command"`
 	Remark     string              `json:"remark"`
-	Stop       bool                `json:"stop"`
+	Stop       int64               `json:"stop"`
 	StartTime  string              `json:"start_time"`
 	EndTime    string              `json:"end_time"`
-	IsMutex    bool                `json:"is_mutex"`
+	IsMutex    int64               `json:"is_mutex"`
 	filter     IFilter             `json:"-"`
 	// 当前正在同事运行的进程数
 	ProcessNum int64               `json:"process_num"`
@@ -40,8 +41,8 @@ type CronEntity struct {
 	runid      int64               `json:"-"`
 	lock       *sync.RWMutex       `json:"-"`
 	copy       *CronEntity         `json:"-"`
-	Process    map[int]*os.Process `json:"-"`
-	Leader       bool              `json:"-"`
+	Process      *sync.Map         `json:"-"`//map[int]*os.Process
+	Leader       int64             `json:"-"`
 	redis        *redis.Client     `json:"-"`
 	redisKeyPrex string            `json:"-"`
 	AvgRunTime   int64             `json:"avg_run_time"`
@@ -88,6 +89,16 @@ func newCronEntity(
 		blameRealName = blameInfo.RealName
 	}
 
+	iIsMutex := int64(0)
+	if entity.IsMutex {
+		iIsMutex = 1
+	}
+
+	iStop := int64(0)
+	if entity.Stop {
+		iStop = 1
+	}
+
 	e := &CronEntity{
 		service: service,
 		ServiceId:    0,
@@ -95,17 +106,17 @@ func newCronEntity(
 		CronSet:      entity.CronSet,
 		Command:      entity.Command,
 		Remark:       entity.Remark,
-		Stop:         entity.Stop,
+		Stop:         iStop,//entity.Stop,
 		CronId:       0,
 		StartTime:    entity.StartTime,
 		EndTime:      entity.EndTime,
-		IsMutex:      entity.IsMutex,
+		IsMutex:      iIsMutex,//entity.IsMutex,
 		onRun:        onRun,
 		ProcessNum:   0,
 		runid:        0,
 		lock:         new(sync.RWMutex),
 		copy:         nil,
-		Process:      make(map[int]*os.Process),
+		Process:      new(sync.Map),//make(map[int]*os.Process),
 		redis:        redis,
 		redisKeyPrex: redisKeyPrex,
 		MaxRunTime:   10000,
@@ -130,52 +141,25 @@ func newCronEntity(
 	return e
 }
 
-//func (row *CronEntity) Exit() {
-//	row.lock.Lock()
-//	row.exit = true
-//	row.lock.Unlock()
-//}
-
-//func (row *CronEntity) runWrapper(serviceId int64) {
-	//if !row.IsMutex {
-	//	log.Infof("%v was run", row.Id)
-		// 不需要互斥运行
-		// todo 线程池
-		//go row.runCommand(serviceId)
-	//} else {
-	//	// 必须严格互斥运行
-	//	processNum, err := row.getProcessNum()
-	//	if processNum > 0 {
-	//		log.Infof("%v has running process", row.Id)
-	//	}
-	//	if processNum <= 0 && err == nil {
-	//		log.Infof("%v was run", row.Id)
-	//		go row.runCommand(serviceId)
-	//	}
-	//	if err != nil {
-	//		log.Errorf("dispatch row.getProcessNum fail, error=[%v]", err)
-	//	}
-	//}
-//}
-
 func (row *CronEntity) setStop(stop bool) {
-	row.lock.Lock()
-	row.Stop = stop
-	row.lock.Unlock()
+	iStop := int64(0)
+	if stop {
+		iStop = 1
+	}
+	atomic.StoreInt64(&row.Stop, iStop)
 }
 
 func (row *CronEntity) setMutex(mutex bool) {
-	row.lock.Lock()
-	row.IsMutex = mutex
-	row.lock.Unlock()
+	iIsMutex := int64(0)
+	if mutex {
+		iIsMutex = 1
+	}
+	atomic.StoreInt64(&row.IsMutex, iIsMutex)
 }
 
 func (row *CronEntity) setAvgMax(avg, max int64) {
-	row.lock.Lock()
-	//log.Tracef("%v set avg=%v, max=%v", row.Id, avg, max)
-	row.AvgRunTime = avg
-	row.MaxRunTime = max
-	row.lock.Unlock()
+	atomic.StoreInt64(&row.AvgRunTime, avg)
+	atomic.StoreInt64(&row.MaxRunTime, max)
 }
 
 func (row *CronEntity) addProcessNum() (int64, error) {
@@ -200,9 +184,9 @@ func (row *CronEntity) addProcessNum() (int64, error) {
 }
 
 func (row *CronEntity) SetServiceId(serviceId int64) {
-	row.lock.Lock()
-	row.ServiceId = serviceId
-	row.lock.Unlock()
+	//row.lock.Lock()
+	atomic.StoreInt64(&row.ServiceId, serviceId)
+	//row.lock.Unlock()
 }
 
 func (row *CronEntity) subProcessNum()  {
@@ -236,13 +220,13 @@ func (row *CronEntity) Run() {
 	}
 	//log.Tracef("%v ### was run", row.Id)
 	// 只有leader负责定时任务调度
-	row.lock.RLock()
-	if !row.Leader {
+	//row.lock.RLock()
+	if 1 != atomic.LoadInt64(&row.Leader) {
 		//log.Tracef("%v ### not leader", row.Id)
-		row.lock.RUnlock()
+		//row.lock.RUnlock()
 		return
 	}
-	row.lock.RUnlock()
+	//row.lock.RUnlock()
 	if row.filter.Stop() {
 		///log.Tracef("%v ### not leader", row.Id)
 		//log.Tracef("%v was stop", row.Id)
@@ -270,9 +254,14 @@ func (row *CronEntity) push() {
 }
 
 func (row *CronEntity) SetLeader(isLeader bool) {
-	row.lock.Lock()
-	row.Leader = isLeader
-	row.lock.Unlock()
+	//row.lock.Lock()
+	//row.Leader = isLeader
+	if isLeader {
+		atomic.StoreInt64(&row.Leader, 1)
+	} else {
+		atomic.StoreInt64(&row.Leader, 0)
+	}
+	//row.lock.Unlock()
 }
 
 func (row *CronEntity) Clone() *CronEntity {
@@ -319,7 +308,7 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 	}
 	defer row.subProcessNum()
 	// 如果需要互斥，并且当前存在正在运行的进程
-	if row.IsMutex && pn > 1 {
+	if 1 == atomic.LoadInt64(&row.IsMutex) && pn > 1 {
 		log.Infof("runCommand %v has running process %v", row.Id, pn-1)
 		return
 	}
@@ -359,15 +348,9 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 	processId := 0
 	if cmd != nil && cmd.Process != nil {
 		processId = cmd.Process.Pid
-
-		row.lock.Lock()
-		row.Process[cmd.Process.Pid] = cmd.Process
-		row.lock.Unlock()
-
+		row.Process.Store(cmd.Process.Pid, cmd.Process)
 		defer func() {
-			row.lock.Lock()
-			delete(row.Process, processId)
-			row.lock.Unlock()
+			row.Process.Delete(processId)
 		}()
 	}
 
@@ -453,12 +436,19 @@ func (row *CronEntity) GetAllProcessId() []int {
 	if row == nil {
 		return nil
 	}
-	row.lock.RLock()
-	defer row.lock.RUnlock()
+	//row.lock.RLock()
+	//defer row.lock.RUnlock()
 	var process = make([]int, 0)
-	for pid, _ := range row.Process {
-		process = append(process, pid)
-	}
+	//for pid, _ := range row.Process {
+	//	process = append(process, pid)
+	//}
+	row.Process.Range(func(key, value interface{}) bool {
+		pid, ok := key.(int)
+		if ok {
+			process = append(process, pid)
+		}
+		return true
+	})
 	return process
 }
 
@@ -466,23 +456,26 @@ func (row *CronEntity) ProcessIsRunning(processId int) bool {
 	if row == nil {
 		return false
 	}
-	row.lock.RLock()
-	defer row.lock.RUnlock()
-	if _, ok :=row.Process[processId]; ok {
-		return true
-	}
-	return false
+	//row.lock.RLock()
+	//defer row.lock.RUnlock()
+	_, ok := row.Process.Load(processId)
+	return ok
+	//if _, ok :=row.Process[processId]; ok {
+	//	return true
+	//}
+	//return false
 }
 
 func (row *CronEntity) Kill(processId int) {
 	if row == nil {
 		return
 	}
-	row.lock.RLock()
-	defer row.lock.RUnlock()
-	if pro, ok :=row.Process[processId]; ok {
-		pro.Kill()
+	ipro, ok := row.Process.Load(processId)
+	if !ok {
 		return
+	}
+	if pro, ok := ipro.(*os.Process); ok {
+		pro.Kill()
 	}
 }
 

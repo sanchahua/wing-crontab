@@ -14,6 +14,7 @@ import (
 	"library/time"
 	time2 "time"
 	"fmt"
+	"sync/atomic"
 )
 
 //func init() {
@@ -121,7 +122,7 @@ func searchStop(data []*cron2.CronEntity, stop string) []*cron2.CronEntity {
 	if stop == "1" {
 		newData = make([]*cron2.CronEntity, 0)
 		for _, v := range data {
-			if v.Stop {
+			if 1 == atomic.LoadInt64(&v.Stop) {
 				newData = append(newData, v)
 			}
 		}
@@ -131,7 +132,7 @@ func searchStop(data []*cron2.CronEntity, stop string) []*cron2.CronEntity {
 	if stop == "0" {
 		newData = make([]*cron2.CronEntity, 0)
 		for _, v := range data {
-			if !v.Stop {
+			if 1 != atomic.LoadInt64(&v.Stop) {
 				newData = append(newData, v)
 			}
 		}
@@ -146,7 +147,7 @@ func searchMutex(newData []*cron2.CronEntity, mutex string) []*cron2.CronEntity 
 	if mutex == "1" {
 		newData2 = make([]*cron2.CronEntity, 0)
 		for _, v := range newData {
-			if v.IsMutex {
+			if 1 == atomic.LoadInt64(&v.IsMutex) {
 				newData2 = append(newData2, v)
 			}
 		}
@@ -156,7 +157,7 @@ func searchMutex(newData []*cron2.CronEntity, mutex string) []*cron2.CronEntity 
 	if mutex == "0" {
 		newData2 = make([]*cron2.CronEntity, 0)
 		for _, v := range newData {
-			if !v.IsMutex {
+			if 1 != atomic.LoadInt64(&v.IsMutex) {
 				newData2 = append(newData2, v)
 
 			}
