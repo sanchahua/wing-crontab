@@ -16,7 +16,7 @@
           <div class="form-group">
             <label for="cron-blame">责任人</label>
             <!--<input type="text" class="form-control" id="cron-blame" v-bind:value="cron_info.blame" v-model="cron_info.blame">-->
-            <select class="form-control" id="cron-blame" v-model="cron_info.blame">
+            <select class="form-control" id="cron-blame" v-model="cron_info.blame" style="padding: 0;">
               <option v-for="item in users.data" v-bind:value="item.id">
                 {{item.user_name}}<{{item.real_name}}>
               </option>
