@@ -270,20 +270,19 @@ func (row *CronEntity) Clone() *CronEntity {
 	if row.copy == nil {
 		row.copy = new(CronEntity)
 	}
-	row.copy.CronId     = row.CronId
-	row.copy.Id         = row.Id
-	row.copy.CronSet    = row.CronSet
-	row.copy.Command    = row.Command
-	row.copy.Remark     = row.Remark
-	row.copy.Stop       = row.Stop
-	row.copy.StartTime  = row.StartTime
-	row.copy.EndTime    = row.EndTime
-	row.copy.IsMutex    = row.IsMutex
+	row.copy.CronId        = row.CronId
+	row.copy.Id            = row.Id
+	row.copy.CronSet       = row.CronSet
+	row.copy.Command       = row.Command
+	row.copy.Remark        = row.Remark
+	row.copy.Stop          = atomic.LoadInt64(&row.Stop)
+	row.copy.StartTime     = row.StartTime
+	row.copy.EndTime       = row.EndTime
+	row.copy.IsMutex       = atomic.LoadInt64(&row.IsMutex)
 	row.copy.ProcessNum, _ = row.getProcessNum()
-	row.copy.AvgRunTime = row.AvgRunTime
-	row.copy.MaxRunTime = row.MaxRunTime
-	row.copy.Blame      = row.Blame
-
+	row.copy.AvgRunTime    = atomic.LoadInt64(&row.AvgRunTime)
+	row.copy.MaxRunTime    = atomic.LoadInt64(&row.MaxRunTime)
+	row.copy.Blame         = row.Blame
 	row.copy.BlameUserName = row.BlameUserName
 	row.copy.BlameRealName = row.BlameRealName
 	row.copy.UserName      = row.UserName
