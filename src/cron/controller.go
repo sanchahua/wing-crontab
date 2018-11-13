@@ -38,7 +38,7 @@ type Controller struct {
 	Leader          bool
 	redis           *redis.Client
 	RedisKeyPrex    string
-	ready           bool
+	ready           int64
 	service *service.Service
 }
 
@@ -59,19 +59,20 @@ func NewController(service *service.Service, redis *redis.Client, RedisKeyPrex s
 		redis: redis,
 		RedisKeyPrex: RedisKeyPrex,
 		userModel: userModel,
-		ready: false,
+		ready: 0,
 	}
 	go c.dispatch()
 	return c
 }
 
 func (c *Controller) Ready() {
-	c.ready = true
+	//c.ready = true
+	atomic.StoreInt64(&c.ready, 1)
 }
 
 func (c *Controller) dispatch() {
 	for {
-		if (c.ready) {
+		if 1 == atomic.LoadInt64(&c.ready) {
 			break
 		}
 		log.Tracef("wait for xcrontab be ready")
@@ -105,13 +106,14 @@ func (c *Controller) dispatch() {
 
 		data, err := c.redis.BLPop(time.Second*3, c.RedisKeyPrex).Result()
 		if err != nil {
-			if err != redis.Nil {
+			//if err != redis.Nil {
 				log.Errorf("dispatch row.redis.BLPop fail, error=[%v]", err)
-			}
+			//}
 			continue
 		}
 
 		if len(data) < 2 {
+			log.Warnf("dispatch data error: %+v", data)
 			continue
 		}
 

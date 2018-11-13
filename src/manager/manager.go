@@ -21,6 +21,7 @@ import (
 	"gitlab.xunlei.cn/xllive/common/log"
 	"models/user"
 	"session"
+	"sync/atomic"
 )
 
 type CronManager struct {
@@ -38,7 +39,7 @@ type CronManager struct {
 	session *session.Session
 
 	powers Powers//map[int64]string
-	leader bool
+	leader int64
 }
 const (
 	EV_ADD           = 1
@@ -316,7 +317,7 @@ func (m *CronManager) checkDateTime() {
 }
 
 func (m *CronManager) SetLeader(isLeader bool) {
-	m.leader = isLeader
+	atomic.StoreInt64(&m.leader, 1)
 	m.cronController.SetLeader(isLeader)
 }
 
@@ -328,7 +329,7 @@ func (m *CronManager) logManager() {
 	// 日志清理操作，每60秒执行一次
 	for {
 		// only leader do this
-		if !m.leader || m.service.IsOffline() {
+		if 1 != atomic.LoadInt64(&m.leader) || m.service.IsOffline() {
 			time.Sleep(time.Second * 60)
 			continue
 		}

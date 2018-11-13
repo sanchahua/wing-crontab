@@ -304,15 +304,22 @@ func (row *CronEntity) Clone() *CronEntity {
 
 // serviceId 为leader服务id
 func (row *CronEntity) runCommand(serviceId int64, complete func()) {
+	defer func(){ // 必须要先声明defer，否则不能捕获到panic异常
+		if err := recover(); err != nil{
+			log.Errorf("runCommand panic error: %+v", err)
+		}
+	}()
+
 	defer complete()
 	pn, err := row.addProcessNum()
 	if err != nil {
+		log.Errorf("runCommand addProcessNum fail, error=[%v]", err)
 		return
 	}
+	defer row.subProcessNum()
 	// 如果需要互斥，并且当前存在正在运行的进程
 	if row.IsMutex && pn > 1 {
-		row.subProcessNum()
-		//log.Infof("%v has running process %v", row.Id, pn-1)
+		log.Infof("runCommand %v has running process %v", row.Id, pn-1)
 		return
 	}
 	// 平行锁，防止死锁，过长锁定
@@ -325,13 +332,13 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 		for {
 			select {
 			case <- time.After(time.Second):
-				//log.Tracef("runCommand set expier %v", key)
+				log.Infof("runCommand set expier %v", key)
 				err := row.redis.Expire(key, DefaultTimeout*time.Second).Err()
 				if err != nil {
 					log.Errorf("runCommand row.redis.Expire fail, key=[%v], error=[%v]", key, err)
 				}
 			case <-com:
-				//log.Tracef("%v run complete", key)
+				log.Infof("%v run complete", key)
 				close(com)
 				return
 			}
@@ -380,7 +387,6 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 		res = append(res, []byte("  error: " + err.Error())...)
 		log.Errorf("runCommand fail, id=[%v], command=[%v], error=[%+v]", row.Id, row.Command, err)
 	}
-	row.subProcessNum()
 
 	useTime := int64(time.Now().UnixNano()/1000000 - start)
 	// todo 程序退出时，定时任务的日志可能会失败，因为这个时候数据库已经关闭，这个问题需要处理一下

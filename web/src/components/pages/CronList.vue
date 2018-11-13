@@ -37,7 +37,7 @@
           <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>责任人</label>
           <label class="sh-tool" v-on:click="shRow"><input type="checkbox" checked/>定时配置</label>
           <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>互斥</label>
-          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>运行范围</label>
+          <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>有效期</label>
           <label class="sh-tool" v-on:click="shRow"><input type="checkbox" checked/>执行指令</label>
           <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>正在运行</label>
           <label class="sh-tool" v-on:click="shRow"><input type="checkbox"/>进程数</label>
@@ -52,7 +52,7 @@
                 <th class="sh-row" style="display: none;">责任人</th>
                 <th class="sh-row">定时配置</th>
                 <th class="sh-row" style="display: none;">互斥</th>
-                <th class="sh-row" style="display: none;">运行范围</th>
+                <th class="sh-row" style="display: none;">有效期</th>
                 <th class="sh-row">执行指令</th>
                 <th class="sh-row" style="display: none;">正在运行</th>
                 <th class="sh-row" style="display: none;" title="0-1属于正常，大于1说明有定时任务进程堆积">进程数<a style="color: #f00;">?</a></th>

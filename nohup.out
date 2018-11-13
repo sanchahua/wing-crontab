@@ -31,3 +31,9 @@ Heap dump file created [849932515 bytes in 38.513 secs]
 /lib64/libgdk-x11-2.0.so.0(+0x5cfa2)[0x7f13ff719fa2]
 /lib64/libglib-2.0.so.0(g_main_context_prepare+0x15d)[0x7f13fddefd6d]
 /lib64/libglib-2.0.so.0(+0x4a6b8)[0x7f13fddf06b8]
+Fontconfig warning: "/etc/fonts/fonts.conf", line 146: blank doesn't take any effect anymore. please remove it from your fonts.conf
+[28312:28371:1101/172341.769928:ERROR:browser_gpu_channel_host_factory.cc(119)] Failed to launch GPU process.
+Created new window in existing browser session.
+[1101/172349.495120:ERROR:nacl_helper_linux.cc(310)] NaCl helper process running without a sandbox!
+Most likely you need to configure your SUID sandbox correctly
+WARN: Vue.js not loaded: since build 181.4892 > GO-181.4668.90
