@@ -26,7 +26,7 @@
           <th class="sh-row">{{item.Name}}</th>
           <td class="sh-row">{{item.Address}}</td>
 
-          <td class="sh-row" v-if="item.Status">在线</td>
+          <td class="sh-row" v-if="item.Status == 1">在线</td>
           <td class="sh-row" v-else>离线</td>
 
           <td class="sh-row" v-if="item.Leader">是</td>

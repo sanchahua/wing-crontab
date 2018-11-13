@@ -306,11 +306,11 @@ func (s *Service) GetServices() ([]*Service, error) {
 			continue
 		}
 		//sr.Status = 1
-		atomic.StoreInt64(&s.Status, 1)
+		atomic.StoreInt64(&sr.Status, 1)
 		//sr.Leader = leader// == 1
 		if time.Now().Unix() - sr.Updated >= 6 {
 			//sr.Status = 0
-			atomic.StoreInt64(&s.Status, 0)
+			atomic.StoreInt64(&sr.Status, 0)
 		}
 		sr.Unique = sr.Name + "-" + sr.Address
 		services = append(services, sr)
