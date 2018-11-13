@@ -44,3 +44,4 @@ bin/nohup.out
 *.log
 src/statik/statik.go
 *.gz
+nohup.out
