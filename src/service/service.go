@@ -175,6 +175,7 @@ func (s *Service) UpdateOffline(serviceId, offline int64) error {
 func (s *Service) tryGetLeader()  {
 	for {
 		if 1 == atomic.LoadInt64(&s.Leader) {
+			time.Sleep(time.Second * 1)
 			continue
 		}
 		// if offline, do not try again

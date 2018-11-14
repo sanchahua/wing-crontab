@@ -184,9 +184,7 @@ func (row *CronEntity) addProcessNum() (int64, error) {
 }
 
 func (row *CronEntity) SetServiceId(serviceId int64) {
-	//row.lock.Lock()
 	atomic.StoreInt64(&row.ServiceId, serviceId)
-	//row.lock.Unlock()
 }
 
 func (row *CronEntity) subProcessNum()  {
@@ -220,16 +218,14 @@ func (row *CronEntity) Run() {
 	}
 	//log.Tracef("%v ### was run", row.Id)
 	// 只有leader负责定时任务调度
-	//row.lock.RLock()
 	if 1 != atomic.LoadInt64(&row.Leader) {
-		//log.Tracef("%v ### not leader", row.Id)
-		//row.lock.RUnlock()
+		log.Tracef("%v ### not leader", row.Id)
 		return
 	}
-	//row.lock.RUnlock()
+
 	if row.filter.Stop() {
 		///log.Tracef("%v ### not leader", row.Id)
-		//log.Tracef("%v was stop", row.Id)
+		log.Tracef("%v was stop", row.Id)
 		// 外部注入，停止执行定时任务支持
 		return
 	}
@@ -254,14 +250,13 @@ func (row *CronEntity) push() {
 }
 
 func (row *CronEntity) SetLeader(isLeader bool) {
-	//row.lock.Lock()
+
 	//row.Leader = isLeader
 	if isLeader {
 		atomic.StoreInt64(&row.Leader, 1)
 	} else {
 		atomic.StoreInt64(&row.Leader, 0)
 	}
-	//row.lock.Unlock()
 }
 
 func (row *CronEntity) Clone() *CronEntity {
@@ -435,12 +430,8 @@ func (row *CronEntity) GetAllProcessId() []int {
 	if row == nil {
 		return nil
 	}
-	//row.lock.RLock()
-	//defer row.lock.RUnlock()
 	var process = make([]int, 0)
-	//for pid, _ := range row.Process {
-	//	process = append(process, pid)
-	//}
+
 	row.Process.Range(func(key, value interface{}) bool {
 		pid, ok := key.(int)
 		if ok {
@@ -455,14 +446,8 @@ func (row *CronEntity) ProcessIsRunning(processId int) bool {
 	if row == nil {
 		return false
 	}
-	//row.lock.RLock()
-	//defer row.lock.RUnlock()
 	_, ok := row.Process.Load(processId)
 	return ok
-	//if _, ok :=row.Process[processId]; ok {
-	//	return true
-	//}
-	//return false
 }
 
 func (row *CronEntity) Kill(processId int) {
