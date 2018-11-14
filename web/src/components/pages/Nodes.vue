@@ -25,11 +25,11 @@
           <td class="sh-row">{{item.Address}}</td>
 
           <td class="sh-row" v-if="item.Status == 1">正常</td>
-          <td class="sh-row" v-else>故障</td>
+          <td class="sh-row" v-else style="color: #f00;">故障</td>
 
           <td class="sh-row" v-if="item.Leader">是</td>
           <td class="sh-row" v-else>否</td>
-          <td class="sh-row" v-if="item.Offline">是</td>
+          <td class="sh-row" v-if="item.Offline" style="color: #f00;">已下线</td>
           <td class="sh-row" v-else>否</td>
           <td>
             <div>
@@ -56,6 +56,10 @@
     },
     created: function() {
       this.getList()
+      let that = this
+      window.setInterval(function () {
+        that.getList()
+      }, 3000)
     },
     methods: {
       getList: function() {
