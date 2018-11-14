@@ -35,7 +35,6 @@
             <div>
               <a class="btn" v-bind:item-id="item.ID" v-if="item.Offline" v-on:click="online">上线</a>
               <a class="btn" v-bind:item-id="item.ID" v-else v-on:click="offline">下线</a>
-              <a class="btn" v-bind:item-id="item.ID" v-on:click="del">删除</a>
             </div>
           </td>
         </tr>

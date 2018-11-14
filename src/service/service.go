@@ -206,6 +206,7 @@ func (s *Service) tryGetLeader()  {
 				//s.Status = 0
 				atomic.StoreInt64(&s.Status, 0)
 				atomic.StoreInt64(&s.Leader, 0)
+				s.onLeader(false, s.ID)
 				time.Sleep(time.Second)
 				continue
 			}
@@ -213,6 +214,7 @@ func (s *Service) tryGetLeader()  {
 			s.onLeader(true, s.ID)
 		} else {
 			atomic.StoreInt64(&s.Leader, 0)
+			s.onLeader(false, s.ID)
 		}
 		//s.Status = 1
 		atomic.StoreInt64(&s.Status, 1)
@@ -256,8 +258,8 @@ func (s *Service) keepAlive() (error) {
 		if 1 == atomic.LoadInt64(&s.Leader) {
 			if 1 == atomic.LoadInt64(&s.Offline) {
 				log.Warnf("node offline, try to free leader")
-				atomic.StoreInt64(&s.Leader, 0)
 				s.redis.Del(s.leaderKey)
+				atomic.StoreInt64(&s.Leader, 0)
 				s.onLeader(false, s.ID)
 			}
 			if err := s.redis.Expire(s.leaderKey, time.Second * 6).Err(); nil != err {
@@ -310,6 +312,7 @@ func (s *Service) Deregister() error {
 		s.redis.Del(s.leaderKey)
 		atomic.StoreInt64(&s.Status, 1)
 		atomic.StoreInt64(&s.Leader, 0)
+		s.onLeader(false, s.ID)
 	}
 	return nil
 }
