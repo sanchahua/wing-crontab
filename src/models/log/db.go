@@ -2,7 +2,6 @@ package log
 
 import (
 	"database/sql"
-	//log "github.com/cihub/seelog"
 	"gitlab.xunlei.cn/xllive/common/log"
 	"strings"
 	"fmt"

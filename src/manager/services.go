@@ -3,7 +3,6 @@ package manager
 import (
 	"github.com/emicklei/go-restful"
 	"strconv"
-	"github.com/cihub/seelog"
 	"gitlab.xunlei.cn/xllive/common/log"
 	"encoding/json"
 	"fmt"
@@ -48,7 +47,7 @@ func (m *CronManager) broadcastOffline(ev, id int64, p...int64) {
 	// 查询服务列表 逐个push redis队列广播通知数据变化
 	services, err := m.service.GetServices()
 	if err != nil {
-		seelog.Errorf("broadcastOffline m.service.GetServices fail, error=[%v]", err)
+		log.Errorf("broadcastOffline m.service.GetServices fail, error=[%v]", err)
 		return
 	}
 	log.Tracef("broadcastOffline ev=[%v], id=[%v], p=[%v], serviceId=[%v]", ev, id, p, m.serviceId)
@@ -68,7 +67,7 @@ func (m *CronManager) broadcastOffline(ev, id int64, p...int64) {
 		//	data, err = json.Marshal([]int64{ev, id})
 		//}
 		if err != nil {
-			seelog.Errorf("broadcastOffline json.Marshal fail, error=[%v]", err)
+			log.Errorf("broadcastOffline json.Marshal fail, error=[%v]", err)
 			continue
 		}
 
@@ -77,7 +76,7 @@ func (m *CronManager) broadcastOffline(ev, id int64, p...int64) {
 		log.Tracef("push [%v] to [%v]", string(data), watch)
 		err = m.redis.RPush(watch, string(data)).Err()
 		if err != nil {
-			seelog.Errorf("broadcastOffline m.redis.RPush fail, error=[%v]", err)
+			log.Errorf("broadcastOffline m.redis.RPush fail, error=[%v]", err)
 		}
 	}
 }

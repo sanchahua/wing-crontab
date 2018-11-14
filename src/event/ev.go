@@ -3,7 +3,6 @@ package event
 import (
 	"gitlab.xunlei.cn/xllive/common/log"
 	"time"
-	"github.com/cihub/seelog"
 	"encoding/json"
 	"github.com/go-redis/redis"
 )
@@ -45,22 +44,22 @@ func (ev *Event) Watch() {
 		data, err := ev.redis.BRPop(time.Second * 3, ev.watchKey).Result()
 		if err != nil {
 			if err != redis.Nil {
-				seelog.Errorf("watchCron redis.BRPop fail, error=[%v]", err)
+				log.Errorf("watchCron redis.BRPop fail, error=[%v]", err)
 			}
 			continue
 		}
 		log.Tracef("watchCron data=[%v]", data)
 		if len(data) < 2 {
-			seelog.Errorf("watchCron data len fail, error=[%v]", err)
+			log.Errorf("watchCron data len fail, error=[%v]", err)
 			continue
 		}
 		err = json.Unmarshal([]byte(data[1]), &raw)
 		if err != nil {
-			seelog.Errorf("watchCron json.Unmarshal fail, error=[%v]", err)
+			log.Errorf("watchCron json.Unmarshal fail, error=[%v]", err)
 			continue
 		}
 		if len(raw) < 2 {
-			seelog.Errorf("watchCron raw len fail, error=[%v]", err)
+			log.Errorf("watchCron raw len fail, error=[%v]", err)
 			continue
 		}
 		event := raw[0]

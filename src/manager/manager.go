@@ -4,7 +4,7 @@ import (
 	"cron"
 	mcron "models/cron"
 	"database/sql"
-	seelog "gitlab.xunlei.cn/xllive/common/log"
+	"gitlab.xunlei.cn/xllive/common/log"
 	"library/http"
 	modelLog "models/log"
 	shttp "net/http"
@@ -173,7 +173,7 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 	// 查询服务列表 逐个push redis队列广播通知数据变化
 	services, err := m.service.GetServices()
 	if err != nil {
-		seelog.Errorf("broadcast m.service.GetServices fail, error=[%v]", err)
+		log.Errorf("broadcast m.service.GetServices fail, error=[%v]", err)
 		return
 	}
 	log.Tracef("broadcast ev=[%v], id=[%v], p=[%v], serviceId=[%v]", ev, id, p, m.serviceId)
@@ -204,7 +204,7 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 		//	data, err = json.Marshal([]int64{ev, id})
 		//}
 		if err != nil {
-			seelog.Errorf("broadcast json.Marshal fail, error=[%v]", err)
+			log.Errorf("broadcast json.Marshal fail, error=[%v]", err)
 			continue
 		}
 
@@ -213,7 +213,7 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 		log.Tracef("push [%v] to [%v]", string(data), watch)
 		err = m.redis.RPush(watch, string(data)).Err()
 		if err != nil {
-			seelog.Errorf("broadcast m.redis.RPush fail, error=[%v]", err)
+			log.Errorf("broadcast m.redis.RPush fail, error=[%v]", err)
 		}
 	}
 }
@@ -227,22 +227,22 @@ func (m *CronManager) watchCron() {
 		data, err := m.redis.BRPop(time.Second * 3, watch).Result()
 		if err != nil {
 			if err != redis.Nil {
-				seelog.Errorf("watchCron redis.BRPop fail, error=[%v]", err)
+				log.Errorf("watchCron redis.BRPop fail, error=[%v]", err)
 			}
 			continue
 		}
 		log.Tracef("watchCron data=[%v]", data)
 		if len(data) < 2 {
-			seelog.Errorf("watchCron data len fail, error=[%v]", err)
+			log.Errorf("watchCron data len fail, error=[%v]", err)
 			continue
 		}
 		err = json.Unmarshal([]byte(data[1]), &raw)
 		if err != nil {
-			seelog.Errorf("watchCron json.Unmarshal fail, error=[%v]", err)
+			log.Errorf("watchCron json.Unmarshal fail, error=[%v]", err)
 			continue
 		}
 		if len(raw) < 2 {
-			seelog.Errorf("watchCron raw len fail, error=[%v]", err)
+			log.Errorf("watchCron raw len fail, error=[%v]", err)
 			continue
 		}
 		ev := raw[0]
@@ -256,7 +256,7 @@ func (m *CronManager) watchCron() {
 			// 新增定时任务
 			info, err := m.cronModel.Get(id)
 			if err != nil {
-				seelog.Errorf("watchCron EV_ADD m.cronModel.Get fail, id=[%v], error=[%v]", id, err)
+				log.Errorf("watchCron EV_ADD m.cronModel.Get fail, id=[%v], error=[%v]", id, err)
 			} else {
 				m.cronController.Add(info)
 			}
@@ -269,7 +269,7 @@ func (m *CronManager) watchCron() {
 			// 更新定时任务
 			info, err := m.cronModel.Get(id)
 			if err != nil {
-				seelog.Errorf("watchCron EV_UPDATE m.cronModel.Get fail, id=[%v], error=[%v]", id, err)
+				log.Errorf("watchCron EV_UPDATE m.cronModel.Get fail, id=[%v], error=[%v]", id, err)
 			} else {
 				m.cronController.Delete(id)
 				m.cronController.Add(info)
@@ -353,7 +353,7 @@ func (m *CronManager) logManager() {
 func (m *CronManager) init() {
 	list, err := m.cronModel.GetList()
 	if err != nil {
-		seelog.Errorf("init fail, m.cronModel.GetList fail, error=[%v]", err)
+		log.Errorf("init fail, m.cronModel.GetList fail, error=[%v]", err)
 		return
 	}
 	for _, data := range list {

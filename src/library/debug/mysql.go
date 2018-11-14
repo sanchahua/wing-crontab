@@ -3,7 +3,7 @@ package debug
 import (
 	"database/sql"
 	"fmt"
-	log "github.com/cihub/seelog"
+	"gitlab.xunlei.cn/xllive/common/log"
 	_ "github.com/go-sql-driver/mysql"
 	_ "database/sql/driver"
 )
