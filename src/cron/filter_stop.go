@@ -12,7 +12,5 @@ func StopMiddleware() FilterMiddleWare {
 }
 
 func (f *StopFilter) Stop() bool {
-	//f.row.lock.RLock()
-	//defer f.row.lock.RUnlock()
-	return 1 == atomic.LoadInt64(&f.row.Stop)// == 1
+	return 1 == atomic.LoadInt64(&f.row.Stop)
 }

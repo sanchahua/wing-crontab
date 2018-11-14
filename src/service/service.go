@@ -10,21 +10,22 @@ import (
 )
 
 type Service struct {
-	ID            int64 `json:"ID"`
-	Address       string
-	Updated       int64
-	db            *sql.DB `json:"-"`
-	onRegister    OnRegisterFunc `json:"-"`
-	onServiceDown func(int64) `json:"-"`
-	onServiceUp   func(int64) `json:"-"`
+	db            *sql.DB                       `json:"-"`
+	onRegister    OnRegisterFunc                `json:"-"`
+	onServiceDown func(int64)                   `json:"-"`
+	onServiceUp   func(int64)                   `json:"-"`
 	onLeader      func(isLeader bool, id int64) `json:"-"`
-	Status        int64       // 1在线 0离线
-	Name          string
-	Leader        int64
-	leaderKey     string `json:"-"`
-	redis         *redis.Client `json:"-"`
-	Unique        string
-	Offline       int64
+	leaderKey     string                        `json:"-"`
+	redis         *redis.Client                 `json:"-"`
+
+	ID            int64   `json:"ID"`
+	Address       string  `json:"Address"`
+	Updated       int64   `json:"Updated"`
+	Status        int64   `json:"Status"`    // 1在线 0离线
+	Name          string  `json:"Name"`
+	Leader        int64   `json:"Leader"`
+	Unique        string  `json:"Unique"`
+	Offline       int64   `json:"Offline"`
 }
 
 type OnRegisterFunc func(runTimeId int64)
@@ -65,6 +66,7 @@ func NewService(
 	return s
 }
 
+// set node to offline or online
 func (s *Service) SetOffline(serviceId int64, offline bool) {
 	if serviceId != s.ID {
 		return
@@ -76,6 +78,7 @@ func (s *Service) SetOffline(serviceId int64, offline bool) {
 	}
 }
 
+// check node is offline
 func (s *Service) IsOffline() bool {
 	if atomic.LoadInt64(&s.Offline) == 1 {
 		log.Warnf("node [%v] is offline", s.ID)
@@ -100,6 +103,7 @@ func (s *Service) Start(onLeader func(isLeader bool, id int64)) {
 }
 
 // panic if query database error
+// init service info at start
 func (s *Service) init() {
 	row := s.db.QueryRow("SELECT `id`, `updated`, `offline` FROM `services` WHERE `name`=? and `address`=?", s.Name, s.Address)
 	var id, updated, offline int64
@@ -142,6 +146,7 @@ func (s *Service) selectLeader() {
 	}
 }
 
+// update db
 // update service to leader
 func (s *Service) updateIsLeader() error {
 	sqlStr := "UPDATE `services` SET `is_leader`=0 WHERE id!=?"
@@ -159,6 +164,8 @@ func (s *Service) updateIsLeader() error {
 	return nil
 }
 
+// update db
+// update service to offline or online
 func (s *Service) UpdateOffline(serviceId, offline int64) error {
 	sqlStr := "UPDATE `services` SET `offline`=? WHERE id=?"
 	_, err := s.db.Exec(sqlStr, offline, serviceId)
@@ -172,6 +179,7 @@ func (s *Service) UpdateOffline(serviceId, offline int64) error {
 
 // keep try to select a new leader
 // if old leader is offline
+// new leader will be select and toggle onLeader callback
 func (s *Service) tryGetLeader()  {
 	for {
 		if 1 == atomic.LoadInt64(&s.Leader) {
@@ -214,6 +222,7 @@ func (s *Service) tryGetLeader()  {
 
 // 服务注册
 // panic if error happened
+// only register at start
 func (s *Service) register() (int64, error) {
 	defer s.onRegister(s.ID)
 	if s.ID > 0 {
