@@ -52,6 +52,7 @@ const (
 	HttpErrorNeedLogin = 8000
 	HttpErrorCsrfFail = 8001
 
+	HttpErrorServiceIdInvalid = 9000
 )
 
 var (

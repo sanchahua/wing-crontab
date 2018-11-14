@@ -15,9 +15,7 @@
           <th class="sh-row">服务地址</th>
           <th class="sh-row">状态</th>
           <th class="sh-row">Leader</th>
-          <!--<th class="sh-row">当前cpu负载</th>
-          <th class="sh-row">当前内存使用率</th>
-          <th class="sh-row">当前磁盘使用率</th>-->
+          <th class="sh-row">下线</th>
           <th>操作</th>
         </tr>
         </thead>
@@ -26,20 +24,18 @@
           <th class="sh-row">{{item.Name}}</th>
           <td class="sh-row">{{item.Address}}</td>
 
-          <td class="sh-row" v-if="item.Status == 1">在线</td>
-          <td class="sh-row" v-else>离线</td>
+          <td class="sh-row" v-if="item.Status == 1">正常</td>
+          <td class="sh-row" v-else>故障</td>
 
           <td class="sh-row" v-if="item.Leader">是</td>
           <td class="sh-row" v-else>否</td>
-
-          <!--<td class="sh-row">20%</td>
-          <td class="sh-row">30%</td>
-          <td class="sh-row">56%</td>-->
+          <td class="sh-row" v-if="item.Offline">是</td>
+          <td class="sh-row" v-else>否</td>
           <td>
             <div>
-              <a class="btn" v-if="item.Status" v-on:click="offline">下线</a>
-              <a class="btn" v-else v-on:click="online">上线</a>
-              <a class="btn" v-on:click="del">删除</a>
+              <a class="btn" v-bind:item-id="item.ID" v-if="item.Offline" v-on:click="online">上线</a>
+              <a class="btn" v-bind:item-id="item.ID" v-else v-on:click="offline">下线</a>
+              <a class="btn" v-bind:item-id="item.ID" v-on:click="del">删除</a>
             </div>
           </td>
         </tr>
@@ -78,10 +74,44 @@
         });
       },
       online: function () {
-
+        let id = $(event.target).attr("item-id");
+        let that = this
+        axios.post('/services/online/' + id + '?time='+(new Date()).valueOf()).then(function (response) {
+          console.log(response);
+          if (2000 == response.data.code) {
+            for (let i = 0; i < that.nodes.length; i++) {
+              if (that.nodes[i].ID == id) {
+                that.nodes[i].Offline = 0
+              }
+            }
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
+          } else {
+            alert(response.data.message);
+          }
+        }).catch(function (error) {
+          alert(error);
+        });
       },
       offline: function () {
-
+        let id = $(event.target).attr("item-id");
+        let that = this
+        axios.post('/services/offline/' + id + '?time='+(new Date()).valueOf()).then(function (response) {
+          console.log(response);
+          if (2000 == response.data.code) {
+            for (let i = 0; i < that.nodes.length; i++) {
+              if (that.nodes[i].ID == id) {
+                that.nodes[i].Offline = 1
+              }
+            }
+          } else if (8000 == response.data.code) {
+            window.location.href="/ui/login.html"
+          } else {
+            alert(response.data.message);
+          }
+        }).catch(function (error) {
+          alert(error);
+        });
       },
       del: function () {
 

@@ -50,6 +50,7 @@ const (
 	EV_DISABLE_MUTEX = 6
 	EV_ENABLE_MUTEX  = 7
 	EV_KILL          = 8
+	EV_OFFLINE       = 9
 
 	JumpLoginCode = "<a href=\"/ui/login.html\" id=\"location\">3秒后跳到登录页面，点击去登录</a><script>var s = 3;window.setInterval(function () {s--;document.getElementById(\"location\").innerText=s+\"秒后跳到登录页面，点击去登录\"}, 1000);</script>"
 )
@@ -149,8 +150,8 @@ func NewManager(
 		http.SetRoute("GET",  "/page/power/check", m.pagePowerCheck),
 
 		http.SetRoute("GET",  "/services", m.midServices),
-		http.SetRoute("POST",  "/services/nodeoffline/{id}", m.midNodeOffline),
-		http.SetRoute("POST",  "/services/offline/{id}", m.midNodeOnline),
+		http.SetRoute("POST",  "/services/offline/{id}", m.midNodeOffline),
+		http.SetRoute("POST",  "/services/online/{id}", m.midNodeOnline),
 
 		http.SetHandle("/ui/", m.ui(shttp.FileServer(statikFS))),
 	)
@@ -183,17 +184,25 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 
 		// 这里判断一下服务的有效性
 		// 如果失效的就不推送了
-		if sv.Status != 1 {
+		// only not push offline node
+		if sv.Offline == 1 {
 			continue
 		}
 
 		var data []byte
 		var err error
-		if ev == EV_KILL {
-			data, err = json.Marshal([]int64{ev, id, p[0]})
-		} else {
-			data, err = json.Marshal([]int64{ev, id})
-		}
+
+		sendData := make([]int64, 0)
+		sendData = append(sendData, ev)
+		sendData = append(sendData, id)
+		sendData = append(sendData, p...)
+
+
+		//if ev == EV_KILL {
+			data, err = json.Marshal(sendData)
+		//} else {
+		//	data, err = json.Marshal([]int64{ev, id})
+		//}
 		if err != nil {
 			seelog.Errorf("broadcast json.Marshal fail, error=[%v]", err)
 			continue
@@ -239,6 +248,9 @@ func (m *CronManager) watchCron() {
 		ev := raw[0]
 		id := raw[1]
 		switch ev {
+		case EV_OFFLINE:
+			log.Infof("receive event offline, serviceid=[%v], offline=[%v]", id, raw[2] == 1)
+			m.service.SetOffline(id, raw[2] == 1)
 		case EV_ADD:
 			log.Tracef("watchCron new add id=[%v]", id)
 			// 新增定时任务

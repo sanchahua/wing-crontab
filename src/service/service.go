@@ -6,27 +6,25 @@ import (
 	"gitlab.xunlei.cn/xllive/common/log"
 	"os"
 	"github.com/go-redis/redis"
-	"sync"
 	"sync/atomic"
 )
 
 type Service struct {
-	ID            int64
+	ID            int64 `json:"ID"`
 	Address       string
 	Updated       int64
-	db            *sql.DB
-	onRegister    OnRegisterFunc
-	onServiceDown func(int64)
-	onServiceUp   func(int64)
-	onLeader      func(isLeader bool, id int64)
+	db            *sql.DB `json:"-"`
+	onRegister    OnRegisterFunc `json:"-"`
+	onServiceDown func(int64) `json:"-"`
+	onServiceUp   func(int64) `json:"-"`
+	onLeader      func(isLeader bool, id int64) `json:"-"`
 	Status        int64       // 1在线 0离线
 	Name          string
 	Leader        int64
-	leaderKey     string
-	redis         *redis.Client
-	lock          *sync.RWMutex
+	leaderKey     string `json:"-"`
+	redis         *redis.Client `json:"-"`
 	Unique        string
-	offline       bool
+	Offline       int64
 }
 
 type OnRegisterFunc func(runTimeId int64)
@@ -58,9 +56,8 @@ func NewService(
 		redis:         redis,
 		Leader:        0,
 		onLeader:      nil,
-		lock:          new(sync.RWMutex),
 		Unique:        name + "-" + Address,
-		offline:       false,
+		Offline:       0,
 	}
 	// 初始化，主要检查服务是否存在，如果存在会初始化ID
 	s.init()
@@ -68,12 +65,23 @@ func NewService(
 	return s
 }
 
-func (s *Service) Offline(offline bool) {
-	s.offline = offline
+func (s *Service) SetOffline(serviceId int64, offline bool) {
+	if serviceId != s.ID {
+		return
+	}
+	if offline {
+		atomic.StoreInt64(&s.Offline, 1)
+	} else {
+		atomic.StoreInt64(&s.Offline, 0)
+	}
 }
 
 func (s *Service) IsOffline() bool {
-	return s.offline
+	if atomic.LoadInt64(&s.Offline) == 1 {
+		log.Warnf("node [%v] is offline", s.ID)
+		return true
+	}
+	return false//atomic.LoadInt64(&s.Offline) == 1
 }
 
 // service start
@@ -83,7 +91,9 @@ func (s *Service) IsOffline() bool {
 // keep alive
 func (s *Service) Start(onLeader func(isLeader bool, id int64)) {
 	s.onLeader = onLeader
-	s.selectLeader()
+	if 1 != atomic.LoadInt64(&s.Offline) {
+		s.selectLeader()
+	}
 	go s.tryGetLeader()
 	// 更新updated，此字段用于判断服务是否存活
 	go s.keepAlive()
@@ -91,15 +101,16 @@ func (s *Service) Start(onLeader func(isLeader bool, id int64)) {
 
 // panic if query database error
 func (s *Service) init() {
-	row := s.db.QueryRow("SELECT `id`, `updated` FROM `services` WHERE `name`=? and `address`=?", s.Name, s.Address)
-	var id, updated int64
-	err := row.Scan(&id, &updated)
+	row := s.db.QueryRow("SELECT `id`, `updated`, `offline` FROM `services` WHERE `name`=? and `address`=?", s.Name, s.Address)
+	var id, updated, offline int64
+	err := row.Scan(&id, &updated, &offline)
 	if err != nil && err != sql.ErrNoRows {
 		panic(err)
 	}
 	if err == nil {
 		s.ID = id
 		s.Updated = updated
+		atomic.StoreInt64(&s.Offline, offline)
 	}
 }
 
@@ -112,7 +123,6 @@ func (s *Service) selectLeader() {
 		return
 	}
 
-	//s.Leader = v == 1
 	if 1 == v {
 		atomic.StoreInt64(&s.Leader, 1)
 		s.onLeader(true, s.ID)
@@ -121,7 +131,6 @@ func (s *Service) selectLeader() {
 		s.onLeader(false, s.ID)
 	}
 
-	//s.onLeader(s.Leader, s.ID)
 	if err = s.redis.Expire(s.leaderKey, time.Second * 6).Err(); nil != err {
 		log.Errorf("selectLeader s.redis.Expire fail, error=[%v]", err)
 		panic(err)
@@ -150,15 +159,26 @@ func (s *Service) updateIsLeader() error {
 	return nil
 }
 
+func (s *Service) UpdateOffline(serviceId, offline int64) error {
+	sqlStr := "UPDATE `services` SET `offline`=? WHERE id=?"
+	_, err := s.db.Exec(sqlStr, offline, serviceId)
+	if err != nil {
+		log.Errorf("UpdateOffline s.db.Exec fail, error=[%v]", err)
+		return err
+	}
+	return nil
+}
+
+
 // keep try to select a new leader
 // if old leader is offline
 func (s *Service) tryGetLeader()  {
-	if 1 == atomic.LoadInt64(&s.Leader) {
-		return
-	}
 	for {
+		if 1 == atomic.LoadInt64(&s.Leader) {
+			continue
+		}
 		// if offline, do not try again
-		if s.offline {
+		if 1 == atomic.LoadInt64(&s.Offline) {
 			time.Sleep(time.Second)
 			continue
 		}
@@ -176,14 +196,14 @@ func (s *Service) tryGetLeader()  {
 				s.redis.Del(s.leaderKey)
 				//s.Status = 0
 				atomic.StoreInt64(&s.Status, 0)
+				atomic.StoreInt64(&s.Leader, 0)
 				time.Sleep(time.Second)
 				continue
 			}
-			s.lock.Lock()
-			//s.Leader = true
 			atomic.StoreInt64(&s.Leader, 1)
-			s.lock.Unlock()
 			s.onLeader(true, s.ID)
+		} else {
+			atomic.StoreInt64(&s.Leader, 0)
 		}
 		//s.Status = 1
 		atomic.StoreInt64(&s.Status, 1)
@@ -223,24 +243,21 @@ func (s *Service) keepAlive() (error) {
 			continue
 		}
 
-		s.lock.RLock()
 		if 1 == atomic.LoadInt64(&s.Leader) {
-			if s.offline {
+			if 1 == atomic.LoadInt64(&s.Offline) {
 				log.Warnf("node offline, try to free leader")
-				//s.Leader = false
 				atomic.StoreInt64(&s.Leader, 0)
 				s.redis.Del(s.leaderKey)
+				s.onLeader(false, s.ID)
 			}
 			if err := s.redis.Expire(s.leaderKey, time.Second * 6).Err(); nil != err {
 				log.Errorf("keepAlive s.redis.Expire fail, error=[%v]", err)
 				//s.Status = 0
 				atomic.StoreInt64(&s.Status, 0)
-				s.lock.RUnlock()
 				time.Sleep(time.Second * 1)
 				continue
 			}
 		}
-		s.lock.RUnlock()
 
 		t := time.Now().Unix()
 		res, err := s.db.Exec("UPDATE `services` SET `updated`=? WHERE id=?", t, s.ID)
@@ -281,9 +298,7 @@ func (s *Service) Deregister() error {
 	}
 	if 1 == atomic.LoadInt64(&s.Leader) {
 		s.redis.Del(s.leaderKey)
-		//s.Status = 0
-		atomic.StoreInt64(&s.Status, 0)
-		//s.Leader = false
+		atomic.StoreInt64(&s.Status, 1)
 		atomic.StoreInt64(&s.Leader, 0)
 	}
 	return nil
@@ -292,24 +307,20 @@ func (s *Service) Deregister() error {
 // get all service
 func (s *Service) GetServices() ([]*Service, error) {
 	services := make([]*Service, 0)
-	rows, err := s.db.Query("SELECT `id`,`name`, `address`, `is_leader`, `updated` FROM `services` WHERE 1")
+	rows, err := s.db.Query("SELECT `id`,`name`, `address`, `is_leader`, `updated`, `offline` FROM `services` WHERE 1")
 	if err != nil {
 		log.Errorf("GetServices s.db.Query fail, error=[%v]", err)
 		return nil, err
 	}
 	for rows.Next() {
 		sr := new(Service)
-		//var leader int64
-		err = rows.Scan(&sr.ID, &sr.Name, &sr.Address, &sr.Leader, &sr.Updated)
+		err = rows.Scan(&sr.ID, &sr.Name, &sr.Address, &sr.Leader, &sr.Updated, &sr.Offline)
 		if err != nil {
 			log.Errorf("GetServices rows.Scan fail, error=[%v]", err)
 			continue
 		}
-		//sr.Status = 1
 		atomic.StoreInt64(&sr.Status, 1)
-		//sr.Leader = leader// == 1
 		if time.Now().Unix() - sr.Updated >= 6 {
-			//sr.Status = 0
 			atomic.StoreInt64(&sr.Status, 0)
 		}
 		sr.Unique = sr.Name + "-" + sr.Address
