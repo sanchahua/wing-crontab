@@ -35,7 +35,7 @@ type Controller struct {
 	cache    ListCronEntity//[]*CronEntity
 	statisticsModel *statistics.Statistics
 	userModel       *user.User
-	Leader          bool
+	Leader          int64
 	redis           *redis.Client
 	RedisKeyPrex    string
 	ready           int64
@@ -55,7 +55,7 @@ func NewController(service *service.Service, redis *redis.Client, RedisKeyPrex s
 		logModel: logModel,
 		cache:    nil,//make([]*CronEntity, 0),
 		statisticsModel: statisticsModel,
-		Leader:   false,
+		Leader:   0,
 		redis: redis,
 		RedisKeyPrex: RedisKeyPrex,
 		userModel: userModel,
@@ -162,7 +162,12 @@ func (c *Controller) dispatch() {
 
 func (c *Controller) SetLeader(isLeader bool) {
 	//c.lock.Lock()
-	c.Leader = isLeader
+	if isLeader {
+		atomic.StoreInt64(&c.Leader, 1)
+	} else {
+		atomic.StoreInt64(&c.Leader, 0)
+	}
+	//c.Leader = isLeader
 	//for _, v := range c.cronList {
 	//	v.SetLeader(isLeader)
 	//}
@@ -229,7 +234,7 @@ func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
 	entity := newCronEntity(c.service, c.redis, c.RedisKeyPrex, ce,
 		uinfo, blameInfo, c.onRun)
 	entity.SetServiceId(c.service.ID)
-	entity.SetLeader(c.Leader)
+	entity.SetLeader(atomic.LoadInt64(&c.Leader) == 1)
 
 	c.cronList.Store(entity.Id, entity)
 	entity.CronId, err = c.cron.AddJob(entity.CronSet, entity)
@@ -291,7 +296,7 @@ func (c *Controller) Update(id int64, cronSet, command string,
 		Blame: blame,
 	}, uinfo, blameInfo, c.onRun)
 	entity.SetServiceId(c.service.ID)
-	entity.SetLeader(c.Leader)
+	entity.SetLeader(atomic.LoadInt64(&c.Leader) == 1)
 
 	var err error
 	entity.CronId, err = c.cron.AddJob(entity.CronSet, entity)

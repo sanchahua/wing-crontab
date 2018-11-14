@@ -4,7 +4,6 @@ import (
 	"cron"
 	mcron "models/cron"
 	"database/sql"
-	"gitlab.xunlei.cn/xllive/common/log"
 	"library/http"
 	modelLog "models/log"
 	shttp "net/http"
