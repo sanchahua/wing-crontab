@@ -89,8 +89,6 @@ func (c *Controller) dispatch() {
 			continue
 		}
 		// 最大运行线程数量，取 max(定时任务数量, cpu数量)
-		//c.lock.RLock()
-
 		maxNum := int64(0)
 		c.cronList.Range(func(key, value interface{}) bool {
 			maxNum++
@@ -98,11 +96,13 @@ func (c *Controller) dispatch() {
 		})
 
 		// 这里必须每次都重新拿长度数据，因为cronList可能会实时改变
-		//maxNum := clen//int64(len(c.cronList))
 		if cpuNum > maxNum {
 			maxNum = cpuNum
 		}
-		//c.lock.RUnlock()
+
+		qlen := c.redis.LLen(c.RedisKeyPrex).Val()
+		log.Infof("当前待运行的定时任务: %v", qlen)
+        // 如果队列太常，加个告警??
 
 		// 如果当前正在执行的线程数量达到上限，则等待
 		if atomic.LoadInt64(&gonum) >= maxNum {
@@ -113,9 +113,7 @@ func (c *Controller) dispatch() {
 
 		data, err := c.redis.BLPop(time.Second*3, c.RedisKeyPrex).Result()
 		if err != nil {
-			//if err != redis.Nil {
-				log.Errorf("dispatch row.redis.BLPop fail, error=[%v]", err)
-			//}
+			log.Errorf("dispatch row.redis.BLPop fail, error=[%v]", err)
 			continue
 		}
 
@@ -124,7 +122,6 @@ func (c *Controller) dispatch() {
 			continue
 		}
 
-		//fmt.Println(data)
 		err = json.Unmarshal([]byte(data[1]), &raw)
 		if err != nil {
 			log.Errorf("dispatch json.Unmarshal fail, error=[%v]", err)
@@ -136,10 +133,7 @@ func (c *Controller) dispatch() {
 		}
 		serviceId := raw[0]
 		id        := raw[1]
-
-		//c.lock.RLock()
-		irow, ok := c.cronList.Load(id)//[id]
-		//c.lock.RUnlock()
+		irow, ok  := c.cronList.Load(id)
 
 		if !ok {
 			log.Errorf("dispatch id not exists fail, id=[%v]", id)
@@ -151,9 +145,7 @@ func (c *Controller) dispatch() {
 			log.Errorf("dispatch convert fail, id=[%v]", id)
 			continue
 		}
-
 		atomic.AddInt64(&gonum, 1)
-		//row.runWrapper(serviceId)
 		go row.runCommand(serviceId, func() {
 			atomic.AddInt64(&gonum, -1)
 		})
@@ -161,16 +153,11 @@ func (c *Controller) dispatch() {
 }
 
 func (c *Controller) SetLeader(isLeader bool) {
-	//c.lock.Lock()
 	if isLeader {
 		atomic.StoreInt64(&c.Leader, 1)
 	} else {
 		atomic.StoreInt64(&c.Leader, 0)
 	}
-	//c.Leader = isLeader
-	//for _, v := range c.cronList {
-	//	v.SetLeader(isLeader)
-	//}
 	c.cronList.Range(func(key, value interface{}) bool {
 		v, ok := value.(*CronEntity)
 		if ok {
@@ -178,15 +165,10 @@ func (c *Controller) SetLeader(isLeader bool) {
 		}
 		return true
 	})
-	//c.lock.Unlock()
 }
 
 func (c *Controller) SetServiceId(serviceId int64) {
-	//c.lock.Lock()
 	c.serviceId = serviceId
-	//for _, v := range c.cronList {
-	//	v.SetServiceId(serviceId)
-	//}
 	c.cronList.Range(func(key, value interface{}) bool {
 		v, ok := value.(*CronEntity)
 		if ok {
@@ -194,7 +176,6 @@ func (c *Controller) SetServiceId(serviceId int64) {
 		}
 		return true
 	})
-	//c.lock.Unlock()
 }
 
 func (c *Controller) StartCron() {
@@ -226,8 +207,6 @@ func (c *Controller) RestartCron() {
 }
 
 func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
-	//c.lock.Lock()
-	//defer c.lock.Unlock()
 	var err error
 	uinfo, _ := c.userModel.GetUserInfo(ce.UserId)
 	blameInfo, _ := c.userModel.GetUserInfo(ce.Blame)
@@ -246,15 +225,11 @@ func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
 }
 
 func (c *Controller) Delete(id int64) (*CronEntity, error) {
-	//c.lock.Lock()
-	//defer c.lock.Unlock()
-	ie, ok := c.cronList.Load(id)//[id]
+	ie, ok := c.cronList.Load(id)
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
-	//delete(c.cronList, id)
 	c.cronList.Delete(id)
-
 	e, ok := ie.(*CronEntity)
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id convert fail, id=[%v]", id))
@@ -266,14 +241,11 @@ func (c *Controller) Delete(id int64) (*CronEntity, error) {
 func (c *Controller) Update(id int64, cronSet, command string,
 	remark string, stop bool, startTime,
 	endTime string, isMutex bool, blame int64) (*CronEntity, error) {
-	//c.lock.Lock()
-	//defer c.lock.Unlock()
 	ie, ok := c.cronList.Load(id)//[id]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
 
-	//delete(c.cronList, id)
 	c.cronList.Delete(id)
 	e, ok := ie.(*CronEntity)
 	if !ok {
@@ -283,7 +255,6 @@ func (c *Controller) Update(id int64, cronSet, command string,
 
 	uinfo, _ := c.userModel.GetUserInfo(e.UserId)
 	blameInfo, _ := c.userModel.GetUserInfo(blame)
-	//e.Update(cronSet, command, remark, stop, startTime, endTime, isMutex)
 	entity := newCronEntity(c.service, c.redis, c.RedisKeyPrex, &cron.CronEntity{
 		Id:        id,// int64        `json:"id"`
 		CronSet:   cronSet,// string  `json:"cron_set"`
@@ -308,8 +279,6 @@ func (c *Controller) Update(id int64, cronSet, command string,
 }
 
 func (c *Controller) Get(id int64) (*CronEntity, error)  {
-	//c.lock.RLock()
-	//defer c.lock.RUnlock()
 	ie, ok := c.cronList.Load(id)//[id]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
@@ -323,8 +292,6 @@ func (c *Controller) Get(id int64) (*CronEntity, error)  {
 
 // timeout 超时，单位秒
 func (c *Controller) RunCommand(id int64, timeout int64) ([]byte, int, error)  {
-	//c.lock.RLock()
-	//defer c.lock.RUnlock()
 	ie, ok := c.cronList.Load(id)//[id]
 	if !ok {
 		return nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
@@ -340,8 +307,6 @@ func (c *Controller) RunCommand(id int64, timeout int64) ([]byte, int, error)  {
 }
 
 func (c *Controller) Kill(id int64, processId int) {
-	//c.lock.RLock()
-	//defer c.lock.RUnlock()
 	ie, ok := c.cronList.Load(id)//[id]
 	if !ok {
 		return// nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
@@ -354,8 +319,6 @@ func (c *Controller) Kill(id int64, processId int) {
 }
 
 func (c *Controller) ProcessIsRunning(id int64, processId int) bool {
-	//c.lock.RLock()
-	//defer c.lock.RUnlock()
 	ie, ok := c.cronList.Load(id)//[id]
 	if !ok {
 		return false// nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
@@ -370,8 +333,6 @@ func (c *Controller) ProcessIsRunning(id int64, processId int) bool {
 // 已处理线程安全问题
 // 所有内容使用只读cache
 func (c *Controller) GetList() ListCronEntity {
-	//c.lock.RLock()
-	//defer c.lock.RUnlock()
 	l := 0//len(c.cronList)
 	c.cronList.Range(func(key, value interface{}) bool {
 		l++
@@ -391,17 +352,11 @@ func (c *Controller) GetList() ListCronEntity {
 		return true
 	})
 
-	//for _, v := range c.cronList {
-	//	c.cache[i] = v.Clone()
-	//	i++
-	//}
 	sort.Sort(c.cache)
 	return c.cache
 }
 
 func (c *Controller) Stop(id int64, stop bool) error {
-	//c.lock.RLock()
-	//defer c.lock.RUnlock()
 	ie, ok := c.cronList.Load(id)//[id]
 	if !ok {
 		return errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
@@ -415,8 +370,6 @@ func (c *Controller) Stop(id int64, stop bool) error {
 }
 
 func (c *Controller) Mutex(id int64, mutex bool) error {
-	//c.lock.RLock()
-	//defer c.lock.RUnlock()
 	ie, ok := c.cronList.Load(id)//[id]
 	if !ok {
 		return errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
@@ -430,7 +383,6 @@ func (c *Controller) Mutex(id int64, mutex bool) error {
 }
 
 func (c *Controller) onRun(dispatchServer, runServer int64, cronId int64, processId int, state, output string, useTime int64, remark, startTime string) {
-	//log.Tracef("%v %v write log", cronId, state)
 	_, err := c.logModel.Add(dispatchServer, runServer, cronId, processId, state, output, useTime, remark, startTime)
 	if err != nil {
 		log.Errorf("onRun c.logModel.Add fail, cron_id=[%v], output=[%v], usetime=[%v], remark=[%v], startTime=[%v], error=[%v]", cronId, output, useTime, remark, startTime, err)
@@ -452,9 +404,7 @@ func (c *Controller) onRun(dispatchServer, runServer int64, cronId int64, proces
 
 func (c *Controller) SetAvgMaxData() {
 	log.Tracef("start SetAvgMaxData ...")
-	// 防止锁定时间过长，这里先获取id
 	var ids = make([]int64, 0)
-	//c.lock.RLock()
 	c.cronList.Range(func(key, value interface{}) bool {
 		id, ok := key.(int64)
 		if ok {
@@ -462,13 +412,8 @@ func (c *Controller) SetAvgMaxData() {
 		}
 		return true
 	})
-	//for id, _ := range c.cronList {
-	//	ids = append(ids, id)
-	//}
-	//c.lock.RUnlock()
 
 	fmt.Fprintf(os.Stderr, "%+v\r\n", ids)
-
 	// 获取平均时长
 	avg , _ := c.logModel.GetAvgRunTime()
 	for _, id := range ids {
@@ -482,7 +427,6 @@ func (c *Controller) SetAvgMaxData() {
 		c.statisticsModel.SetAvgMAxUseTime(avgUseTime, maxUseTime, id)
 		// 写平均运行时长
 		// 写最大运行时长
-		//c.lock.RLock()
 		ir, ok := c.cronList.Load(id)//[id]
 		if ok {
 			r, ok := ir.(*CronEntity)
@@ -490,6 +434,5 @@ func (c *Controller) SetAvgMaxData() {
 				r.setAvgMax(avgUseTime, maxUseTime)
 			}
 		}
-		//c.lock.RUnlock()
 	}
 }

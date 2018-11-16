@@ -288,12 +288,12 @@ func (row *CronEntity) Clone() *CronEntity {
 // serviceId 为leader服务id
 func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 	defer func(){ // 必须要先声明defer，否则不能捕获到panic异常
+		complete()
 		if err := recover(); err != nil{
 			log.Errorf("runCommand panic error: %+v", err)
 		}
 	}()
 
-	defer complete()
 	pn, err := row.addProcessNum()
 	if err != nil {
 		log.Errorf("runCommand addProcessNum fail, error=[%v]", err)
