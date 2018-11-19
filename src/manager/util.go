@@ -201,14 +201,14 @@ func searchTimeout(newData2 []*cron2.CronEntity, timeout string) []*cron2.CronEn
 
 func searchKeyword(newData3 []*cron2.CronEntity, keyword string) []*cron2.CronEntity {
 	var newData4 []*cron2.CronEntity = nil
-	keyword = strings.Trim(keyword, " ")
+	keyword = strings.ToLower(strings.Trim(keyword, " "))
 	if keyword != "" {
 		newData4 = make([]*cron2.CronEntity, 0)
 		for _, v := range newData3 {
 			// 根据command模糊查询
 			// 查询id
 			// 查询定时设置
-			if strings.Index(v.Command, keyword) >= 0 ||
+			if strings.Index(strings.ToLower(v.Command), keyword) >= 0 ||
 				fmt.Sprintf("%v", v.Id) == keyword ||
 				keyword == v.CronSet {
 				newData4 = append(newData4, v)
