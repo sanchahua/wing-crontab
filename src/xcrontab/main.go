@@ -116,7 +116,7 @@ func main() {
 	service.Start(func(isLeader bool, id int64) {
 		log.Infof("########leader callback: %v", isLeader)
 		m.SetLeader(isLeader)
-	})
+	}, m.ServiceKeep)
 	//defer service.Deregister()
 	m.SetServiceId(service.ID)
 	m.Start()

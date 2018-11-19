@@ -50,7 +50,7 @@ const (
 	EV_ENABLE_MUTEX  = 7
 	EV_KILL          = 8
 	EV_OFFLINE       = 9
-
+	EV_LEADER        = 10
 	JumpLoginCode = "<a href=\"/ui/login.html\" id=\"location\">3秒后跳到登录页面，点击去登录</a><script>var s = 3;window.setInterval(function () {s--;document.getElementById(\"location\").innerText=s+\"秒后跳到登录页面，点击去登录\"}, 1000);</script>"
 )
 
@@ -250,6 +250,8 @@ func (m *CronManager) watchCron() {
 		case EV_OFFLINE:
 			log.Infof("receive event offline, serviceid=[%v], offline=[%v]", id, raw[2] == 1)
 			m.service.SetOffline(id, raw[2] == 1)
+		case EV_LEADER:
+			m.service.OnKeepLeader(id)
 		case EV_ADD:
 			log.Tracef("watchCron new add id=[%v]", id)
 			// 新增定时任务

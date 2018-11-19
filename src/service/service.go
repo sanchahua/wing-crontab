@@ -26,6 +26,7 @@ type Service struct {
 	Leader        int64   `json:"Leader"`
 	Unique        string  `json:"Unique"`
 	Offline       int64   `json:"Offline"`
+	serviceKeep func(int64) `json:"-"`
 }
 
 type OnRegisterFunc func(runTimeId int64)
@@ -59,6 +60,9 @@ func NewService(
 		onLeader:      nil,
 		Unique:        name + "-" + Address,
 		Offline:       0,
+		serviceKeep: func(i int64) {
+
+		},
 	}
 	// 初始化，主要检查服务是否存在，如果存在会初始化ID
 	s.init()
@@ -92,8 +96,9 @@ func (s *Service) IsOffline() bool {
 // try to select a leader
 // keep try to select a leader
 // keep alive
-func (s *Service) Start(onLeader func(isLeader bool, id int64)) {
+func (s *Service) Start(onLeader func(isLeader bool, id int64), keep func(int64)) {
 	s.onLeader = onLeader
+	s.serviceKeep = keep
 	if 1 != atomic.LoadInt64(&s.Offline) {
 		s.selectLeader()
 	}
@@ -183,6 +188,17 @@ func (s *Service) tryGetLeader()  {
 	}
 }
 
+// keep leader from other node leader change
+func (s *Service) OnKeepLeader(id int64) {
+	log.Infof("leader keep: %+v", id)
+	if 1 == atomic.LoadInt64(&s.Leader) {
+		if id != s.ID {
+			log.Infof("leader keep done: %+v", id)
+			s.freeLeader()
+		}
+	}
+}
+
 // keep service alive
 func (s *Service) keepAlive() (error) {
 	for {
@@ -200,6 +216,12 @@ func (s *Service) keepAlive() (error) {
 				log.Errorf("keepAlive s.redis.Expire fail, error=[%v]", err)
 				s.freeLeader()
 			}
+			s.serviceKeep(s.ID)
+		}
+
+		if 1 == atomic.LoadInt64(&s.Leader) {
+			// keepalive
+
 		}
 
 		t := time.Now().Unix()

@@ -24,7 +24,7 @@ func (m *CronManager) nodeOffline(request *restful.Request, w *restful.Response)
 	}
 	m.service.SetOffline(serviceId, true)
 	m.service.UpdateOffline(serviceId, 1)
-	m.broadcastOffline(EV_OFFLINE, serviceId, 1)
+	m.broadcastService(EV_OFFLINE, serviceId, 1)
 	m.outJson(w, HttpSuccess, "ok", nil)
 }
 
@@ -39,18 +39,23 @@ func (m *CronManager) nodeOnline(request *restful.Request, w *restful.Response) 
 	}
 	m.service.SetOffline(serviceId, false)
 	m.service.UpdateOffline(serviceId, 0)
-	m.broadcastOffline(EV_OFFLINE, serviceId, 0)
+	m.broadcastService(EV_OFFLINE, serviceId, 0)
 	m.outJson(w, HttpSuccess, "ok", nil)
 }
 
-func (m *CronManager) broadcastOffline(ev, id int64, p...int64) {
+func (m *CronManager) ServiceKeep(id int64) {
+	log.Infof("send service keep: %+v, EV_LEADER=%v", id, EV_LEADER)
+	m.broadcastService(EV_LEADER, m.service.ID)
+}
+
+func (m *CronManager) broadcastService(ev, id int64, p...int64) {
 	// 查询服务列表 逐个push redis队列广播通知数据变化
 	services, err := m.service.GetServices()
 	if err != nil {
-		log.Errorf("broadcastOffline m.service.GetServices fail, error=[%v]", err)
+		log.Errorf("broadcastService m.service.GetServices fail, error=[%v]", err)
 		return
 	}
-	log.Tracef("broadcastOffline ev=[%v], id=[%v], p=[%v], serviceId=[%v]", ev, id, p, m.serviceId)
+	log.Tracef("broadcastService ev=[%v], id=[%v], p=[%v], serviceId=[%v]", ev, id, p, m.serviceId)
 	for _, sv := range services {
 		var data []byte
 		var err error
