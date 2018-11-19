@@ -113,10 +113,7 @@ func main() {
 		*listen,
 		appConfig.LogKeepDay,
 	)
-	service.Start(func(isLeader bool, id int64) {
-		log.Infof("########leader callback: %v", isLeader)
-		m.SetLeader(isLeader)
-	}, m.ServiceKeep)
+	//service.Start()
 	//defer service.Deregister()
 	m.SetServiceId(service.ID)
 	m.Start()

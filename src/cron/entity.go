@@ -41,7 +41,7 @@ type CronEntity struct {
 	lock       *sync.RWMutex       `json:"-"`
 	copy       *CronEntity         `json:"-"`
 	Process      *sync.Map         `json:"-"`//map[int]*os.Process
-	Leader       int64             `json:"-"`
+	//Leader       int64             `json:"-"`
 	redis        *redis.Client     `json:"-"`
 	redisKeyPrex string            `json:"-"`
 	AvgRunTime   int64             `json:"avg_run_time"`
@@ -215,27 +215,23 @@ func (row *CronEntity) Run() {
 		log.Warnf("node is offline")
 		return
 	}
-	//log.Tracef("%v ### was run", row.Id)
-	// 只有leader负责定时任务调度
-	if 1 != atomic.LoadInt64(&row.Leader) {
-		log.Tracef("%v ### not leader", row.Id)
+
+	if row.filter.Stop() {
+		log.Tracef("%v was stop", row.Id)
 		return
 	}
 
-	if row.filter.Stop() {
-		///log.Tracef("%v ### not leader", row.Id)
-		log.Tracef("%v was stop", row.Id)
-		// 外部注入，停止执行定时任务支持
+	// 只有leader负责定时任务调度
+	if !row.service.SelectLeader() {
+		log.Tracef("%v will be dispatch, but %v is not leader", row.Id, row.service.ID)
 		return
 	}
+	defer row.service.FreeLeader()
 	// 推送到redis
 	row.push()
 }
 
 func (row *CronEntity) push() {
-	//key := fmt.Sprintf(row.redisKeyPrex+"/%v", row.Id)
-	//log.Tracef("push %v to %v", row.Id, row.redisKeyPrex)
-
 	data, err := json.Marshal([]int64{row.ServiceId, row.Id})
 	log.Tracef("push %+v", string(data))
 	if err != nil {
@@ -245,16 +241,6 @@ func (row *CronEntity) push() {
 	err = row.redis.RPush(row.redisKeyPrex, string(data)).Err()
 	if err != nil {
 		log.Errorf("push row.redis.RPush fail, [%v] to [%v/%v], error=[%v]", row.Id, row.redisKeyPrex, row.Id, err)
-	}
-}
-
-func (row *CronEntity) SetLeader(isLeader bool) {
-
-	//row.Leader = isLeader
-	if isLeader {
-		atomic.StoreInt64(&row.Leader, 1)
-	} else {
-		atomic.StoreInt64(&row.Leader, 0)
 	}
 }
 

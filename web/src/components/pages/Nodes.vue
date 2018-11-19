@@ -14,7 +14,6 @@
           <th class="sh-row">服务器</th>
           <th class="sh-row">服务地址</th>
           <th class="sh-row">状态</th>
-          <th class="sh-row">Leader</th>
           <th class="sh-row">下线</th>
           <th>操作</th>
         </tr>
@@ -27,8 +26,6 @@
           <td class="sh-row" v-if="item.Status == 1">正常</td>
           <td class="sh-row" v-else style="color: #f00;">故障</td>
 
-          <td class="sh-row" v-if="item.Leader">是</td>
-          <td class="sh-row" v-else>否</td>
           <td class="sh-row" v-if="item.Offline" style="color: #f00;">已下线</td>
           <td class="sh-row" v-else>否</td>
           <td>

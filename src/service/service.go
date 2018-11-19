@@ -14,10 +14,8 @@ type Service struct {
 	onRegister    OnRegisterFunc                `json:"-"`
 	onServiceDown func(int64)                   `json:"-"`
 	onServiceUp   func(int64)                   `json:"-"`
-	onLeader      func(isLeader bool, id int64) `json:"-"`
 	leaderKey     string                        `json:"-"`
 	redis         *redis.Client                 `json:"-"`
-
 	ID            int64   `json:"ID"`
 	Address       string  `json:"Address"`
 	Updated       int64   `json:"Updated"`
@@ -26,7 +24,6 @@ type Service struct {
 	Leader        int64   `json:"Leader"`
 	Unique        string  `json:"Unique"`
 	Offline       int64   `json:"Offline"`
-	serviceKeep func(int64) `json:"-"`
 }
 
 type OnRegisterFunc func(runTimeId int64)
@@ -57,16 +54,13 @@ func NewService(
 		leaderKey:     leaderKey,
 		redis:         redis,
 		Leader:        0,
-		onLeader:      nil,
 		Unique:        name + "-" + Address,
 		Offline:       0,
-		serviceKeep: func(i int64) {
-
-		},
 	}
 	// 初始化，主要检查服务是否存在，如果存在会初始化ID
 	s.init()
 	s.register()
+ 	go s.keepAlive()
 	return s
 }
 
@@ -88,23 +82,7 @@ func (s *Service) IsOffline() bool {
 		log.Warnf("node [%v] is offline", s.ID)
 		return true
 	}
-	return false//atomic.LoadInt64(&s.Offline) == 1
-}
-
-// service start
-// set onleader callback
-// try to select a leader
-// keep try to select a leader
-// keep alive
-func (s *Service) Start(onLeader func(isLeader bool, id int64), keep func(int64)) {
-	s.onLeader = onLeader
-	s.serviceKeep = keep
-	if 1 != atomic.LoadInt64(&s.Offline) {
-		s.selectLeader()
-	}
-	go s.tryGetLeader()
-	// 更新updated，此字段用于判断服务是否存活
-	go s.keepAlive()
+	return false
 }
 
 // panic if query database error
@@ -124,80 +102,31 @@ func (s *Service) init() {
 }
 
 // panic if error happened
-func (s *Service) selectLeader() {
+func (s *Service) SelectLeader() bool {
 	v, err := s.redis.Incr(s.leaderKey).Result()
 	if err != nil {
 		log.Errorf("selectLeader s.redis.Incr fail, error=[%v]", err)
-		panic(err)
-		return
+		return false
 	}
 
-	if err = s.redis.Expire(s.leaderKey, time.Second * 6).Err(); nil != err {
+	if err = s.redis.Expire(s.leaderKey, time.Second * 3).Err(); nil != err {
 		log.Errorf("selectLeader s.redis.Expire fail, error=[%v]", err)
-		panic(err)
+		return false
 	}
 
 	if 1 != v {
 		atomic.StoreInt64(&s.Leader, 0)
-		s.onLeader(false, s.ID)
-		return
+		return false
 	}
-
 	atomic.StoreInt64(&s.Leader, 1)
-	s.onLeader(true, s.ID)
-	if err = s.updateIsLeader(); nil != err {
-		panic(err)
-	}
-
+	return true
 }
 
-func (s *Service) freeLeader() {
+func (s *Service) FreeLeader() {
 	s.redis.Del(s.leaderKey)
 	atomic.StoreInt64(&s.Leader, 0)
-	s.updateNotIsLeader()
-	s.onLeader(false, s.ID)
 }
 
-// keep try to select a new leader
-// if old leader is offline
-// new leader will be select and toggle onLeader callback
-func (s *Service) tryGetLeader()  {
-	for {
-		v, err := s.redis.Incr(s.leaderKey).Result()
-		if err != nil {
-			log.Errorf("tryGetLeader s.redis.Incr fail, error=[%v]", err)
-			if 1 == atomic.LoadInt64(&s.Leader) {
-				s.freeLeader()
-			}
-			time.Sleep(time.Second)
-			continue
-		}
-		if v == 1 {
-			if 1 == atomic.LoadInt64(&s.Leader) {
-				// do nothing
-			} else {
-				atomic.StoreInt64(&s.Leader, 1)
-				s.onLeader(true, s.ID)
-				if err = s.updateIsLeader(); nil != err {
-					log.Errorf("updateIsLeader fail, error=[%v]", err)
-				}
-			}
-		}
-		//s.Status = 1
-		time.Sleep(time.Second * 6)
-	}
-}
-
-// keep leader from other node leader change
-func (s *Service) OnKeepLeader(id int64) {
-	log.Infof("leader keep: %+v", id)
-	if 1 == atomic.LoadInt64(&s.Leader) {
-		if id != s.ID {
-			log.Infof("leader keep done: %+v", id)
-			s.freeLeader()
-		}
-	}
-}
 
 // keep service alive
 func (s *Service) keepAlive() (error) {
@@ -207,39 +136,16 @@ func (s *Service) keepAlive() (error) {
 			continue
 		}
 
-		if 1 == atomic.LoadInt64(&s.Leader) {
-			if 1 == atomic.LoadInt64(&s.Offline) {
-				s.freeLeader()
-			}
-
-			if err := s.redis.Expire(s.leaderKey, time.Second * 6).Err(); nil != err {
-				log.Errorf("keepAlive s.redis.Expire fail, error=[%v]", err)
-				s.freeLeader()
-			}
-			s.serviceKeep(s.ID)
-		}
-
-		if 1 == atomic.LoadInt64(&s.Leader) {
-			// keepalive
-
-		}
-
 		t := time.Now().Unix()
 		res, err := s.db.Exec("UPDATE `services` SET `updated`=? WHERE id=?", t, s.ID)
 		if err != nil {
 			log.Errorf("keepAlive s.db.Exec fail, error=[%v]", err)
-			if 1 == atomic.LoadInt64(&s.Leader) {
-				s.freeLeader()
-			}
 			time.Sleep(time.Second * 1)
 			continue
 		}
 		_, err = res.RowsAffected()
 		if err != nil {
 			log.Errorf("keepAlive res.RowsAffected fail, error=[%v]", err)
-			if 1 == atomic.LoadInt64(&s.Leader) {
-				s.freeLeader()
-			}
 			time.Sleep(time.Second * 1)
 			continue
 		}
@@ -332,9 +238,13 @@ func (s *Service) Deregister() error {
 	if 1 == atomic.LoadInt64(&s.Leader) {
 		s.redis.Del(s.leaderKey)
 		atomic.StoreInt64(&s.Leader, 0)
-		s.onLeader(false, s.ID)
+		//s.onLeader(false, s.ID)
 	}
 	return nil
+}
+
+func (s *Service) IsLeader() bool {
+	return 1 == atomic.LoadInt64(&s.Leader)
 }
 
 // get all service

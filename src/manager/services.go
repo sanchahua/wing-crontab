@@ -43,10 +43,10 @@ func (m *CronManager) nodeOnline(request *restful.Request, w *restful.Response) 
 	m.outJson(w, HttpSuccess, "ok", nil)
 }
 
-func (m *CronManager) ServiceKeep(id int64) {
-	log.Infof("send service keep: %+v, EV_LEADER=%v", id, EV_LEADER)
-	m.broadcastService(EV_LEADER, m.service.ID)
-}
+//func (m *CronManager) ServiceKeep(id int64) {
+//	log.Infof("send service keep: %+v, EV_LEADER=%v", id, EV_LEADER)
+//	m.broadcastService(EV_LEADER, m.service.ID)
+//}
 
 func (m *CronManager) broadcastService(ev, id int64, p...int64) {
 	// 查询服务列表 逐个push redis队列广播通知数据变化

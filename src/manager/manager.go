@@ -20,7 +20,6 @@ import (
 	"gitlab.xunlei.cn/xllive/common/log"
 	"models/user"
 	"session"
-	"sync/atomic"
 )
 
 type CronManager struct {
@@ -38,7 +37,7 @@ type CronManager struct {
 	session *session.Session
 
 	powers Powers//map[int64]string
-	leader int64
+	//leader int64
 }
 const (
 	EV_ADD           = 1
@@ -250,8 +249,8 @@ func (m *CronManager) watchCron() {
 		case EV_OFFLINE:
 			log.Infof("receive event offline, serviceid=[%v], offline=[%v]", id, raw[2] == 1)
 			m.service.SetOffline(id, raw[2] == 1)
-		case EV_LEADER:
-			m.service.OnKeepLeader(id)
+		//case EV_LEADER:
+		//	m.service.OnKeepLeader(id)
 		case EV_ADD:
 			log.Tracef("watchCron new add id=[%v]", id)
 			// 新增定时任务
@@ -329,10 +328,10 @@ func (m *CronManager) checkDateTime() {
 	}
 }
 
-func (m *CronManager) SetLeader(isLeader bool) {
-	atomic.StoreInt64(&m.leader, 1)
-	m.cronController.SetLeader(isLeader)
-}
+//func (m *CronManager) SetLeader(isLeader bool) {
+//	//atomic.StoreInt64(&m.leader, 1)
+//	//m.cronController.SetLeader(isLeader)
+//}
 
 func (m *CronManager) logManager() {
 	logKeepDay := m.logKeepDay
@@ -342,7 +341,7 @@ func (m *CronManager) logManager() {
 	// 日志清理操作，每60秒执行一次
 	for {
 		// only leader do this
-		if 1 != atomic.LoadInt64(&m.leader) || m.service.IsOffline() {
+		if !m.service.IsLeader() || m.service.IsOffline() {
 			time.Sleep(time.Second * 60)
 			continue
 		}
