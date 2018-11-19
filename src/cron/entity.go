@@ -301,7 +301,7 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 		for {
 			select {
 			case <- time.After(time.Second):
-				log.Infof("runCommand set expier %v", key)
+				log.Infof("runCommand set expire %v", key)
 				err := row.redis.Expire(key, DefaultTimeout*time.Second).Err()
 				if err != nil {
 					log.Errorf("runCommand row.redis.Expire fail, key=[%v], error=[%v]", key, err)
