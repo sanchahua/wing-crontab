@@ -23,16 +23,16 @@ const (
 	IsRunning = 1
 	StateStart = "start"
 	StateSuccess = "success"
-	 StateFail = "fail"
+	StateFail = "fail"
 )
 type Controller struct {
 	serviceId int64
 	cron     *cronV2.Cron
-	cronList *sync.Map//map[int64] *CronEntity
+	cronList *sync.Map
 	lock     *sync.RWMutex
 	status   int
 	logModel *modelLog.DbLog
-	cache    ListCronEntity//[]*CronEntity
+	cache    ListCronEntity
 	statisticsModel *statistics.Statistics
 	userModel       *user.User
 	Leader          int64
@@ -49,11 +49,11 @@ func NewController(service *service.Service, redis *redis.Client, RedisKeyPrex s
 		service: service,
 		serviceId: 0,
 		cron:     cronV2.New(),
-		cronList: new(sync.Map),//make(map[int64] *CronEntity),
+		cronList: new(sync.Map),
 		lock:     new(sync.RWMutex),
 		status:   0,
 		logModel: logModel,
-		cache:    nil,//make([]*CronEntity, 0),
+		cache:    nil,
 		statisticsModel: statisticsModel,
 		Leader:   0,
 		redis: redis,
@@ -66,7 +66,6 @@ func NewController(service *service.Service, redis *redis.Client, RedisKeyPrex s
 }
 
 func (c *Controller) Ready() {
-	//c.ready = true
 	atomic.StoreInt64(&c.ready, 1)
 }
 
@@ -78,7 +77,6 @@ func (c *Controller) dispatch() {
 		log.Tracef("wait for xcrontab be ready")
 		time.Sleep(time.Second)
 	}
-	//queue := fmt.Sprintf(row.redisKeyPrex+"/%v", row.Id)
 	var raw = make([]int64, 0)
 	cpuNum := int64(runtime.NumCPU())
 	gonum  := int64(0)
@@ -241,7 +239,7 @@ func (c *Controller) Delete(id int64) (*CronEntity, error) {
 func (c *Controller) Update(id int64, cronSet, command string,
 	remark string, stop bool, startTime,
 	endTime string, isMutex bool, blame int64) (*CronEntity, error) {
-	ie, ok := c.cronList.Load(id)//[id]
+	ie, ok := c.cronList.Load(id)
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
@@ -256,14 +254,14 @@ func (c *Controller) Update(id int64, cronSet, command string,
 	uinfo, _ := c.userModel.GetUserInfo(e.UserId)
 	blameInfo, _ := c.userModel.GetUserInfo(blame)
 	entity := newCronEntity(c.service, c.redis, c.RedisKeyPrex, &cron.CronEntity{
-		Id:        id,// int64        `json:"id"`
-		CronSet:   cronSet,// string  `json:"cron_set"`
-		Command:   command,// string  `json:"command"`
-		Remark:    remark,// string   `json:"remark"`
-		Stop:      stop,// bool       `json:"stop"`
-		StartTime: startTime,// int64 `json:"start_time"`
-		EndTime:   endTime,// int64   `json:"end_time"`
-		IsMutex:   isMutex,// bool    `json:"is_mutex"`
+		Id:        id,
+		CronSet:   cronSet,
+		Command:   command,
+		Remark:    remark,
+		Stop:      stop,
+		StartTime: startTime,
+		EndTime:   endTime,
+		IsMutex:   isMutex,
 		Blame: blame,
 	}, uinfo, blameInfo, c.onRun)
 	entity.SetServiceId(c.service.ID)
@@ -279,7 +277,7 @@ func (c *Controller) Update(id int64, cronSet, command string,
 }
 
 func (c *Controller) Get(id int64) (*CronEntity, error)  {
-	ie, ok := c.cronList.Load(id)//[id]
+	ie, ok := c.cronList.Load(id)
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
@@ -292,7 +290,7 @@ func (c *Controller) Get(id int64) (*CronEntity, error)  {
 
 // timeout 超时，单位秒
 func (c *Controller) RunCommand(id int64, timeout int64) ([]byte, int, error)  {
-	ie, ok := c.cronList.Load(id)//[id]
+	ie, ok := c.cronList.Load(id)
 	if !ok {
 		return nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
@@ -307,33 +305,33 @@ func (c *Controller) RunCommand(id int64, timeout int64) ([]byte, int, error)  {
 }
 
 func (c *Controller) Kill(id int64, processId int) {
-	ie, ok := c.cronList.Load(id)//[id]
+	ie, ok := c.cronList.Load(id)
 	if !ok {
-		return// nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
+		return
 	}
 	e, ok := ie.(*CronEntity)
 	if !ok {
-		return// nil, 0, errors.New(fmt.Sprintf("id convert fail, id=[%v]", id))
+		return
 	}
-	e.Kill(processId)//(time.Duration(timeout) * time.Second)
+	e.Kill(processId)
 }
 
 func (c *Controller) ProcessIsRunning(id int64, processId int) bool {
-	ie, ok := c.cronList.Load(id)//[id]
+	ie, ok := c.cronList.Load(id)
 	if !ok {
-		return false// nil, 0, errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
+		return false
 	}
 	e, ok := ie.(*CronEntity)
 	if !ok {
-		return false// nil, 0, errors.New(fmt.Sprintf("id convert fail, id=[%v]", id))
+		return false
 	}
-	return e.ProcessIsRunning(processId)//(time.Duration(timeout) * time.Second)
+	return e.ProcessIsRunning(processId)
 }
 
 // 已处理线程安全问题
 // 所有内容使用只读cache
 func (c *Controller) GetList() ListCronEntity {
-	l := 0//len(c.cronList)
+	l := 0
 	c.cronList.Range(func(key, value interface{}) bool {
 		l++
 		return true
@@ -357,7 +355,7 @@ func (c *Controller) GetList() ListCronEntity {
 }
 
 func (c *Controller) Stop(id int64, stop bool) error {
-	ie, ok := c.cronList.Load(id)//[id]
+	ie, ok := c.cronList.Load(id)
 	if !ok {
 		return errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
@@ -370,7 +368,7 @@ func (c *Controller) Stop(id int64, stop bool) error {
 }
 
 func (c *Controller) Mutex(id int64, mutex bool) error {
-	ie, ok := c.cronList.Load(id)//[id]
+	ie, ok := c.cronList.Load(id)
 	if !ok {
 		return errors.New(fmt.Sprintf("id does not exists, id=[%v]", id))
 	}
@@ -413,7 +411,7 @@ func (c *Controller) SetAvgMaxData() {
 		return true
 	})
 
-	fmt.Fprintf(os.Stderr, "%+v\r\n", ids)
+	//fmt.Fprintf(os.Stderr, "%+v\r\n", ids)
 	// 获取平均时长
 	avg , _ := c.logModel.GetAvgRunTime()
 	for _, id := range ids {
