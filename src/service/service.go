@@ -271,3 +271,23 @@ func (s *Service) GetServices() ([]*Service, error) {
 	}
 	return services, nil
 }
+
+func (s *Service) SearchService(id int64) (*Service, error) {
+	//services := make([]*Service, 0)
+	rows := s.db.QueryRow("SELECT `id`,`name`, `address`, `is_leader`, `updated`, `offline` " +
+		"FROM `services` WHERE id=?", id)
+
+	sr := new(Service)
+	err := rows.Scan(&sr.ID, &sr.Name, &sr.Address, &sr.Leader, &sr.Updated, &sr.Offline)
+	if err != nil {
+		log.Errorf("SearchService rows.Scan fail, error=[%v]", err)
+		return nil, err
+	}
+	atomic.StoreInt64(&sr.Status, 1)
+	if time.Now().Unix() - sr.Updated >= 6 {
+		atomic.StoreInt64(&sr.Status, 0)
+	}
+	sr.Unique = sr.Name + "-" + sr.Address
+
+	return sr, nil
+}

@@ -76,6 +76,13 @@
       online: function () {
         let id = $(event.target).attr("item-id");
         let that = this
+
+        for (let i = 0; i < that.nodes.length; i++) {
+          if (that.nodes[i].ID == id && that.nodes[i].Status != 1) {
+              return alert("故障节点不支持上下线操作")
+          }
+        }
+
         axios.post('/services/online/' + id + '?time='+(new Date()).valueOf()).then(function (response) {
           console.log(response);
           if (2000 == response.data.code) {
@@ -96,6 +103,13 @@
       offline: function () {
         let id = $(event.target).attr("item-id");
         let that = this
+
+        for (let i = 0; i < that.nodes.length; i++) {
+          if (that.nodes[i].ID == id && that.nodes[i].Status != 1) {
+            return alert("故障节点不支持上下线操作")
+          }
+        }
+
         axios.post('/services/offline/' + id + '?time='+(new Date()).valueOf()).then(function (response) {
           console.log(response);
           if (2000 == response.data.code) {
