@@ -232,7 +232,7 @@ func (row *CronEntity) Run() {
 }
 
 func (row *CronEntity) push() {
-	data, err := json.Marshal([]int64{row.ServiceId, row.Id})
+	data, err := json.Marshal([]int64{atomic.LoadInt64(&row.ServiceId), row.Id})
 	log.Tracef("push %+v", string(data))
 	if err != nil {
 		log.Errorf("push json.Marshal fail, [%v] to [%v/%v], error=[%v]", row.Id, row.redisKeyPrex, row.Id, err)
@@ -340,7 +340,7 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 		output = err.Error()
 	}
 
-	row.onRun(serviceId, row.ServiceId, row.Id, processId, state, output, 0, row.Command, startTime)
+	row.onRun(serviceId, atomic.LoadInt64(&row.ServiceId), row.Id, processId, state, output, 0, row.Command, startTime)
 	err = cmd.Wait()
 	res := b.Bytes()
 
@@ -355,7 +355,7 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 	// todo 程序退出时，定时任务的日志可能会失败，因为这个时候数据库已经关闭，这个问题需要处理一下
 	// 即安全退出问题，kill -9没办法了
 	log.Tracef("%v=[%v] was run", row.Id, row.Command)
-	row.onRun(serviceId, row.ServiceId,row.Id, processId, state, string(res), useTime, row.Command, startTime)
+	row.onRun(serviceId, atomic.LoadInt64(&row.ServiceId),row.Id, processId, state, string(res), useTime, row.Command, startTime)
 }
 
 func (row *CronEntity) runCommandWithTimeout(duration time.Duration) ([]byte, int, error) {
