@@ -166,7 +166,7 @@ func (c *Controller) dispatch() {
 //}
 
 func (c *Controller) SetServiceId(serviceId int64) {
-	c.serviceId = serviceId
+	atomic.StoreInt64(&c.serviceId, serviceId)
 	c.cronList.Range(func(key, value interface{}) bool {
 		v, ok := value.(*CronEntity)
 		if ok {
