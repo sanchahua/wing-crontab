@@ -108,15 +108,13 @@ func (s *Service) SelectLeader() bool {
 		log.Errorf("selectLeader s.redis.Incr fail, error=[%v]", err)
 		return false
 	}
-
-	if err = s.redis.Expire(s.leaderKey, time.Second * 3).Err(); nil != err {
-		log.Errorf("selectLeader s.redis.Expire fail, error=[%v]", err)
-		return false
-	}
-
 	if 1 != v {
 		atomic.StoreInt64(&s.Leader, 0)
 		return false
+	}
+	if err = s.redis.Expire(s.leaderKey, time.Second * 3).Err(); nil != err {
+		log.Errorf("selectLeader s.redis.Expire fail, error=[%v]", err)
+		//return false
 	}
 	atomic.StoreInt64(&s.Leader, 1)
 	return true
