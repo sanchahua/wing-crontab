@@ -203,7 +203,7 @@ func (s *Service) register() (int64, error) {
 	if s.ID > 0 {
 		return s.ID, nil
 	}
-	res, err := s.db.Exec("INSERT INTO `services`(`name`, `address`, `updated`) VALUES (?, ?,?)", s.Name, s.Address, time.Now().Unix())
+	res, err := s.db.Exec("INSERT INTO `services`(`name`, `address`, `updated`) VALUES (?,?,?)", s.Name, s.Address, time.Now().Unix())
 	if err != nil {
 		log.Errorf("Register s.db.Exec fail, error=[%v]", err)
 		panic(err)
