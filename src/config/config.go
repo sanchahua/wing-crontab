@@ -27,7 +27,7 @@ type AppConfig struct {
 	RedisAddress  string `toml:"redis_address"`
 	RedisPassword string `toml:"redis_password"`
 	LeaderKey     string `toml:"leader_key"`
-	RedisKeyPrex    string `toml:"redis_key_prex"`
+	RedisKeyPrex  string `toml:"redis_key_prex"`
 
 }
 
