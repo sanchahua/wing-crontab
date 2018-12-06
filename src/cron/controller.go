@@ -150,21 +150,6 @@ func (c *Controller) dispatch() {
 	}
 }
 
-//func (c *Controller) SetLeader(isLeader bool) {
-	//if isLeader {
-	//	atomic.StoreInt64(&c.Leader, 1)
-	//} else {
-	//	atomic.StoreInt64(&c.Leader, 0)
-	//}
-	//c.cronList.Range(func(key, value interface{}) bool {
-	//	//v, ok := value.(*CronEntity)
-	//	//if ok {
-	//		//v.SetLeader(isLeader)
-	//	//}
-	//	return true
-	//})
-//}
-
 func (c *Controller) SetServiceId(serviceId int64) {
 	atomic.StoreInt64(&c.serviceId, serviceId)
 	c.cronList.Range(func(key, value interface{}) bool {
@@ -211,8 +196,6 @@ func (c *Controller) Add(ce *cron.CronEntity) (*CronEntity, error) {
 	entity := newCronEntity(c.service, c.redis, c.RedisKeyPrex, ce,
 		uinfo, blameInfo, c.onRun)
 	entity.SetServiceId(c.service.ID)
-	//entity.SetLeader(atomic.LoadInt64(&c.Leader) == 1)
-
 	c.cronList.Store(entity.Id, entity)
 	entity.CronId, err = c.cron.AddJob(entity.CronSet, entity)
 	if err != nil {
@@ -265,8 +248,6 @@ func (c *Controller) Update(id int64, cronSet, command string,
 		Blame: blame,
 	}, uinfo, blameInfo, c.onRun)
 	entity.SetServiceId(c.service.ID)
-	//entity.SetLeader(atomic.LoadInt64(&c.Leader) == 1)
-
 	var err error
 	entity.CronId, err = c.cron.AddJob(entity.CronSet, entity)
 	if err != nil {
