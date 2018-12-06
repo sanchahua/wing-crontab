@@ -11,9 +11,6 @@ import (
 
 type Service struct {
 	db            *sql.DB                       `json:"-"`
-	onRegister    OnRegisterFunc                `json:"-"`
-	onServiceDown func(int64)                   `json:"-"`
-	onServiceUp   func(int64)                   `json:"-"`
 	leaderKey     string                        `json:"-"`
 	redis         *redis.Client                 `json:"-"`
 	ID            int64   `json:"ID"`
@@ -26,7 +23,6 @@ type Service struct {
 	Offline       int64   `json:"Offline"`
 }
 
-type OnRegisterFunc func(runTimeId int64)
 
 // new service
 func NewService(
@@ -34,9 +30,6 @@ func NewService(
 	Address string,            // 服务地址， 如 127.0.0.1：38001
 	leaderKey string,
 	redis *redis.Client,
-	onRegister OnRegisterFunc, // 服务注册成功回调
-	onServiceDown func(int64), // 服务下线时回调
-	onServiceUp func(int64),   // 服务恢复时回调
 ) *Service {
 	name := "xcrontab"
 	n, _ := os.Hostname()
@@ -45,11 +38,8 @@ func NewService(
 	}
  	s := &Service{
 		db:            db,
-		onRegister:    onRegister,
 		Address:       Address,
 		Name:          name,
-		onServiceDown: onServiceDown,
-		onServiceUp:   onServiceUp,
 		Status:        1,
 		leaderKey:     leaderKey,
 		redis:         redis,
@@ -199,7 +189,7 @@ func (s *Service) UpdateOffline(serviceId, offline int64) error {
 // panic if error happened
 // only register at start
 func (s *Service) register() (int64, error) {
-	defer s.onRegister(s.ID)
+	//defer s.onRegister(s.ID)
 	if s.ID > 0 {
 		return s.ID, nil
 	}

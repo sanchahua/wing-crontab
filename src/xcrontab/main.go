@@ -99,12 +99,7 @@ func main() {
 	service := service2.NewService(
 		handler,
 		*listen, appConfig.LeaderKey,
-		redisClient, func(runTimeId int64) {
-	}, func(i int64) {
-		log.Warnf("#####%v is down#####", i)
-	}, func(i int64) {
-		log.Infof("#####%v is up#####", i)
-	})
+		redisClient)
 	m := manager.NewManager(
 		service,
 		redisClient,
@@ -118,8 +113,6 @@ func main() {
 	m.SetServiceId(service.ID)
 	m.Start()
 	defer m.Stop()
-
-
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
