@@ -23,12 +23,39 @@ func newDbLog(handler *sql.DB) *DbLog {
 	return db
 }
 
+type service struct {
+	id int64
+	name string
+	address string
+}
+func (db *DbLog) getAllService() map[int64]*service {
+	sqlStr := "SELECT id,name,address FROM `services`"
+	rows, err := db.handler.Query(sqlStr)
+	if err != nil {
+		log.Errorf("DbLog.getAllService Query fail, error=[%v]", err)
+		return nil
+	}
+	defer rows.Close()
+	var res = make(map[int64]*service)
+	for rows.Next() {
+		var e service
+		err = rows.Scan(&e.id, &e.name, &e.address)
+		if err != nil {
+			log.Errorf("DbLog.getAllService Scan fail, error=[%v]", err)
+			continue
+		}
+		res[e.id] = &e
+	}
+	return res
+}
+
 // 查询定时任务执行记录
 // 所有的参数都是可选参数
 // int类型的值写0表示默认值
 // 字符串类型的写为空表示默认值
 // 返回值为查询结果集合、总数量、发生的错误
 func (db *DbLog) GetList(cronId, useTime int64, searchFail bool, page int64, limit int64, searchResult bool, startTime, endTime, searchOutput, sort string) ([]*LogEntity, int64, int64, int64, error) {
+	services := db.getAllService()
 	sqlStr  := "SELECT " + FIELDS + " FROM `log` where 1"
 	sqlStr2 := "select count(*) as num  from log where 1 "
 	var params  []interface{}
@@ -123,8 +150,20 @@ func (db *DbLog) GetList(cronId, useTime int64, searchFail bool, page int64, lim
 			log.Errorf("GetList rows.Scan fail, sql=[%v], error=[%v]", debugSql, err)
 			continue
 		}
+		dispatch_server_name := ""
+		run_server_name := ""
+		ser, ok := services[dispatch_server]
+		if ok {
+			dispatch_server_name = fmt.Sprintf("%v[%v]", ser.name, ser.address)
+		}
+		serr, ok := services[run_server]
+		if ok {
+			run_server_name = fmt.Sprintf("%v[%v]", serr.name, serr.address)
+		}
 		row := &LogEntity{
 			Id:             id,
+			RunServerName: run_server_name,
+			DispatchServerName: dispatch_server_name,
 			DispatchServer: dispatch_server,
 			RunServer:      run_server,
 			CronId:         cron_id,

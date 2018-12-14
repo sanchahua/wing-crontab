@@ -318,6 +318,7 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 
 	startTime := time2.GetDayTime()
 	start := time.Now().UnixNano()/1000000
+
 	cmd = exec.Command("bash", "-c", row.Command)
 	var b bytes.Buffer
 	cmd.Stdout = &b

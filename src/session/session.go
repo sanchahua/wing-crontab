@@ -28,10 +28,12 @@ func (s *Session) Store(userid int64, timeout time.Duration) (string, error) {
 	sessionid := hex.EncodeToString(id.Bytes())
 	data, err := json.Marshal(userid)
 	if err != nil {
+		log.Errorf("Session.Store json.Marshal fail, error=[%v]", err)
 		return "", err
 	}
 	err = s.redis.Set(sessionid, string(data), timeout).Err()
 	if err != nil {
+		log.Errorf("Session.Store redis.Set fail, error=[%v]", err)
 		return "", err
 	}
 	return sessionid, nil

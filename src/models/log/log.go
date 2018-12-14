@@ -31,6 +31,8 @@ type LogEntity struct {
 	UseTime   int64       `json:"use_time"`
 	Remark    string      `json:"remark"`
 	State     string      `json:"state"`
+	DispatchServerName string  `json:"dispatch_server_name"`
+	RunServerName string       `json:"run_server_name"`
 }
 
 var (

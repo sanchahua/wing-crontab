@@ -36,6 +36,8 @@
       <thead> <tr>
         <th style="cursor: pointer;" v-on:click="sortbyid">#Id<img class="sort-tag" src="../../../static/images/sort.jpeg"/></th>
         <th>定时任务Id</th>
+        <th>分发服务器</th>
+        <th>运行服务器</th>
         <th>进程Id</th>
         <th style="cursor: pointer;" v-on:click="sortbystarttime">开始执行时间<img class="sort-tag" src="../../../static/images/sort.jpeg"/></th>
         <th>结果</th>
@@ -48,6 +50,8 @@
       <tr v-for="item in logs.data">
         <th scope="row">{{item.id}}</th>
         <th scope="row">{{item.cron_id}}</th>
+        <th scope="row">{{item.dispatch_server_name}}</th>
+        <th scope="row">{{item.run_server_name}}</th>
         <th scope="row">{{item.process_id}}</th>
         <td>{{item.start_time}}</td>
         <td>{{item.state}}</td>
