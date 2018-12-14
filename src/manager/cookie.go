@@ -1,14 +1,14 @@
 package manager
 
 import (
-	"fmt"
-	"strings"
+	"gitlab.xunlei.cn/xllive/common/log"
 	shttp "net/http"
+	"strings"
 )
 
 func (m *CronManager) readCookie(r *shttp.Request) map[string]string {
 	cookie := r.Header.Get("Cookie")
-	fmt.Println("cookie:", cookie)
+	log.Infof("cookie:%v", cookie)
 	if cookie == "" {
 		return nil
 	}
