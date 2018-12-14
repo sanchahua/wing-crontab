@@ -319,7 +319,7 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 	startTime := time2.GetDayTime()
 	start := time.Now().UnixNano()/1000000
 
-	cmd = exec.Command("bash", "-c", row.Command)
+	cmd = exec.Command(RUN_COMMAND_ARG1, RUN_COMMAND_ARG2, row.Command)
 	var b bytes.Buffer
 	cmd.Stdout = &b
 	cmd.Stderr = &b
@@ -361,7 +361,7 @@ func (row *CronEntity) runCommand(serviceId int64, complete func()) {
 
 func (row *CronEntity) runCommandWithTimeout(duration time.Duration) ([]byte, int, error) {
 	ctx, _ := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(ctx, "bash", "-c", row.Command)
+	cmd := exec.CommandContext(ctx, RUN_COMMAND_ARG1, RUN_COMMAND_ARG2, row.Command)
 	var b bytes.Buffer
 	cmd.Stdout = &b
 	cmd.Stderr = &b
