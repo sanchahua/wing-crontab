@@ -49,3 +49,4 @@ nohup.out
 *.log
 vendor
 go/*
+*.exe
