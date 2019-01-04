@@ -206,7 +206,7 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 			continue
 		}
 
-		watch := fmt.Sprintf("xcrontab/watch/event/%v", sv.ID)
+		watch := fmt.Sprintf("wing-crontab/watch/event/%v", sv.ID)
 		//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
 		log.Tracef("push [%v] to [%v]", string(data), watch)
 		err = m.redis.RPush(watch, string(data)).Err()
@@ -218,7 +218,7 @@ func (m *CronManager) broadcast(ev, id int64, p...int64) {
 
 func (m *CronManager) watchCron() {
 	//[event, id]
-	watch := fmt.Sprintf("xcrontab/watch/event/%v", m.service.ID)
+	watch := fmt.Sprintf("wing-crontab/watch/event/%v", m.service.ID)
 	log.Tracef("start watchCron [%v]", watch)
 	var raw = make([]int64, 0)
 	for {

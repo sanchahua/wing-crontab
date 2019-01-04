@@ -12,7 +12,7 @@ import (
 func main() {
 	ctx, _ := context.WithCancel(context.Background())
 
-	cmd := exec.CommandContext(ctx, "php", "/Users/yuyi/Code/go/xcrontab/tests/runner.php")
+	cmd := exec.CommandContext(ctx, "php", "/Users/yuyi/Code/go/wing-crontab/tests/runner.php")
 	//cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

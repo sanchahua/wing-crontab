@@ -84,7 +84,7 @@ func (m *CronManager) broadcastService(ev, id int64, p...int64) {
 			log.Errorf("broadcastOffline json.Marshal fail, error=[%v]", err)
 			continue
 		}
-		watch := fmt.Sprintf("xcrontab/watch/event/%v", sv.ID)
+		watch := fmt.Sprintf("wing-crontab/watch/event/%v", sv.ID)
 		//这里还需要一个线程，watch定时任务的增删改查，用来改变自身的配置
 		log.Tracef("push [%v] to [%v]", string(data), watch)
 		err = m.redis.RPush(watch, string(data)).Err()

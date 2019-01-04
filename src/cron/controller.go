@@ -74,7 +74,7 @@ func (c *Controller) dispatch() {
 		if 1 == atomic.LoadInt64(&c.ready) {
 			break
 		}
-		log.Tracef("wait for xcrontab be ready")
+		log.Tracef("wait for wing-crontab be ready")
 		time.Sleep(time.Second)
 	}
 	var raw = make([]int64, 0)

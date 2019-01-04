@@ -5,7 +5,7 @@
 1、修改系统时间会造成定时任务管理系统无法正常工作，需要重启
 
 
-## main函数：src/xcrontab/main.go
+## main函数：src/wing-crontab/main.go
 
 go test 相关指令支持，将GOPATH指向项目的根目录和vendor目录，注意一下目录换成自己的真实项目路径
 `export GOPATH={project path}:{project path}/vendor`
@@ -53,8 +53,8 @@ CREATE TABLE `cron` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1885 DEFAULT CHARSET=utf8;
 ````
 
-如何安装xcrontab
-编译xcrontab，需要提前安装go环境
+如何安装wing-crontab
+编译wing-crontab，需要提前安装go环境
 -----
 ````
 ./bin/build.sh debug ##发布debug版本
@@ -78,7 +78,7 @@ log_keep_day = 30
 ----
 ````
 debug模式
-./bin/xcrontab
+./bin/wing-crontab
 ````
 ````
 后台运行

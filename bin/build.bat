@@ -44,11 +44,11 @@ cd %current_path%
 ::进入当前目录
 ::cd %current_path%
 ::build构建项目
-call go build -p 4 -race  xcrontab
+call go build -p 4 -race wing-crontab
 ::install安装
-call go install xcrontab
+call go install wing-crontab
 ::删除根目录下的可执行文件
-del %root_path%\xcrontab.exe
+del %root_path%\wing-crontab.exe
 
 echo build success
-echo %root_path%\bin\xcrontab.exe
+echo %root_path%\bin\wing-crontab.exe

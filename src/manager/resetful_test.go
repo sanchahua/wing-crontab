@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 )
 
-// xcrontab restful api黑盒测试
+// wing-crontab restful api黑盒测试
 
 type Rsp struct {
 	Code int `json:"code"`

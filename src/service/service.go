@@ -31,7 +31,7 @@ func NewService(
 	leaderKey string,
 	redis *redis.Client,
 ) *Service {
-	name := "xcrontab"
+	name := "wing-crontab"
 	n, _ := os.Hostname()
 	if "" != n {
 		name = n

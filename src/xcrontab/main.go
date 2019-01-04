@@ -42,7 +42,7 @@ func main() {
 	}()
 
 	if *help {
-		fmt.Fprintf(os.Stderr, "./xcrontab -l 0.0.0.0:38001  [restful http server listen]\r\n")
+		fmt.Fprintf(os.Stderr, "./wing-crontab -l 0.0.0.0:38001  [restful http server listen]\r\n")
 		return
 	}
 
@@ -83,7 +83,7 @@ func main() {
 		handler.SetMaxOpenConns(32)
 		defer handler.Close()
 	}
-	fmt.Println("start xcrontab")
+	fmt.Println("start wing-crontab")
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     appConfig.RedisAddress,

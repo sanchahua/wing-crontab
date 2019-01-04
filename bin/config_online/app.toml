@@ -12,5 +12,5 @@ log_keep_day = 1
 ## redis 配置
 redis_address = "10.33.5.186:6379"
 redis_password = "HRBB2lwy2gASbWqR"
-leader_key = "xllive/xcrontab/leader"
-redis_key_prex = "xllive/xcrontab/task"
+leader_key = "xllive/wing-crontab/leader"
+redis_key_prex = "xllive/wing-crontab/task"
