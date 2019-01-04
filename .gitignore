@@ -47,6 +47,5 @@ src/statik/statik.go
 nohup.out
 *.zip
 *.log
-vendor
 go/*
 *.exe
